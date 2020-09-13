@@ -1,6 +1,4 @@
-from typing import List, Optional, Any, Dict
-from pydantic import create_model
-
+from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 from query import Query
 
 
@@ -14,10 +12,13 @@ class BaseItem:
     # the paths of the others), but rather, it is statically set on the class that inherit from BaseItem.
 
     def __init__(self, name: str, field_type: Optional[type] = Any, custom_default_value: Optional[Any] = None):
-        self._name = name
-        self.field_type = field_type
-        self._map_model: Optional[MapModel] = None
+        self._value = None
+
+        self._field_type = field_type
         self._custom_default_value = custom_default_value
+
+        self._name = name
+        self._map_model: Optional[MapModel] = None
 
         """kwargs = {"__root__": (field_type, ...)}
         self._validation_model = create_model(str(self.__class__), **kwargs)
@@ -25,7 +26,7 @@ class BaseItem:
 
     def validate_data(self) -> bool:
         # todo: add recursion to validator
-        return validate_data(value=self._value, expected_value_type=self.field_type, map_model=self._map_model)
+        return validate_data(value=self.value, expected_value_type=self._field_type, map_model=self._map_model)
 
     def populate(self, value: Any):
         self._value = value
@@ -45,21 +46,28 @@ class BaseItem:
     def get_default_value(self):
         if self._custom_default_value is not None:
             return self._custom_default_value
-        return self.field_type()
+        # We initialize the default field type
+        # and return it as the default value.
+        return self._field_type()
 
     @property
-    def name(self) -> str:
+    def field_name(self) -> str:
         return self._name
+
+    @property
+    def field_type(self) -> type:
+        return self._field_type
+
+    @property
+    def value(self) -> Any:
+        return self._value
 
 
 class BaseField(BaseItem):
-    def __init__(self, name: str, field_type: Optional[type] = None, default_value: Optional[Any] = None):
-        super().__init__(name=name, field_type=field_type if field_type is not None else Any)
-        self.field_type = field_type
-        self.default_value = default_value
+    def __init__(self, name: str, field_type: Optional[type] = None, custom_default_value: Optional[Any] = None):
+        super().__init__(name=name, field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
 
     def populate(self, value: any):
-        # todo: implement type checking (use the Pydantic librairy ?)
         super().populate(value=value)
 
 
@@ -98,8 +106,6 @@ class MapModel:
         return self._childrens_map
 
 
-
-
 class MapField(BaseItem):
     def __init__(self, name: str, model):
         model: type(MapModel)
@@ -118,15 +124,40 @@ class ListField(BaseItem):
         # self.populate(value=model().dict)
 
 
+def _raise_if_types_did_not_match(type_to_check: type, expected_type: type):
+    if type_to_check != expected_type:
+        raise Exception(f"Data validation exception. The types of an item did not match"
+                        f"\n  type_to_check:{type_to_check}"
+                        f"\n  expected_type:{expected_type}")
+
+
 def validate_data(value, expected_value_type: type, map_model: Optional[MapModel] = None,
                   list_items_models: Optional[MapModel] = None) -> bool:
     # todo: add recursion to validator
     value_type = type(value)
 
-    if value_type != expected_value_type:
-        raise Exception(f"Data validation exception. The types of an item did not match"
-                        f"\n  type(value):{type(value)}"
-                        f"\n  expected_value_type:{expected_value_type}")
+    if isinstance(expected_value_type, type):
+        _raise_if_types_did_not_match(type_to_check=value_type, expected_type=expected_value_type)
+    else:
+        if isinstance(expected_value_type, _GenericAlias):
+            alias_variable_name: Optional[str] = expected_value_type.__dict__.get("_name", None)
+            if alias_variable_name is not None:
+                alias_args: Optional[Tuple] = expected_value_type.__dict__.get("__args__", None)
+
+                if alias_variable_name == "Dict":
+                    _raise_if_types_did_not_match(type_to_check=value_type, expected_type=dict)
+
+                    if alias_args is not None and len(alias_args) == 2:
+                        dict_key_expected_type = alias_args[0]
+                        dict_item_expected_type = alias_args[1]
+                        for key, item in value.items():
+                            _raise_if_types_did_not_match(type_to_check=type(key), expected_type=dict_key_expected_type)
+                            if MapModel in dict_item_expected_type.__bases__:
+                                value[key] = dict_item_expected_type(**item)
+
+                elif alias_variable_name == "List":
+                    raise Exception(f"List not yet implemented.")
+
 
     if value_type == dict:
         value: dict

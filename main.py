@@ -73,7 +73,7 @@ class UsersTable(BaseTable):
         class ProjectInfosModel(MapModel):
             primaryUrl = BaseField(name="primaryUrl", field_type=str)
         projects_infos = MapField(name="projectsInfos", model=ProjectInfosModel)
-    projects = MapField(name="projects", model=ProjectModel)
+    projects = BaseField(name="projects", field_type=Dict[str, ProjectModel])
 
 
 
@@ -81,7 +81,9 @@ class UsersTable(BaseTable):
 
 
 users_table = UsersTable(table_name="inoft-vocal-engine_accounts-data", table_region="eu-west-2")
-print(users_table.projects.query(key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211").first_value())
+projects = users_table.projects.query(key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211").first_value()
+first_project: users_table.ProjectModel = list(projects.values())[2]
+print(first_project.projectName.value)
 """users_table.projects.query()
 print(users_table.ProjectsModel.ProjectInfos.primaryUrl.post(value="Yolooooooo"))
 print(users_table.__class__.__dict__)"""

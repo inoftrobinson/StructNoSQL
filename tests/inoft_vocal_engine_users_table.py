@@ -26,7 +26,7 @@ class TablesOperationsTests(unittest.TestCase):
                     GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
                 ]
                 super().__init__(table_name="inoft-vocal-engine_accounts-data", region_name="eu-west-2", data_model=UsersTableModel(),
-                                 primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, create_table=True)
+                                 primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
         users_table = UsersTable()
         projects: List[users_table.model.ProjectModel] = (

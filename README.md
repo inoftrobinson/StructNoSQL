@@ -11,7 +11,7 @@ Example :
 class UsersTableModel(TableDataModel):
     userId = BaseField(name="userId", field_type=str)
     username = BaseField(name="username", field_type=str)
-    moneyBalance = BaseField(name="username", field_type=float)
+    moneyBalance = BaseField(name="moneyBalance", field_type=float)
     class ShoppingCartItem(MapModel):
         itemId = BaseField(name="itemId", field_type=str)
         addedToCartTimestamp = BaseField(name="timestamp", field_type=int)

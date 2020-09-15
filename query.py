@@ -6,7 +6,7 @@ class Query:
             self, table, variable_validator: Any, key_name: str, key_value: str, index_name: Optional[str] = None,
             target_database_path: Optional[Dict[str, type]] = None,
     ):
-        from main import BaseTable
+        from table import BaseTable
         from fields import BaseItem
         self._table: BaseTable = table
         self._variable_validator: BaseItem = variable_validator
@@ -40,3 +40,4 @@ class Query:
             response = self._table.dynamodb_client.query_single_item_by_key(
                 key_name=self.key_name, key_value=self.key_value, index_name=self.index_name,
             )
+

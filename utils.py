@@ -1,4 +1,3 @@
-from main import UsersTable
 
 def get_function_or_class_from_file_and_path(file_filepath: str, path_qualname: str):
     from os.path import isfile
@@ -55,6 +54,3 @@ def get_function_or_class_from_file_and_path(file_filepath: str, path_qualname: 
 def construct_database_path_from_class_instance(instance: any):
     print(instance.__class__)
 
-
-if __name__ == "__main__":
-    print(construct_database_path_from_class_instance(UsersTable(table_name="ee", table_region="eee").projects))

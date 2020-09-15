@@ -26,6 +26,13 @@ class UsersTable(BaseTable):
 
 
 users_table = UsersTable()
-shopping_cart_items = users_table.model.shoppingCartItems.query(key_name="userId", key_value="42").first_value().values()
+shopping_cart_items = users_table.model.shoppingCartItems.query(key_name="userId", key_value="42").first_value()
 # Will return in the form of a dict, the shopping cart items that passed the validation tests.
+for item_key, item in shopping_cart_items.items():
+    print(item.itemId)
+    print(item.addedToCartTimestamp)
+    # The variables of an item can be accessed as properties, and if they have
+    # not been received in the response, you will not get any errors if you
+    # try to access them or even if you perform operations on them.
+
 ```

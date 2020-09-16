@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict
-from dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from fields import BaseField, BaseItem, MapModel, MapField, TableDataModel
+from structnosql.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from structnosql.fields import BaseField, BaseItem, MapModel, MapField
 
 
 class BaseTable:

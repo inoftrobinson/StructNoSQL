@@ -1,5 +1,5 @@
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
-from query import Query
+from structnosql.query import Query
 
 
 class TableDataModel:
@@ -29,7 +29,7 @@ class BaseItem:
         print(self._validation_model)"""
 
     def validate_data(self) -> bool:
-        from validator import validate_data
+        from structnosql.validator import validate_data
         return validate_data(value=self._value, expected_value_type=self._field_type, map_model=self.map_model)
 
     def populate(self, value: Any) -> bool:
@@ -82,7 +82,7 @@ class BaseDataModel:
 class MapModel(BaseDataModel):
     def __init__(self, **kwargs):
         super().__init__()
-        import field_loader
+        from structnosql import field_loader
         field_loader.load(class_instance=self, **kwargs)
 
     def new(self):

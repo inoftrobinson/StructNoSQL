@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, Any
-from fields import BaseField, MapField, BaseDataModel, BaseItem
+from structnosql.fields import BaseField, MapField, BaseDataModel, BaseItem
 from copy import copy
 
 

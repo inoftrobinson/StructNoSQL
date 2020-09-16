@@ -1,9 +1,6 @@
 import unittest
 from typing import Dict, List
-
-from dynamodb.dynamodb_core import PrimaryIndex, GlobalSecondaryIndex
-from fields import BaseField, MapModel, MapField, TableDataModel
-from table import BaseTable
+from structnosql import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
 
 
 class TablesOperationsTests(unittest.TestCase):

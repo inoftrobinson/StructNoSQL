@@ -4,7 +4,7 @@ Structured document based NoSQL client for DynamoDB with automatic data validati
 ### Installation (Python 3.7 is recommanded. Python 3.6+ is required) :
 
 ```
- pip install inoftvocal
+pip install StructNoSQL
 ```
 
 Example :

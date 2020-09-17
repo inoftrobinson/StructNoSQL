@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(
     name="StructNoSQL",
-    version="0.2.1",
-    packages=["structnosql", "structnosql.dynamodb", "structnosql.utils"],
+    version="0.2.2",
+    packages=["StructNoSQL", "StructNoSQL.dynamodb", "StructNoSQL.utils"],
     include_package_data=True,
     install_requires=["pydantic", "boto3"],
     url="https://github.com/Robinson04/StructNoSQL",

@@ -1,5 +1,5 @@
 from typing import Optional, _GenericAlias, Tuple
-from structnosql.fields import BaseItem, MapModel
+from StructNoSQL.fields import BaseItem, MapModel
 
 
 def validate_data(value, expected_value_type: type, map_model: Optional[MapModel] = None,

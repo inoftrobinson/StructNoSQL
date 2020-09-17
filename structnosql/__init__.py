@@ -1,3 +1,3 @@
-from structnosql.dynamodb.dynamodb_core import PrimaryIndex, GlobalSecondaryIndex
-from structnosql.fields import BaseField, MapModel, MapField, TableDataModel
-from structnosql.table import BaseTable
+from StructNoSQL.dynamodb.dynamodb_core import PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.fields import BaseField, MapModel, MapField, TableDataModel
+from StructNoSQL.table import BaseTable

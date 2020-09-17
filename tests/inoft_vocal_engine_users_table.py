@@ -1,6 +1,6 @@
 import unittest
 from typing import Dict, List
-from structnosql import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
 
 
 class TablesOperationsTests(unittest.TestCase):

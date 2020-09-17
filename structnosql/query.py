@@ -6,8 +6,8 @@ class Query:
             self, table, variable_validator: Any, key_name: str, key_value: str, index_name: Optional[str] = None,
             target_database_path: Optional[Dict[str, type]] = None,
     ):
-        from structnosql.table import BaseTable
-        from structnosql.fields import BaseItem
+        from StructNoSQL.table import BaseTable
+        from StructNoSQL.fields import BaseItem
         self._table: BaseTable = table
         self._variable_validator: BaseItem = variable_validator
 

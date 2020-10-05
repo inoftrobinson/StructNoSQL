@@ -51,6 +51,3 @@ def get_function_or_class_from_file_and_path(file_filepath: str, path_qualname: 
     return None
 
 
-def construct_database_path_from_class_instance(instance: any):
-    print(instance.__class__)
-

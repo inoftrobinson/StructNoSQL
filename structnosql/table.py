@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.fields import BaseField, BaseItem, MapModel, MapField
 
 
@@ -42,9 +43,9 @@ class BaseTable:
 
 
 def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optional[Any] = None, class_type: Optional[Any] = None,
-                                       current_path_elements: Optional[Dict[str, type]] = None):
+                                       current_path_elements: Optional[List[DatabasePathElement]] = None):
     if current_path_elements is None:
-        current_path_elements = dict()
+        current_path_elements = list()
     output_mapping = dict()
 
     class_variables = dict()
@@ -62,13 +63,13 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
 
             if BaseItem in variable_bases:
                 variable_item: BaseItem
-                variable_item._database_path = {**current_path_elements, **{variable_key: variable_item.field_type}}
+                new_database_path_element = DatabasePathElement(element_key=variable_item.field_name, default_type=variable_item.field_type)
+                variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
                 output_mapping[variable_key] = ""
+
                 if variable_item.dict_value_excepted_type is not None:
                     item_key_name = f"$key$:{variable_item.key_name}"
-                    variable_item.dict_value_excepted_type.add_set_required_query_kwarg()
-
                     try:
                         item_default_type = variable_item.dict_value_excepted_type._default_primitive_type
                         # Some objects (like a map object), are not primitive types, and instead of being able to use their type
@@ -77,14 +78,16 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                     except Exception as e:
                         item_default_type = variable_item.dict_value_excepted_type
 
+                    new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
                     output_mapping[item_key_name] = assign_internal_mapping_from_class(
                         table=table, class_type=variable_item.dict_value_excepted_type,
-                        current_path_elements={**variable_item.database_path, item_key_name: item_default_type}
+                        current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                     )
 
             elif MapField in variable_bases:
                 variable_item: MapField
-                variable_item._database_path = {**current_path_elements, **{variable_item.field_name: variable_item.field_type}}
+                new_database_path_element = DatabasePathElement(element_key=variable_item.field_name, default_type=variable_item.field_type)
+                variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
                 output_mapping[variable_item.field_name] = assign_internal_mapping_from_class(
                     table=table, class_type=variable_item, current_path_elements=variable_item.database_path

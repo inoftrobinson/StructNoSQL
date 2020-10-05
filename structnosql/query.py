@@ -1,10 +1,12 @@
 from typing import Optional, List, Dict, Any
 
+from StructNoSQL.dynamodb.models import DatabasePathElement
+
 
 class Query:
     def __init__(
             self, table, variable_validator: Any, key_name: str, key_value: str, index_name: Optional[str] = None,
-            target_database_path: Optional[Dict[str, type]] = None,
+            target_database_path: Optional[List[DatabasePathElement]] = None,
     ):
         from StructNoSQL.table import BaseTable
         from StructNoSQL.fields import BaseItem
@@ -32,10 +34,9 @@ class Query:
                 key_name=self.key_name, key_value=self.key_value,
                 target_path_elements=self.target_database_path
             )
-            print(self._variable_validator.populate(value=response))
+            self._variable_validator.populate(value=response)
             self._variable_validator.validate_data(load_data_into_objects=load_data_into_objects)
-            print(response)
-            return response
+            return self._variable_validator.value
         else:
             # todo: improve that, and return the value not the item itself
             response = self._table.dynamodb_client.query_single_item_by_key(

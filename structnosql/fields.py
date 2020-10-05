@@ -1,6 +1,7 @@
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
 from StructNoSQL.dummy_object import DummyObject
+from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.practical_logger import exceptions_with_vars_message
 from StructNoSQL.query import Query
 
@@ -11,7 +12,7 @@ class TableDataModel:
 
 class BaseItem:
     _table = None
-    _database_path: Dict[str, type] = None
+    _database_path: List[DatabasePathElement] = None
     # We set the _database_path as static, so that the assign_internal_mapping_from_class can setup the path only once,
     # only by having access to the inheritor class type, not even the instance. Yet, when set the _database_path
     # statically, the value is not attributed to the BaseItem class (which would cause to have multiple classes override
@@ -20,7 +21,6 @@ class BaseItem:
     def __init__(self, name: str, field_type: Optional[type] = Any, required: Optional[bool] = False, custom_default_value: Optional[Any] = None):
         self._value = None
         self._query = None
-        self._required_query_kwargs = dict()
         self._name = name
         self._key_name = None
 
@@ -48,13 +48,14 @@ class BaseItem:
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
 
-    def validate_data(self, load_data_into_objects: bool) -> bool:
+    def validate_data(self, load_data_into_objects: bool):
         from StructNoSQL.validator import validate_data
-        return validate_data(
+        validated_data = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
             expected_value_type=self._field_type, map_model=self.map_model,
             dict_value_excepted_type=self.dict_value_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
         )
+        self._value = validated_data
 
     def populate(self, value: Any):
         self._value = value
@@ -62,13 +63,13 @@ class BaseItem:
         # print("Finished data validation.")
 
     def query(self, key_name: str, key_value: str, index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
-        for path_element_key, path_element_default_type in self._database_path.items():
-            if "$key$:" in path_element_key:
-                variable_name = path_element_key.replace("$key$:", "")
+        for path_element in self._database_path:
+            if "$key$:" in path_element.element_key:
+                variable_name = path_element.element_key.replace("$key$:", "")
                 if query_kwargs is not None:
                     matching_kwarg = query_kwargs.get(variable_name, None)
                     if matching_kwarg is not None:
-                        self._database_path[path_element_key] = matching_kwarg
+                        path_element.element_key = matching_kwarg
                     else:
                         raise Exception(exceptions_with_vars_message(
                             message="A variable was required but not found in the query_kwargs dict passed to the query function.",
@@ -116,9 +117,6 @@ class BaseItem:
     @property
     def value(self) -> Any:
         return self._value
-
-    def add_set_required_query_kwarg(self, key: str, expected_value_type: type):
-        self._required_query_kwargs[key] = expected_value_type
 
     @property
     def database_path(self):

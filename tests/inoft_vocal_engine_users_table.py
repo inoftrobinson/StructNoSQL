@@ -1,5 +1,5 @@
 import unittest
-from typing import Dict, List
+from typing import Dict, List, Optional
 from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
 
 
@@ -9,7 +9,7 @@ class TablesOperationsTests(unittest.TestCase):
         class UsersTableModel(TableDataModel):
             accountId = BaseField(name="accountId", field_type=str)
             class ProjectModel(MapModel):
-                projectName = BaseField(name="projectName", field_type=str, required=True)
+                projectName = BaseField(name="projectName", field_type=str, required=False)
                 class InstancesInfosModel(MapModel):
                     ya = BaseField(name="ya", field_type=str)
                 instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
@@ -26,21 +26,18 @@ class TablesOperationsTests(unittest.TestCase):
                                  primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
         users_table = UsersTable()
-        """projects: List[UsersTableModel.ProjectModel] = list((
-            users_table.model.projects.query(
-                key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211", query_kwargs={}
-            ).first_value()
+        projects: List[dict] = list((
+            users_table.model.projects.query(key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211").first_value()
         ).values())
         for project in projects:
-            self.assertIn(project.projectName.value, ["Anvers 1944"])"""
+            # self.assertIn(project["projectName"], ["Anvers 1944"])
+            print(f"Project : {project}")
 
-        response_data = users_table.model.projects.projectName.query(
-                key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
-                query_kwargs={"projectId": "4addc838-a85d-4d43-a1bf-153e836f3a28"}
+        response_data: Optional[str] = users_table.model.projects.projectName.query(
+            key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
+            query_kwargs={"projectId": "dfb5d805-8f8a-4343-a0c2-b511b4cb0de6"}
         ).first_value()
-        if response_data is not None:
-            projects_names: List[UsersTableModel.ProjectModel.projectName] = list(response_data.values())
-            print(projects_names)
+        print(response_data)
 
 
 

@@ -26,13 +26,14 @@ class Query:
     def first_item(self) -> Optional[dict]:
         pass
 
-    def first_value(self) -> Optional[dict]:
+    def first_value(self, load_data_into_objects: bool = False) -> Optional[dict]:
         if self.target_database_path is not None:
             response = self._table.dynamodb_client.get_value_in_path_target(
                 key_name=self.key_name, key_value=self.key_value,
                 target_path_elements=self.target_database_path
             )
             print(self._variable_validator.populate(value=response))
+            self._variable_validator.validate_data(load_data_into_objects=load_data_into_objects)
             print(response)
             return response
         else:

@@ -9,11 +9,11 @@ class TablesOperationsTests(unittest.TestCase):
         class UsersTableModel(TableDataModel):
             accountId = BaseField(name="accountId", field_type=str)
             class ProjectModel(MapModel):
-                projectName = BaseField(name="projectName", field_type=str)
+                projectName = BaseField(name="projectName", field_type=str, required=True)
                 class InstancesInfosModel(MapModel):
                     ya = BaseField(name="ya", field_type=str)
                 instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
-            projects = BaseField(name="projects", field_type=Dict[str, ProjectModel])
+            projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
 
         class UsersTable(BaseTable):
             def __init__(self):
@@ -26,11 +26,21 @@ class TablesOperationsTests(unittest.TestCase):
                                  primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
         users_table = UsersTable()
-        projects: List[users_table.model.ProjectModel] = (
-            users_table.model.projects.query(key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211").first_value()
-        ).values()
+        """projects: List[UsersTableModel.ProjectModel] = list((
+            users_table.model.projects.query(
+                key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211", query_kwargs={}
+            ).first_value()
+        ).values())
         for project in projects:
-            self.assertIn(project.projectName.value, ["test", "Le con"])
+            self.assertIn(project.projectName.value, ["Anvers 1944"])"""
+
+        response_data = users_table.model.projects.projectName.query(
+                key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
+                query_kwargs={"projectId": "4addc838-a85d-4d43-a1bf-153e836f3a28"}
+        ).first_value()
+        if response_data is not None:
+            projects_names: List[UsersTableModel.ProjectModel.projectName] = list(response_data.values())
+            print(projects_names)
 
 
 

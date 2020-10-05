@@ -1,5 +1,5 @@
-from typing import Optional, Tuple, Any
-from StructNoSQL.fields import BaseField, MapField, BaseDataModel, BaseItem
+from typing import Optional, Tuple, Any, List
+from StructNoSQL.fields import BaseField, MapField, BaseDataModel, BaseItem, MapModel
 from copy import copy
 
 
@@ -25,7 +25,7 @@ def populate_data_workflow(parent_class_instance: BaseDataModel, kwargs: dict, c
     )
 
 
-def load(class_instance: Optional[BaseDataModel] = None, class_type: Optional[type] = None, **kwargs) -> Tuple[BaseDataModel, dict]:
+def load(class_instance: Optional[Any] = None, class_type: Optional[Any] = None, **kwargs) -> Tuple[BaseDataModel, dict]:
     if class_instance is None:
         if class_type is not None:
             class_instance = class_type()
@@ -42,7 +42,6 @@ def load(class_instance: Optional[BaseDataModel] = None, class_type: Optional[ty
             class_variable_class_type = class_variable_item.__class__
             if class_variable_class_type == BaseField:
                 class_variable_item: BaseField
-
                 instance_variable_item = class_instance.__getattribute__(class_variable_key)
                 copied_unique_instance_variable_item = copy(instance_variable_item)
                 # We always copy an item before populating its data. Its not the prettiest solution, but currently,

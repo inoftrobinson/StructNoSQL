@@ -1,7 +1,7 @@
 from typing import Optional, _GenericAlias, Tuple, List, Any
 from StructNoSQL.fields import BaseItem, MapModel
 from StructNoSQL.field_loader import load as field_load
-from StructNoSQL.practical_logger import exceptions_with_vars_message
+from StructNoSQL.practical_logger import message_with_vars
 
 
 def validate_data(value, expected_value_type: type, load_data_into_objects: bool,
@@ -12,7 +12,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
 
     value_type = type(value)
     if not _types_match(type_to_check=value_type, expected_type=expected_value_type):
-        print(exceptions_with_vars_message(
+        print(message_with_vars(
             message=f"Primitive value did not match expected type. Value of None is being returned.",
             vars_dict={"value": value, "valueType": value_type, "expectedValueType": expected_value_type}
         ))
@@ -72,7 +72,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                 if dict_excepted_key_type is not None:
                     key_type = type(key)
                     if not _types_match(type_to_check=key_type, expected_type=dict_excepted_key_type):
-                        print(exceptions_with_vars_message(
+                        print(message_with_vars(
                             message=f"Key of an item in a dict did not match expected key type. Item will be removed from data.",
                             vars_dict={"key": key, "item": item, "keyType": key_type, "expectedKeyType": dict_excepted_key_type}
                         ))
@@ -83,7 +83,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                     if MapModel in dict_value_excepted_type.__bases__:
                         item_type = type(item)
                         if not _types_match(type_to_check=item_type, expected_type=dict):
-                            print(exceptions_with_vars_message(
+                            print(message_with_vars(
                                 message=f"Received data that should be set inside a nested MapModel was not of type dict. Item will be removed from data.",
                                 vars_dict={"key": key, "item": item, "itemType": item_type}
                             ))
@@ -112,7 +112,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                                         break
                             else:
                                 element_item_keys_to_pop.append(element_item_key)
-                                print(exceptions_with_vars_message(
+                                print(message_with_vars(
                                     message=f"No map validator was found in a nested item of a dict. Item will be removed from data.",
                                     vars_dict={"elementItemKey": element_item_key, "elementItemValue": element_item_value}
                                 ))
@@ -121,7 +121,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                     else:
                         if not _types_match(type_to_check=type(item), expected_type=dict_value_excepted_type):
                             item_keys_to_pop.append(key)
-                            print(exceptions_with_vars_message(
+                            print(message_with_vars(
                                 message=f"Value of nested item of dict did not match expected type. Item will be removed from data.",
                                 vars_dict={"item": item, "itemKey": key, "expectedItemValueType": dict_value_excepted_type}
                             ))
@@ -149,7 +149,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                         indexes_to_pop.append(i)
                 else:
                     indexes_to_pop.append(i)
-                    print(exceptions_with_vars_message(
+                    print(message_with_vars(
                         message=f"No map validator was found in a nested item of a list. Value will be removed from data.",
                         vars_dict={"listValue": value, "item": item, "itemIndex": i}
                     ))

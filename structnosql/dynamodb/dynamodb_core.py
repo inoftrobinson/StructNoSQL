@@ -324,8 +324,8 @@ class DynamoDbCoreAdapter:
                 return False
         return True
 
-    def add_update_data_element_to_map(self, key_name: str, key_value: Any,
-                                       target_path_elements: List[DatabasePathElement], element_values: Any) -> Optional[Response]:
+    def set_update_data_element_to_map(self, key_name: str, key_value: Any,
+                                       target_path_elements: List[DatabasePathElement], value: Any) -> Optional[Response]:
         expression_attribute_names_dict = dict()
         update_expression = "SET "
 
@@ -345,7 +345,7 @@ class DynamoDbCoreAdapter:
             "UpdateExpression": update_expression,
             "ExpressionAttributeNames": expression_attribute_names_dict,
             "ExpressionAttributeValues": {
-                ":item": element_values
+                ":item": value
             }
         }
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
@@ -459,7 +459,7 @@ class DynamoDbCoreAdapter:
             key_name=key_name, key_value=key_value, fields_to_get=[target_field]
         ).item
         for i, path_element in enumerate(target_path_elements):
-            if i + 1 > num_keys_to_navigation_into or (path_element.default_type != dict and path_element.default_type != list):
+            if i + 1 > num_keys_to_navigation_into or (not isinstance(response_item, dict)):
                 break
 
             response_item = response_item.get(path_element.element_key, None)

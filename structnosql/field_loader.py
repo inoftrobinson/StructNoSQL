@@ -5,6 +5,8 @@ from copy import copy
 
 def update_instance_children(parent_class_instance: BaseDataModel, children_attribute_key: str, children_item: Any):
     parent_class_instance.__setattr__(children_attribute_key, children_item)
+    if parent_class_instance.childrens_map is None:
+        parent_class_instance.childrens_map = dict()
     parent_class_instance.childrens_map[children_attribute_key] = children_item
 
 

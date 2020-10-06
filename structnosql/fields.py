@@ -2,7 +2,7 @@ from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
 from StructNoSQL.dummy_object import DummyObject
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.practical_logger import exceptions_with_vars_message
+from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 
 
@@ -48,7 +48,7 @@ class BaseItem:
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
 
-    def validate_data(self, load_data_into_objects: bool):
+    def validate_data(self, load_data_into_objects: bool) -> Optional[Any]:
         from StructNoSQL.validator import validate_data
         validated_data = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
@@ -56,6 +56,7 @@ class BaseItem:
             dict_value_excepted_type=self.dict_value_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
         )
         self._value = validated_data
+        return validated_data
 
     def populate(self, value: Any):
         self._value = value
@@ -71,12 +72,12 @@ class BaseItem:
                     if matching_kwarg is not None:
                         path_element.element_key = matching_kwarg
                     else:
-                        raise Exception(exceptions_with_vars_message(
+                        raise Exception(message_with_vars(
                             message="A variable was required but not found in the query_kwargs dict passed to the query function.",
                             vars_dict={"keyVariableName": variable_name, "matchingKwarg": matching_kwarg, "queryKwargs": query_kwargs, "databasePath": self._database_path}
                         ))
                 else:
-                    raise Exception(exceptions_with_vars_message(
+                    raise Exception(message_with_vars(
                         message="A variable was required but not query_kwargs have been passed to the query function.",
                         vars_dict={"keyVariableName": variable_name, "queryKwargs": query_kwargs, "databasePath": self._database_path}
                     ))
@@ -133,7 +134,7 @@ class BaseField(BaseItem):
             if field_type == dict or type(field_type) == _GenericAlias:
                 self._key_name = key_name
             else:
-                raise Exception(exceptions_with_vars_message(
+                raise Exception(message_with_vars(
                     "key_name cannot be set on a field that is not of type dict or Dict",
                     vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
                 ))
@@ -158,13 +159,14 @@ class BaseField(BaseItem):
 
 class BaseDataModel:
     def __init__(self):
-        self.childrens_map = dict()
+        self.childrens_map: Optional[dict] = None
 
 class MapModel(BaseDataModel):
     _default_primitive_type = dict
 
     def __init__(self, **kwargs):
         super().__init__()
+        self.kwargs = kwargs
         # from StructNoSQL import field_loader
         # field_loader.load(class_instance=self, **kwargs)
 
@@ -173,7 +175,7 @@ class MapModel(BaseDataModel):
 
     @property
     def dict(self) -> dict:
-        return self.childrens_map
+        return self.childrens_map if self.childrens_map is not None else self.kwargs
 
 
 class MapField(BaseItem):

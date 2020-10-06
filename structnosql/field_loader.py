@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, Any, List
-from StructNoSQL.fields import BaseField, MapField, BaseDataModel, BaseItem, MapModel
+from StructNoSQL.fields import BaseField, MapField, BaseDataModel, BaseField, MapModel
 from copy import copy
 
 
@@ -10,7 +10,7 @@ def update_instance_children(parent_class_instance: BaseDataModel, children_attr
     parent_class_instance.childrens_map[children_attribute_key] = children_item
 
 
-def populate_data_workflow(parent_class_instance: BaseDataModel, kwargs: dict, class_variable_key: str, class_variable_item: BaseItem):
+def populate_data_workflow(parent_class_instance: BaseDataModel, kwargs: dict, class_variable_key: str, class_variable_item: BaseField):
     matching_kwarg_value = kwargs.get(class_variable_key, None)
     if matching_kwarg_value is not None:
         kwargs.pop(class_variable_key)

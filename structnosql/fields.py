@@ -9,27 +9,44 @@ from StructNoSQL.query import Query
 class TableDataModel:
     pass
 
+class BaseDataModel:
+    def __init__(self):
+        self.childrens_map: Optional[dict] = None
+
+class MapModel(BaseDataModel):
+    _default_primitive_type = dict
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.kwargs = kwargs
+        # from StructNoSQL import field_loader
+        # field_loader.load(class_instance=self, **kwargs)
+
+    def new(self):
+        pass
+
+    @property
+    def dict(self) -> dict:
+        return self.childrens_map if self.childrens_map is not None else self.kwargs
+
 
 class BaseItem:
     _table = None
-    _database_path: List[DatabasePathElement] = None
+    _database_path: Optional[List[DatabasePathElement]] = None
+    _dict_key_expected_type_: Optional[type] = None
+    _dict_items_excepted_type: Optional[type or MapModel] = None
     # We set the _database_path as static, so that the assign_internal_mapping_from_class can setup the path only once,
     # only by having access to the inheritor class type, not even the instance. Yet, when set the _database_path
-    # statically, the value is not attributed to the BaseItem class (which would cause to have multiple classes override
-    # the paths of the others), but rather, it is statically set on the class that inherit from BaseItem.
+    # statically, the value is not attributed to the BaseField class (which would cause to have multiple classes override
+    # the paths of the others), but rather, it is statically set on the class that inherit from BaseField.
 
-    def __init__(self, name: str, field_type: Optional[type] = Any, required: Optional[bool] = False, custom_default_value: Optional[Any] = None):
+    def __init__(self, field_type: Optional[type] = Any, custom_default_value: Optional[Any] = None):
         self._value = None
         self._query = None
-        self._name = name
-        self._key_name = None
 
         self.map_key_expected_type: Optional[type] = None
         self.map_model: Optional[MapModel] = None
-        self.dict_key_expected_type: Optional[type] = None
-        self.dict_value_excepted_type: Optional[type or MapModel] = None
 
-        self._required = required
         self._custom_default_value = custom_default_value
         self._field_type = field_type
         if isinstance(self._field_type, _GenericAlias):
@@ -39,12 +56,9 @@ class BaseItem:
 
                 if alias_variable_name == "Dict":
                     self._field_type = dict
-                    self.dict_key_expected_type = alias_args[0]
-                    self.dict_value_excepted_type = alias_args[1]
-                    """variable_item._database_path = {**current_path_elements}
-                    output_mapping[variable_key] = assign_internal_mapping_from_class(
-                        table=table, class_type=variable_item, current_path_elements=variable_item._database_path
-                    )"""
+                    self._dict_key_expected_type = alias_args[0]
+                    self._dict_items_excepted_type = alias_args[1]
+
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
 
@@ -53,7 +67,7 @@ class BaseItem:
         validated_data = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
             expected_value_type=self._field_type, map_model=self.map_model,
-            dict_value_excepted_type=self.dict_value_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
+            dict_items_excepted_type=self.dict_items_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
         )
         self._value = validated_data
         return validated_data
@@ -89,15 +103,72 @@ class BaseItem:
         )
         return self._query
 
-    def post(self, value: any):
-        print(self._database_path)
-
     def get_default_value(self):
         if self._custom_default_value is not None:
             return self._custom_default_value
         # We initialize the default field type
         # and return it as the default value.
         return self._field_type()
+
+    @property
+    def dict_key_expected_type(self) -> Optional[type]:
+        return self._dict_key_expected_type
+
+    @property
+    def dict_items_excepted_type(self) -> Optional[type or MapModel]:
+        return self._dict_items_excepted_type
+
+
+class BaseField(BaseItem):
+    def __init__(self, name: str, field_type: Optional[type] = None, required: Optional[bool] = False,
+                 custom_default_value: Optional[Any] = None, key_name: Optional[str] = None):
+        super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
+        self._name = name
+        self._required = required
+        self._key_name = None
+
+        if key_name is not None:
+            if field_type == dict or type(field_type) == _GenericAlias:
+                self._key_name = key_name
+            else:
+                raise Exception(message_with_vars(
+                    "key_name cannot be set on a field that is not of type dict or Dict",
+                    vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
+                ))
+        else:
+            if field_type == dict or type(field_type) == _GenericAlias:
+                self._key_name = f"{name}Key"
+
+    def populate(self, value: any):
+        super().populate(value=value)
+
+    @property
+    def dict_item(self):
+        """ :return: BaseField """
+        if self._field_type == dict and self.dict_items_excepted_type is not None:
+            map_item = MapItem(model_type=self.dict_items_excepted_type, parent_field=self)
+            return map_item
+        else:
+            raise Exception(message_with_vars(
+                message="Tried to access dict item of a field that was not of type dict, "
+                        "Dict or did not properly received the expected type of the dict items.",
+                vars_dict={"fieldName": self.field_name, "fieldType": self.field_type,
+                           "dictItemsExceptedType": self.dict_items_excepted_type}
+            ))
+
+    def __getattr__(self, key):
+        item = self.__dict__.get(key, None)
+        if item is not None:
+            return item
+        else:
+            if self._field_type == dict:
+                dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
+                if dict_expected_type_item is not None:
+                    return dict_expected_type_item
+        raise AttributeError()
+
+    def post(self, value: any):
+        print(self._database_path)
 
     @property
     def field_name(self) -> str:
@@ -123,62 +194,27 @@ class BaseItem:
     def database_path(self):
         return self._database_path
 
-
-class BaseField(BaseItem):
-    def __init__(self, name: str, field_type: Optional[type] = None, required: Optional[bool] = False,
-                 custom_default_value: Optional[Any] = None, key_name: Optional[str] = None):
-        super().__init__(name=name, field_type=field_type if field_type is not None else Any,
-                         required=required, custom_default_value=custom_default_value)
-
-        if key_name is not None:
-            if field_type == dict or type(field_type) == _GenericAlias:
-                self._key_name = key_name
-            else:
-                raise Exception(message_with_vars(
-                    "key_name cannot be set on a field that is not of type dict or Dict",
-                    vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
-                ))
-        else:
-            if field_type == dict or type(field_type) == _GenericAlias:
-                self._key_name = f"{name}Key"
-
-    def populate(self, value: any):
-        super().populate(value=value)
-
-    def __getattr__(self, key):
-        item = self.__dict__.get(key, None)
-        if item is not None:
-            return item
-        else:
-            if self._field_type == dict:
-                dict_expected_type_item = self.dict_value_excepted_type.__dict__.get(key, None)
-                if dict_expected_type_item is not None:
-                    return dict_expected_type_item
-        raise AttributeError()
+    @property
+    def table(self):
+        return self._table
 
 
-class BaseDataModel:
-    def __init__(self):
-        self.childrens_map: Optional[dict] = None
-
-class MapModel(BaseDataModel):
+class MapItem(BaseField):
     _default_primitive_type = dict
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.kwargs = kwargs
-        # from StructNoSQL import field_loader
-        # field_loader.load(class_instance=self, **kwargs)
+    def __init__(self, model_type: type, parent_field: BaseField):
+        super().__init__(name=None, field_type=dict, custom_default_value=dict())
+        self.model_type = model_type
 
-    def new(self):
-        pass
-
-    @property
-    def dict(self) -> dict:
-        return self.childrens_map if self.childrens_map is not None else self.kwargs
+        from StructNoSQL.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
+        element_key = make_dict_key_var_name(parent_field.key_name)
+        default_type = try_to_get_primitive_default_type_of_item(parent_field.dict_items_excepted_type)
+        database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)
+        self._database_path = [*parent_field.database_path, database_path_element]
+        self._table = parent_field.table
 
 
-class MapField(BaseItem):
+class MapField(BaseField):
     def __init__(self, name: str, model):
         super().__init__(name=name, field_type=dict)
         self.map_model: type(MapModel) = model
@@ -186,7 +222,7 @@ class MapField(BaseItem):
         # todo: create models to validate the dicts
 
 
-class ListField(BaseItem):
+class ListField(BaseField):
     def __init__(self, name: str, items_model: Optional[MapModel] = None):
         super().__init__(name=name, field_type=list)
         self._list_items_model = items_model

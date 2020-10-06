@@ -10,9 +10,9 @@ class Query:
             target_database_path: Optional[List[DatabasePathElement]] = None,
     ):
         from StructNoSQL.table import BaseTable
-        from StructNoSQL.fields import BaseItem
+        from StructNoSQL.fields import BaseField
         self._table: BaseTable = table
-        self._variable_validator: BaseItem = variable_validator
+        self._variable_validator: BaseField = variable_validator
 
         self.target_database_path = target_database_path
         self.key_name = key_name

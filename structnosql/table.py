@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.fields import BaseField, BaseItem, MapModel, MapField
+from StructNoSQL.fields import BaseField, BaseField, MapModel, MapField
 
 
 class DatabaseKey(str):
@@ -42,6 +42,19 @@ class BaseTable:
         return self._dynamodb_client
 
 
+def make_dict_key_var_name(key_name: str) -> str:
+    return f"$key$:{key_name}"
+
+def try_to_get_primitive_default_type_of_item(item_type: Any):
+    try:
+        return item_type._default_primitive_type
+        # Some objects (like a map object), are not primitive types, and instead of being able to use their type
+        # as default database type, they have a _default_primitive_type variable that we can use. Trying to get
+        # the variable is also faster than checking if the type is one of our types that is not primitive.
+    except Exception as e:
+        return item_type
+
+
 def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optional[Any] = None, class_type: Optional[Any] = None,
                                        current_path_elements: Optional[List[DatabasePathElement]] = None):
     if current_path_elements is None:
@@ -61,26 +74,21 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
             else:
                 variable_bases = variable_item.__bases__
 
-            if BaseItem in variable_bases:
-                variable_item: BaseItem
+            # if BaseField in variable_bases:
+            if isinstance(variable_item, BaseField):
+                variable_item: BaseField
                 new_database_path_element = DatabasePathElement(element_key=variable_item.field_name, default_type=variable_item.field_type)
                 variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
                 output_mapping[variable_key] = ""
 
-                if variable_item.dict_value_excepted_type is not None:
-                    item_key_name = f"$key$:{variable_item.key_name}"
-                    try:
-                        item_default_type = variable_item.dict_value_excepted_type._default_primitive_type
-                        # Some objects (like a map object), are not primitive types, and instead of being able to use their type
-                        # as default database type, they have a _default_primitive_type variable that we can use. Trying to get
-                        # the variable is also faster than checking if the type is one of our types that is not primitive.
-                    except Exception as e:
-                        item_default_type = variable_item.dict_value_excepted_type
+                if variable_item.dict_items_excepted_type is not None:
+                    item_key_name = make_dict_key_var_name(key_name=variable_item.key_name)
+                    item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.dict_items_excepted_type)
 
                     new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
                     output_mapping[item_key_name] = assign_internal_mapping_from_class(
-                        table=table, class_type=variable_item.dict_value_excepted_type,
+                        table=table, class_type=variable_item.dict_items_excepted_type,
                         current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                     )
 

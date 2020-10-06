@@ -1,5 +1,5 @@
 from typing import Optional, _GenericAlias, Tuple, List, Any
-from StructNoSQL.fields import BaseItem, MapModel
+from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.field_loader import load as field_load
 from StructNoSQL.practical_logger import message_with_vars
 
@@ -7,7 +7,7 @@ from StructNoSQL.practical_logger import message_with_vars
 def validate_data(value, expected_value_type: type, load_data_into_objects: bool,
                   item_type_to_return_to: Optional[BaseItem] = None,
                   map_model: Optional[MapModel] = None,
-                  dict_excepted_key_type: Optional[type] = None, dict_value_excepted_type: Optional[type] = None,
+                  dict_excepted_key_type: Optional[type] = None, dict_items_excepted_type: Optional[type] = None,
                   list_items_models: Optional[MapModel] = None) -> Any:
 
     value_type = type(value)
@@ -47,7 +47,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
         if item_type_to_return_to is not None and item_type_to_return_to.map_model is not None:
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():
-                item_matching_validation_model_variable: Optional[BaseItem] = item_type_to_return_to.map_model.__dict__.get(key, None)
+                item_matching_validation_model_variable: Optional[BaseField] = item_type_to_return_to.map_model.__dict__.get(key, None)
                 if item_matching_validation_model_variable is not None:
                     item = validate_data(
                         value=item, item_type_to_return_to=item_matching_validation_model_variable,
@@ -79,8 +79,8 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                         item_keys_to_pop.append(key)
                         continue
 
-                if dict_value_excepted_type is not None:
-                    if MapModel in dict_value_excepted_type.__bases__:
+                if dict_items_excepted_type is not None:
+                    if MapModel in dict_items_excepted_type.__bases__:
                         item_type = type(item)
                         if not _types_match(type_to_check=item_type, expected_type=dict):
                             print(message_with_vars(
@@ -93,7 +93,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
 
                         element_item_keys_to_pop: List[str] = list()
                         for element_item_key, element_item_value in item.items():
-                            element_item_matching_validation_model_variable: Optional[BaseItem] = dict_value_excepted_type.__dict__.get(element_item_key, None)
+                            element_item_matching_validation_model_variable: Optional[BaseField] = dict_items_excepted_type.__dict__.get(element_item_key, None)
                             if element_item_matching_validation_model_variable is not None:
                                 element_item_value = validate_data(
                                     value=element_item_value, item_type_to_return_to=element_item_matching_validation_model_variable,
@@ -119,11 +119,11 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                         for element_item_key_to_pop in element_item_keys_to_pop:
                             item.pop(element_item_key_to_pop)
                     else:
-                        if not _types_match(type_to_check=type(item), expected_type=dict_value_excepted_type):
+                        if not _types_match(type_to_check=type(item), expected_type=dict_items_excepted_type):
                             item_keys_to_pop.append(key)
                             print(message_with_vars(
                                 message=f"Value of nested item of dict did not match expected type. Item will be removed from data.",
-                                vars_dict={"item": item, "itemKey": key, "expectedItemValueType": dict_value_excepted_type}
+                                vars_dict={"item": item, "itemKey": key, "expectedItemValueType": dict_items_excepted_type}
                             ))
                 else:
                     if load_data_into_objects is True:
@@ -139,7 +139,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
         if list_items_models is not None:
             indexes_to_pop: List[int] = list()
             for i, item in enumerate(value):
-                matching_validation_model_variable: Optional[BaseItem] = map_model.__dict__.get(key, None)
+                matching_validation_model_variable: Optional[BaseField] = map_model.__dict__.get(key, None)
                 if matching_validation_model_variable is not None:
                     item = validate_data(
                         value=item, expected_value_type=matching_validation_model_variable.field_type,

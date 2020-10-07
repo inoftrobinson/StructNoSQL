@@ -1,11 +1,10 @@
 from typing import Optional, List, Dict, Any
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.fields import BaseField, BaseField, MapModel, MapField
+from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.process_render_fields_paths import make_rendered_fields_paths, \
-    process_and_get_fields_paths_objects_from_fields_paths, process_and_get_field_path_object_from_field_path, \
-    make_rendered_database_path, process_and_make_single_rendered_database_path
+from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
+    process_and_make_single_rendered_database_path
 
 
 class DatabaseKey(str):
@@ -149,7 +148,8 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
 
                 if variable_item.dict_items_excepted_type is not None:
                     current_field_path += ".{{" + variable_item.key_name + "}}"
-                    table.fields_switch[current_field_path] = variable_item.dict_items_excepted_type
+                    map_item = MapItem(model_type=variable_item.dict_items_excepted_type, parent_field=variable_item)
+                    table.fields_switch[current_field_path] = map_item
 
                     item_key_name = make_dict_key_var_name(key_name=variable_item.key_name)
                     item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.dict_items_excepted_type)
@@ -176,6 +176,8 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                 )
 
             elif MapModel in variable_bases:
+                variable_item: MapField
+                print(variable_item)
                 continue
 
                 variable_item: MapModel

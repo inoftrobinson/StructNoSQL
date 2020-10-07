@@ -53,7 +53,6 @@ class TestTableOperations(unittest.TestCase):
             field_to_get="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": self.test_project_id}
         )
-        print(response_data)
         self.assertIn(response_data, ["test", "test2"])
 
     def test_update_project_name(self):
@@ -72,27 +71,20 @@ class TestTableOperations(unittest.TestCase):
         )
         self.assertEqual(response_data, "test2")
 
-    def test_update_project_data(self):
-        return
-
-        project_data = UsersTableModel.ProjectModel(projectName="test").dict
-        print(message_with_vars("Running the update query.", vars_dict={"projectDataModel": project_data}))
-        e = self.users_table.model.projects.dict_item
-
-        response = self.users_table.query(
+    def test_update_entire_project_model(self):
+        success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=self.test_account_id,
-            fields_to_get=["projects.{{projectId}}.projectName"],
+            target_field="projects.{{projectId}}", value_to_set={"projectName": "test3"},
             query_kwargs={"projectId": self.test_project_id}
         )
-        print(response)
-        return
+        self.assertTrue(success)
 
-
-        response = self.users_table.model.projects.dict_item.query(
+        response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=self.test_account_id,
+            field_to_get="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": self.test_project_id}
-        ).set_update(project_data)
-        print(response)
+        )
+        self.assertEqual(response_data, "test3")
         # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
         #  we will perform an operation of the project map, and not on an individual project item).
 

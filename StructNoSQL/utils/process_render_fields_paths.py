@@ -11,7 +11,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
     else:
         raise Exception(message_with_vars(
             message=f"A field target to get was not found.",
-            vars_dict={"fieldPathKey": field_path_key}
+            vars_dict={"fieldPathKey": field_path_key, "fieldsSwitch": fields_switch}
         ))
 
 def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[str], fields_switch: dict) -> Dict[str, BaseItem]:

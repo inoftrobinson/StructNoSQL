@@ -165,6 +165,8 @@ class BaseField(BaseItem):
         if item is not None:
             return item
         else:
+            # print(key)
+            # print(self.dict_items_excepted_type.__dict__)
             if self._field_type == dict:
                 dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
                 if dict_expected_type_item is not None:

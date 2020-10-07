@@ -77,8 +77,8 @@ class BaseItem:
         # self.validate_data()
         # print("Finished data validation.")
 
-    def query(self, key_name: str, key_value: str, index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
-        for path_element in self._database_path:
+    def query(self, key_name: str, key_value: str, fields_to_get: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
+        """for path_element in self._database_path:
             if "$key$:" in path_element.element_key:
                 variable_name = path_element.element_key.replace("$key$:", "")
                 if query_kwargs is not None:
@@ -94,7 +94,7 @@ class BaseItem:
                     raise Exception(message_with_vars(
                         message="A variable was required but not query_kwargs have been passed to the query function.",
                         vars_dict={"keyVariableName": variable_name, "queryKwargs": query_kwargs, "databasePath": self._database_path}
-                    ))
+                    ))"""
 
         self._query = Query(
             variable_validator=self, table=self._table,
@@ -117,6 +117,10 @@ class BaseItem:
     @property
     def dict_items_excepted_type(self) -> Optional[type or MapModel]:
         return self._dict_items_excepted_type
+
+    @property
+    def database_path(self) -> Optional[List[DatabasePathElement]]:
+        return self._database_path
 
 
 class BaseField(BaseItem):

@@ -24,46 +24,73 @@ class UsersTable(BaseTable):
         ]
         super().__init__(table_name="inoft-vocal-engine_accounts-data", region_name="eu-west-2", data_model=UsersTableModel(),
                          primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
-        self.model = UsersTableModel
 
 
 class TestTableOperations(unittest.TestCase):
     def __init__(self, methodName: str):
         super().__init__(methodName=methodName)
         self.users_table = UsersTable()
+        self.test_account_id = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
+        self.test_project_id = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
 
     def test_get_all_projects(self):
-        projects: List[dict] = list((
-            self.users_table.model.projects.query(key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211").first_value()
-        ).values())
-        for project in projects:
-            print(f"Project : {project}")
-            project_name = project.get("projectName", None)
-            if project_name is not None:
-                self.assertIn(project["projectName"], ["Anvers 1944", "Le con", "test", "test2"])
+        response_items: Optional[List[dict]] = self.users_table.query(
+            key_name="accountId", key_value=self.test_account_id, fields_to_get=["projects"]
+        )
+        if response_items is not None:
+            for item in response_items:
+                current_item_projects = item.get("projects", None)
+                if current_item_projects is not None:
+                    for project_data in current_item_projects.values():
+                        print(f"Project : {project_data}")
+                        project_name = project_data.get("projectName", None)
+                        if project_name is not None:
+                            self.assertIn(project_data["projectName"], ["Anvers 1944", "Le con", "test", "test2"])
 
     def test_get_name_of_one_project(self):
-        response_data: Optional[str] = self.users_table.model.projects.dict_item.projectName.query(
-            key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
-            query_kwargs={"projectId": "defcc77c-1d6d-46a4-8cbe-506d12b824b7"}
-        ).first_value()
+        response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="projects.{{projectId}}.projectName",
+            query_kwargs={"projectId": self.test_project_id}
+        )
         print(response_data)
         self.assertIn(response_data, ["test", "test2"])
 
     def test_update_project_name(self):
-        response = self.users_table.model.projects.dict_item.projectName.query(
-            key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
-            query_kwargs={"projectId": "defcc77c-1d6d-46a4-8cbe-506d12b824b7"}
-        ).set_update("test2")
-        self.assertIsNotNone(response)
+        success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="projects.{{projectId}}.projectName",
+            query_kwargs={"projectId": self.test_project_id},
+            value_to_set="test2"
+        )
+        self.assertTrue(success)
+
+        response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="projects.{{projectId}}.projectName",
+            query_kwargs={"projectId": self.test_project_id}
+        )
+        self.assertEqual(response_data, "test2")
 
     def test_update_project_data(self):
+        return
+
         project_data = UsersTableModel.ProjectModel(projectName="test").dict
         print(message_with_vars("Running the update query.", vars_dict={"projectDataModel": project_data}))
         e = self.users_table.model.projects.dict_item
+
+        response = self.users_table.query(
+            key_name="accountId", key_value=self.test_account_id,
+            fields_to_get=["projects.{{projectId}}.projectName"],
+            query_kwargs={"projectId": self.test_project_id}
+        )
+        print(response)
+        return
+
+
         response = self.users_table.model.projects.dict_item.query(
-            key_name="accountId", key_value="5ae5938d-d4b5-41a7-ad33-40f3c1476211",
-            query_kwargs={"projectId": "defcc77c-1d6d-46a4-8cbe-506d12b824b7"}
+            key_name="accountId", key_value=self.test_account_id,
+            query_kwargs={"projectId": self.test_project_id}
         ).set_update(project_data)
         print(response)
         # todo: allow to set the item of a dict (currently, when doing a query on the projects object,

@@ -448,7 +448,7 @@ class DynamoDbCoreAdapter:
             return response.items[0]
 
     def get_data_in_path_target(self, key_name: str, key_value: str, target_path_elements: List[DatabasePathElement],
-                                 num_keys_to_navigation_into: int) -> Optional[any]:
+                                num_keys_to_navigation_into: int) -> Optional[any]:
         target_field = ""
         for i, path_element in enumerate(target_path_elements):
             if i > 0:

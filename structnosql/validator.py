@@ -61,7 +61,11 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                     else:
                         item_keys_to_pop.append(key)
                 else:
-                    raise Exception(f"No map validator was found.")
+                    item_keys_to_pop.append(key)
+                    print(message_with_vars(
+                        message=f"No map validator was found in a nested item of a dict. Item will be removed from data.",
+                        vars_dict={"key": key, "item": item}
+                    ))
 
             if load_data_into_objects is True:
                 populated_object, kwargs_not_consumed = field_load(class_type=item_type_to_return_to.map_model, **value)
@@ -127,11 +131,20 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                             ))
                 else:
                     if load_data_into_objects is True:
-                        item, kwargs_not_consumed = field_load(class_type=item_type_to_return_to.map_model, **value)
+                        item, kwargs_not_consumed = field_load(class_type=item_type_to_return_to, **value)
                     value[key] = item
 
-        for item_key_to_pop in item_keys_to_pop:
-            value.pop(item_key_to_pop)
+        if len(value) > 0 and (len(item_keys_to_pop) == len(value)):
+            print(message_with_vars(
+                message="The value dict to validate was not empty, but all of its items have been "
+                        "removed because they did not matched the model. Value of None is returned.",
+                vars_dict={"value": value, "item_keys_to_pop": item_keys_to_pop}
+            ))
+            return None
+        else:
+            for item_key_to_pop in item_keys_to_pop:
+                value.pop(item_key_to_pop)
+            return value
 
 
     elif value_type == list:

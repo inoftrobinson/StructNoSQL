@@ -4,7 +4,7 @@ from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
-    process_and_make_single_rendered_database_path
+    process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
 
 
 class DatabaseKey(str):
@@ -29,8 +29,7 @@ class BaseTable:
             self.model = data_model
         else:
             self.model = data_model()
-        class_variables = assign_internal_mapping_from_class(table=self, class_instance=self.model)
-        print(class_variables)
+        assign_internal_mapping_from_class(table=self, class_instance=self.model)
 
     def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
@@ -81,13 +80,16 @@ class BaseTable:
 
     def set_update_one_field(self, key_name: str, key_value: str, target_field: str, value_to_set: Any,
                              index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
-        response = self.dynamodb_client.set_update_data_element_to_map(
-            key_name=key_name, key_value=key_value, value=value_to_set,
-            target_path_elements=process_and_make_single_rendered_database_path(
-                field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-            )
+        validated_data, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
+            field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        return True if response is not None else False
+        if validated_data is not None and target_path_elements is not None:
+            response = self.dynamodb_client.set_update_data_element_to_map(
+                key_name=key_name, key_value=key_value, value=validated_data,
+                target_path_elements=target_path_elements
+            )
+            return True if response is not None else False
+        return False
 
     def set_update_multiple_fields(self):
         raise Exception(f"Not implemented")
@@ -191,15 +193,3 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
             print(e)
 
     return output_mapping
-
-
-"""
-if __name__ == "__main__":
-    users_table.projects.query()
-    print(users_table.ProjectsModel.ProjectInfos.primaryUrl.post(value="Yolooooooo"))
-    print(users_table.__class__.__dict__)
-    # print(signature(users_table.ProjectsModel))
-    # print(users_table.ProjectsModel(projectName="yolo").projectName)
-    # print(users_table.__class__.__dict__)
-"""
-

@@ -2,13 +2,14 @@ import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.practical_logger import message_with_vars
 
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str)
     class ProjectModel(MapModel):
-        projectName = BaseField(name="projectName", field_type=str, required=False)
+        projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
             ya = BaseField(name="ya", field_type=str)
         instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
@@ -87,6 +88,26 @@ class TestTableOperations(unittest.TestCase):
         self.assertEqual(response_data, "test3")
         # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
         #  we will perform an operation of the project map, and not on an individual project item).
+
+    def test_update_entire_project_model_with_invalid_data(self):
+        success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="projects.{{projectId}}", value_to_set={"invalidProjectName": "test4"},
+            query_kwargs={"projectId": self.test_project_id}
+        )
+        self.assertFalse(success)
+
+        try:
+            response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+                key_name="accountId", key_value=self.test_account_id,
+                field_to_get="projects.{{projectId}}.invalidProjectName",
+                query_kwargs={"projectId": self.test_project_id}
+            )
+            # If we do not get an error while trying to access an invalid field in the
+            # get_single_field_value_from_single_item function, then we failed the test.
+            self.fail()
+        except FieldTargetNotFoundException as e:
+            print(e)
 
 if __name__ == '__main__':
     unittest.main()

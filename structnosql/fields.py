@@ -33,7 +33,7 @@ class MapModel(BaseDataModel):
 class BaseItem:
     _table = None
     _database_path: Optional[List[DatabasePathElement]] = None
-    _dict_key_expected_type_: Optional[type] = None
+    _dict_key_expected_type: Optional[type] = None
     _dict_items_excepted_type: Optional[type or MapModel] = None
     # We set the _database_path as static, so that the assign_internal_mapping_from_class can setup the path only once,
     # only by having access to the inheritor class type, not even the instance. Yet, when set the _database_path
@@ -41,6 +41,7 @@ class BaseItem:
     # the paths of the others), but rather, it is statically set on the class that inherit from BaseField.
 
     def __init__(self, field_type: Optional[type] = Any, custom_default_value: Optional[Any] = None):
+        # todo: add a file_url field_type
         self._value = None
         self._query = None
 
@@ -171,7 +172,11 @@ class BaseField(BaseItem):
                 dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
                 if dict_expected_type_item is not None:
                     return dict_expected_type_item
-        raise AttributeError()
+
+        raise AttributeError(message_with_vars(
+            message="Attribute missing from BaseField and its dict_item expected type.",
+            vars_dict={"attributeKey": key, "__dict__": self.__dict__}
+        ))
 
     def post(self, value: any):
         print(self._database_path)
@@ -210,7 +215,7 @@ class MapItem(BaseField):
 
     def __init__(self, model_type: type, parent_field: BaseField):
         super().__init__(name=None, field_type=dict, custom_default_value=dict())
-        self.model_type = model_type
+        self.map_model = model_type
 
         from StructNoSQL.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
         element_key = make_dict_key_var_name(parent_field.key_name)

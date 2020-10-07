@@ -45,6 +45,7 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
     if value_type == dict:
         value: dict
         if item_type_to_return_to is not None and item_type_to_return_to.map_model is not None:
+            num_populated_required_fields = 0
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():
                 item_matching_validation_model_variable: Optional[BaseField] = item_type_to_return_to.map_model.__dict__.get(key, None)
@@ -58,6 +59,9 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
                         if load_data_into_objects is True:
                             item, kwargs_not_consumed = field_load(class_type=item_type_to_return_to.map_model, **value)
                         value[key] = item
+
+                        if item_matching_validation_model_variable.required is True:
+                            num_populated_required_fields += 1
                     else:
                         item_keys_to_pop.append(key)
                 else:
@@ -70,6 +74,10 @@ def validate_data(value, expected_value_type: type, load_data_into_objects: bool
             if load_data_into_objects is True:
                 populated_object, kwargs_not_consumed = field_load(class_type=item_type_to_return_to.map_model, **value)
                 print(populated_object)
+
+            if item_type_to_return_to.map_model.num_required_fields != num_populated_required_fields:
+                # todo: finish the removing of the item if not all of its required fields have been populated
+                print("cykkaaaa")
         else:
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():

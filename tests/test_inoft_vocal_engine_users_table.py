@@ -89,6 +89,14 @@ class TestTableOperations(unittest.TestCase):
         # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
         #  we will perform an operation of the project map, and not on an individual project item).
 
+    def test_update_entire_project_model_with_missing_project_name(self):
+        success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="projects.{{projectId}}", value_to_set={},
+            query_kwargs={"projectId": self.test_project_id}
+        )
+        self.assertFalse(success)
+
     def test_update_entire_project_model_with_invalid_data(self):
         success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=self.test_account_id,

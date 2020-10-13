@@ -67,20 +67,22 @@ def process_and_make_single_rendered_database_path(field_path: str, fields_switc
     )
     return rendered_database_path_elements
 
-def process_validate_data_and_make_single_rendered_database_path(field_path: str, fields_switch: dict, query_kwargs: dict,
-                                                                 data_to_validate: Any) -> Tuple[Optional[Any], Optional[List[DatabasePathElement]]]:
+def process_validate_data_and_make_single_rendered_database_path(
+        field_path: str, fields_switch: dict, query_kwargs: dict, data_to_validate: Any
+) -> Tuple[Optional[Any], bool, Optional[List[DatabasePathElement]]]:
+
     field_path_object = process_and_get_field_path_object_from_field_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
     field_path_object.populate(value=data_to_validate)
-    validated_data = field_path_object.validate_data(load_data_into_objects=False)
-    if validated_data is not None:
+    validated_data, valid = field_path_object.validate_data(load_data_into_objects=False)
+    if valid is True:
         rendered_database_path_elements = make_rendered_database_path(
             database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
         )
-        return validated_data, rendered_database_path_elements
+        return validated_data, valid, rendered_database_path_elements
     else:
-        return None, None
+        return None, False, None
 
 
 

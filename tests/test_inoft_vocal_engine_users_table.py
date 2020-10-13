@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, NoneType
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.practical_logger import message_with_vars
 
@@ -14,6 +14,7 @@ class UsersTableModel(TableDataModel):
             ya = BaseField(name="ya", field_type=str)
         instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
     projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
+    multiTypes = BaseField(name="multiTypes", field_type=[str, NoneType], required=True)
 
 
 class UsersTable(BaseTable):
@@ -46,7 +47,7 @@ class TestTableOperations(unittest.TestCase):
                         print(f"Project : {project_data}")
                         project_name = project_data.get("projectName", None)
                         if project_name is not None:
-                            self.assertIn(project_data["projectName"], ["Anvers 1944", "Le con", "test", "test2"])
+                            self.assertIn(project_data["projectName"], ["Anvers 1944", "Le con", "test", "test2", "test3"])
 
     def test_get_name_of_one_project(self):
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
@@ -116,6 +117,26 @@ class TestTableOperations(unittest.TestCase):
             self.fail()
         except FieldTargetNotFoundException as e:
             print(e)
+
+    def test_multi_types_field(self):
+        success_str = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="multiTypes", value_to_set="yolo"
+        )
+        self.assertTrue(success_str)
+
+        success_none = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="multiTypes", value_to_set=None
+        )
+        self.assertTrue(success_none)
+
+        success_bool = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="multiTypes", value_to_set=True
+        )
+        self.assertFalse(success_bool)
+
 
 if __name__ == '__main__':
     unittest.main()

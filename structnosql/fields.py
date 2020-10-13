@@ -70,13 +70,13 @@ class BaseItem:
 
     def validate_data(self, load_data_into_objects: bool) -> Optional[Any]:
         from StructNoSQL.validator import validate_data
-        validated_data = validate_data(
+        validated_data, valid = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
             expected_value_type=self._field_type, map_model=self.map_model,
             dict_items_excepted_type=self.dict_items_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
         )
         self._value = validated_data
-        return validated_data
+        return validated_data, valid
 
     def populate(self, value: Any):
         self._value = value
@@ -130,12 +130,15 @@ class BaseItem:
 
 
 class BaseField(BaseItem):
-    def __init__(self, name: str, field_type: Optional[type] = None, required: Optional[bool] = False,
+    def __init__(self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
                  custom_default_value: Optional[Any] = None, key_name: Optional[str] = None):
         super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
         self._name = name
         self._required = required
         self._key_name = None
+
+        if not_modifiable is True:
+            raise Exception(f"Not modifiable not yet implemented")
 
         if key_name is not None:
             if field_type == dict or type(field_type) == _GenericAlias:
@@ -171,12 +174,18 @@ class BaseField(BaseItem):
         if item is not None:
             return item
         else:
-            # print(key)
-            # print(self.dict_items_excepted_type.__dict__)
+            print(key)
+            print(self.dict_items_excepted_type.__dict__)
             if self._field_type == dict:
-                dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
-                if dict_expected_type_item is not None:
-                    return dict_expected_type_item
+                if isinstance(self.dict_items_excepted_type, (list, tuple)):
+                    for expected_type in self.dict_items_excepted_type:
+                        dict_expected_type_item = expected_type.__dict__.get(key, None)
+                        if dict_expected_type_item is not None:
+                            return dict_expected_type_item
+                else:
+                    dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
+                    if dict_expected_type_item is not None:
+                        return dict_expected_type_item
 
         raise AttributeError(message_with_vars(
             message="Attribute missing from BaseField and its dict_item expected type.",

@@ -73,17 +73,17 @@ class BaseTable:
                         if matching_field_path_object is not None:
                             if matching_field_path_object.database_path is not None:
                                 matching_field_path_object.populate(value=current_item_value)
-                                current_item[current_item_key] = matching_field_path_object.validate_data(load_data_into_objects=False)
+                                current_item[current_item_key], valid = matching_field_path_object.validate_data(load_data_into_objects=False)
             return response.items
         else:
             return None
 
     def set_update_one_field(self, key_name: str, key_value: str, target_field: str, value_to_set: Any,
                              index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
-        validated_data, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
+        validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
             field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        if validated_data is not None and target_path_elements is not None:
+        if valid is True and target_path_elements is not None:
             response = self.dynamodb_client.set_update_data_element_to_map(
                 key_name=key_name, key_value=key_value, value=validated_data,
                 target_path_elements=target_path_elements

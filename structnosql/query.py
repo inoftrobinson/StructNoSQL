@@ -47,8 +47,8 @@ class Query:
     def set_update(self, value: Any) -> Optional[Response]:
         if self.target_database_path is not None:
             self._variable_validator.populate(value=value)
-            validated_data = self._variable_validator.validate_data(load_data_into_objects=False)
-            if validated_data is not None:
+            validated_data, valid = self._variable_validator.validate_data(load_data_into_objects=False)
+            if valid is True:
                 response = self._table.dynamodb_client.set_update_data_element_to_map(
                     key_name=self.key_name, key_value=self.key_value,
                     target_path_elements=self.target_database_path, value=validated_data

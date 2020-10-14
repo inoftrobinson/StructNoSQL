@@ -9,7 +9,8 @@ from pydantic import BaseModel, validate_arguments
 from pydantic.dataclasses import dataclass
 
 from StructNoSQL.dynamodb.dynamodb_utils import Utils
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter
+from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.safe_dict import SafeDict
 from StructNoSQL.utils.static_logger import logger
 
@@ -145,13 +146,6 @@ class CreateTableQueryKwargs:
     def add_all_global_secondary_indexes(self, global_secondary_indexes: List[GlobalSecondaryIndex]):
         for global_secondary_index in global_secondary_indexes:
             self.add_global_secondary_index(global_secondary_index=global_secondary_index)
-
-
-@dataclass
-class DynamoDBMapObjectSetter:
-    object_path: str
-    value_to_set: Any
-    map_key: Optional[str] = None
 
 
 class DynamoDbCoreAdapter:
@@ -316,7 +310,7 @@ class DynamoDbCoreAdapter:
                 "UpdateExpression": current_update_expression,
                 "ExpressionAttributeNames": expression_attribute_names_dict,
                 "ExpressionAttributeValues": {
-                    ":item": path_element.default_type()
+                    ":item": path_element.get_default_value()
                 }
             }
             response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
@@ -359,45 +353,54 @@ class DynamoDbCoreAdapter:
                 response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         return response
 
-    def add_update_multiple_data_elements_to_map(self, key_name: str, key_value: Any,
-                                                 objects_setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
-        if not len(objects_setters) > 0:
-            # If no object setter has been defined,
-            # the query will crash when executed.
-            return Response({})
+    def set_update_multiple_data_elements_to_map(self, key_name: str, key_value: Any,
+                                                 setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
+        if not len(setters) > 0:
+            # If we tried to run the query with no object setter,
+            # she will crash when executed. So we return None.
+            return None
 
-        kwargs = {
+        update_query_kwargs = {
             "TableName": self.table_name,
             "Key": {key_name: key_value},
             "ReturnValues": "UPDATED_NEW"
         }
-
         update_expression = "SET "
-        attribute_names_expression_dict = dict()
+        expression_attribute_names_dict = dict()
         attribute_values_expression_dict = dict()
-        for i, current_object in enumerate(objects_setters):
-            # We use the attribute_names and attribute_values expressions instead of putting the data
-            # directly in the update_expression, because boto3 will only convert the data in the
-            # appropriate format when it is put in the attribute and values expression.
-            # It will not convert it if the data is directly set in the update expression.
-            update_expression += f"{current_object.object_path}"
+        for i_setter, current_setter in enumerate(setters):
+            for i_path, current_path_element in enumerate(current_setter.target_path_elements):
+                current_path_key = f"#setter{i_setter}_pathKey{i_path}"
+                update_expression += current_path_key
+                expression_attribute_names_dict[current_path_key] = current_path_element.element_key
+                if i_path + 1 < len(current_setter.target_path_elements):
+                    update_expression += "."
+                else:
+                    update_expression += f" = :item{i_setter}"
+                    attribute_values_expression_dict[f":item{i_setter}"] = current_setter.value_to_set
 
-            if current_object.map_key is not None:
-                update_expression += f".#key{i}"
-                attribute_names_expression_dict[f"#key{i}"] = current_object.map_key
-
-            update_expression += f" = :item{i}"
-            attribute_values_expression_dict[f":item{i}"] = current_object.value_to_set
-
-            if i + 1 < len(objects_setters):
+            if i_setter + 1 < len(setters):
                 update_expression += ", "
 
-        kwargs["UpdateExpression"] = update_expression
-        kwargs["ExpressionAttributeValues"] = attribute_values_expression_dict
-        if len(attribute_names_expression_dict) > 0:
-            kwargs["ExpressionAttributeNames"] = attribute_names_expression_dict
+        update_query_kwargs["UpdateExpression"] = update_expression
+        update_query_kwargs["ExpressionAttributeValues"] = attribute_values_expression_dict
+        if len(expression_attribute_names_dict) > 0:
+            update_query_kwargs["ExpressionAttributeNames"] = expression_attribute_names_dict
 
-        return self._execute_update_query(query_kwargs_dict=kwargs)
+        response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+        if response is None:
+            # If the response is None, it means that one of the path of the
+            # target path has not been found and need to be initialized.
+            for i_setter, current_setter in enumerate(setters):
+                success: bool = self.initialize_all_elements_in_map_target(
+                    key_name=key_name, key_value=key_value, target_path_elements=current_setter.target_path_elements
+                )
+                print(message_with_vars(
+                    message="Initialized a field after a set/update multiple data elements in map request had failed.",
+                    vars_dict={"fieldTargetPathElements": current_setter.target_path_elements}
+                ))
+            response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+        return response
 
     def query_by_key(self, key_name: str, key_value: Any, index_name: Optional[str] = None,
                      fields_to_get: Optional[list] = None, filter_expression: Optional[Any] = None,
@@ -449,12 +452,7 @@ class DynamoDbCoreAdapter:
 
     def get_data_in_path_target(self, key_name: str, key_value: str, target_path_elements: List[DatabasePathElement],
                                 num_keys_to_navigation_into: int) -> Optional[any]:
-        target_field = ""
-        for i, path_element in enumerate(target_path_elements):
-            if i > 0:
-                target_field += "."
-            target_field += path_element.element_key
-
+        target_field = self._database_path_elements_to_dynamodb_target_string(database_path_elements=target_path_elements)
         response_item: Optional[dict] = self.get_item_by_primary_key(
             key_name=key_name, key_value=key_value, fields_to_get=[target_field]
         ).item
@@ -483,6 +481,77 @@ class DynamoDbCoreAdapter:
             target_path_elements=target_path_elements,
             num_keys_to_navigation_into=len(target_path_elements) - 1
         )
+
+    def get_data_from_multiple_fields_in_path_target(
+            self, key_name: str, key_value: str,
+            targets_paths_elements: Dict[str, List[DatabasePathElement]],
+            num_keys_to_stop_at_before_reaching_end_of_item: int
+    ) -> Optional[Any]:
+
+        fields_to_get: List[str] = list()
+        for path_elements_key, path_elements_item in targets_paths_elements.items():
+            fields_to_get.append(self._database_path_elements_to_dynamodb_target_string(database_path_elements=path_elements_item))
+
+        response_items: Optional[dict] = self.get_item_by_primary_key(
+            key_name=key_name, key_value=key_value, fields_to_get=fields_to_get
+        ).item
+        if response_items is not None:
+            output_dict: Dict[str, Any] = dict()
+
+            for path_elements_key, path_elements_item in targets_paths_elements.items():
+                if len(path_elements_item) > 0:
+                    num_keys_to_navigation_into = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
+                    first_path_element_item_element_key = path_elements_item[0].element_key
+
+                    current_navigated_response_item_value = response_items.get(first_path_element_item_element_key)
+                    if current_navigated_response_item_value is not None:
+                        current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
+                        # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
+                        # get the response_items, they will be all put in the same dict, which means that the response_items dict has
+                        # values and items that might have nothing to do with the current target field. Of course, its not an issue,
+                        # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
+                        # function and that we queried a base field that does not require any validation), we need to isolate the item
+                        # from the other response_items, otherwise, we would return the entire response instead of only the item that
+                        # was found in the field that was queried.
+
+                        for i, path_element in enumerate(path_elements_item):
+                            if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
+                                break
+
+                            current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
+                            if current_navigated_response_item is None:
+                                # If the current_navigated_response_item is None, it means that one key has not been
+                                # found, so we need to break the loop in order to try to call get on a None object,
+                                # and then we will return the response_item, so we will return None.
+                                break
+
+                        output_dict[path_elements_key] = current_navigated_response_item
+            return output_dict
+        return None
+
+    def get_values_in_multiple_path_target(self, key_name: str, key_value: str, targets_paths_elements: Dict[str, List[DatabasePathElement]]):
+        return self.get_data_from_multiple_fields_in_path_target(
+            key_name=key_name, key_value=key_value,
+            targets_paths_elements=targets_paths_elements,
+            num_keys_to_stop_at_before_reaching_end_of_item=0
+        )
+
+    def get_items_in_multiple_path_target(self, key_name: str, key_value: str, targets_paths_elements: Dict[str, List[DatabasePathElement]]):
+        return self.get_data_from_multiple_fields_in_path_target(
+            key_name=key_name, key_value=key_value,
+            targets_paths_elements=targets_paths_elements,
+            num_keys_to_stop_at_before_reaching_end_of_item=1
+        )
+
+
+    @staticmethod
+    def _database_path_elements_to_dynamodb_target_string(database_path_elements: List[DatabasePathElement]) -> str:
+        target_string = ""
+        for i, path_element in enumerate(database_path_elements):
+            if i > 0:
+                target_string += "."
+            target_string += path_element.element_key
+        return target_string
 
     @staticmethod
     def _add_to_filter_expression(expression, condition):

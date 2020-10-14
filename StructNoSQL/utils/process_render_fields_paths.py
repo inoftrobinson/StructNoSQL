@@ -43,7 +43,9 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
                     # remained unmodified, so that other invocations of queries and operations will be able to have
                     # cleans element keys that will properly be filled with the query_kwargs specified in the request.
                     output_database_path_elements.append(DatabasePathElement(
-                        element_key=matching_kwarg, default_type=path_element.default_type
+                        element_key=matching_kwarg,
+                        default_type=path_element.default_type,
+                        custom_default_value=path_element.custom_default_value
                     ))
                 else:
                     raise Exception(message_with_vars(

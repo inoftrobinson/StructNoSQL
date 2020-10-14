@@ -55,7 +55,12 @@ class BaseItem:
 
         self._custom_default_value = custom_default_value
         self._field_type = field_type
-        if isinstance(self._field_type, _GenericAlias):
+        self._default_field_type = field_type
+        if isinstance(self._field_type, (list, tuple)):
+            if len(self._field_type) > 0:
+                self._default_field_type = self._field_type[0]
+
+        elif isinstance(self._field_type, _GenericAlias):
             alias_variable_name: Optional[str] = self._field_type.__dict__.get("_name", None)
             if alias_variable_name is not None:
                 alias_args: Optional[Tuple] = self._field_type.__dict__.get("__args__", None)
@@ -67,6 +72,7 @@ class BaseItem:
 
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
+
 
     def validate_data(self, load_data_into_objects: bool) -> Optional[Any]:
         from StructNoSQL.validator import validate_data
@@ -117,6 +123,22 @@ class BaseItem:
         return self._field_type()
 
     @property
+    def custom_default_value(self) -> Optional[Any]:
+        return self._custom_default_value
+
+    @property
+    def value(self) -> Any:
+        return self._value
+
+    @property
+    def field_type(self) -> Any:
+        return self._field_type
+
+    @property
+    def default_field_type(self) -> type:
+        return self._default_field_type
+
+    @property
     def dict_key_expected_type(self) -> Optional[type]:
         return self._dict_key_expected_type
 
@@ -127,6 +149,11 @@ class BaseItem:
     @property
     def database_path(self) -> Optional[List[DatabasePathElement]]:
         return self._database_path
+
+
+    @property
+    def table(self):
+        return self._table
 
 
 class BaseField(BaseItem):
@@ -200,28 +227,12 @@ class BaseField(BaseItem):
         return self._name
 
     @property
-    def field_type(self) -> type:
-        return self._field_type
-
-    @property
     def key_name(self) -> Optional[str]:
         return self._key_name
 
     @property
     def required(self) -> bool:
         return self._required
-
-    @property
-    def value(self) -> Any:
-        return self._value
-
-    @property
-    def database_path(self):
-        return self._database_path
-
-    @property
-    def table(self):
-        return self._table
 
 
 class MapItem(BaseField):

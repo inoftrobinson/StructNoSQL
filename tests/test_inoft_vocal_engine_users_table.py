@@ -1,7 +1,8 @@
 import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, NoneType
+from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
+    NoneType, FieldGetter, FieldSetter
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.practical_logger import message_with_vars
 
@@ -15,6 +16,8 @@ class UsersTableModel(TableDataModel):
         instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
     projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
     multiTypes = BaseField(name="multiTypes", field_type=[str, NoneType], required=True)
+    number1 = BaseField(name="number1", field_type=[int, float], required=False)
+    string1 = BaseField(name="string1", field_type=str, required=False)
 
 
 class UsersTable(BaseTable):
@@ -47,7 +50,7 @@ class TestTableOperations(unittest.TestCase):
                         print(f"Project : {project_data}")
                         project_name = project_data.get("projectName", None)
                         if project_name is not None:
-                            self.assertIn(project_data["projectName"], ["Anvers 1944", "Le con", "test", "test2", "test3"])
+                            self.assertIn("test", project_data["projectName"])
 
     def test_get_name_of_one_project(self):
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
@@ -55,7 +58,7 @@ class TestTableOperations(unittest.TestCase):
             field_to_get="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": self.test_project_id}
         )
-        self.assertIn(response_data, ["test", "test2"])
+        self.assertIn("test", response_data)
 
     def test_update_project_name(self):
         success = self.users_table.set_update_one_field(
@@ -79,6 +82,8 @@ class TestTableOperations(unittest.TestCase):
             target_field="projects.{{projectId}}", value_to_set={"projectName": "test3"},
             query_kwargs={"projectId": self.test_project_id}
         )
+        # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
+        #  we will perform an operation of the project map, and not on an individual project item).
         self.assertTrue(success)
 
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
@@ -87,8 +92,6 @@ class TestTableOperations(unittest.TestCase):
             query_kwargs={"projectId": self.test_project_id}
         )
         self.assertEqual(response_data, "test3")
-        # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
-        #  we will perform an operation of the project map, and not on an individual project item).
 
     def test_update_entire_project_model_with_missing_project_name(self):
         success = self.users_table.set_update_one_field(
@@ -136,6 +139,74 @@ class TestTableOperations(unittest.TestCase):
             target_field="multiTypes", value_to_set=True
         )
         self.assertFalse(success_bool)
+
+    def test_basic_get_multiple_fields_values_in_single_query(self):
+        response_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            getters={
+                "theAccountId": FieldGetter(target_path="accountId"),
+                "theProjects": FieldGetter(target_path="projects")
+            }
+        )
+        self.assertIsNotNone(response_data)
+        self.assertEqual(response_data.get("theAccountId", None), self.test_account_id)
+
+    def test_basic_get_multiple_fields_items_in_single_query(self):
+        response_data: Optional[dict] = self.users_table.get_multiple_fields_items_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            getters={
+                "theAccountId": FieldGetter(target_path="accountId"),
+                "theProjects": FieldGetter(target_path="projects")
+            }
+        )
+        self.assertIsNotNone(response_data)
+        self.assertEqual(response_data.get("theAccountId", None), {"accountId": self.test_account_id})
+
+    def test_sophisticated_get_multiple_fields_in_single_query(self):
+        response_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            getters={
+                "theAccountId": FieldGetter(target_path="accountId"),
+                "theProjectName": FieldGetter(
+                    target_path="projects.{{projectId}}.projectName",
+                    query_kwargs={"projectId": self.test_project_id}
+                )
+            }
+        )
+        self.assertIsNotNone(response_data)
+        self.assertEqual(response_data.get("theAccountId", None), self.test_account_id)
+        self.assertIn("test", response_data.get("theProjectName", ""))
+
+    def test_basic_set_update_multiple_fields_in_single_query(self):
+        success: bool = self.users_table.set_update_multiple_fields(
+            key_name="accountId", key_value=self.test_account_id,
+            setters=[
+                FieldSetter(target_path="number1", value_to_set=42),
+                FieldSetter(target_path="string1", value_to_set="Quarante-deux")
+            ]
+        )
+        self.assertTrue(success)
+
+    def test_sophisticated_set_update_multiple_fields_in_single_query(self):
+        success: bool = self.users_table.set_update_multiple_fields(
+            key_name="accountId", key_value=self.test_account_id,
+            setters=[
+                FieldSetter(target_path="number1", value_to_set=42),
+                FieldSetter(
+                    target_path="projects.{{projectId}}.projectName",
+                    query_kwargs={"projectId": self.test_project_id},
+                    value_to_set="test5", 
+                )
+            ]
+        )
+        self.assertTrue(success)
+
+        project_name_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="projects.{{projectId}}.projectName",
+            query_kwargs={"projectId": self.test_project_id},
+        )
+        self.assertEqual(project_name_data, "test5")
 
 
 if __name__ == '__main__':

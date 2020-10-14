@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Any
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
+    DynamoDBMapObjectSetter
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter
 from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
@@ -31,6 +32,7 @@ class BaseTable:
             self.model = data_model()
         assign_internal_mapping_from_class(table=self, class_instance=self.model)
 
+
     def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
             key_name=key_name, key_value=key_value,
@@ -49,11 +51,29 @@ class BaseTable:
         )
         return response_data
 
-    def get_from_single_item(self, key_name: str, key_value: str, fields_to_get: List[str], query_kwargs: Optional[dict] = None) -> Any:
-        response = self.dynamodb_client.get_item_in_path_target(
-            key_name=key_name, key_value=key_value, target_path_elements=fields_to_get
+
+    def _getters_to_database_paths(self, getters: Dict[str, FieldGetter]) -> Dict[str, List[DatabasePathElement]]:
+        getters_database_paths: Dict[str, List[DatabasePathElement]] = dict()
+        for getter_key, getter_item in getters.items():
+            getters_database_paths[getter_key] = process_and_make_single_rendered_database_path(
+                field_path=getter_item.target_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
+            )
+        return getters_database_paths
+
+    def get_multiple_fields_items_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]):
+        getters_database_paths = self._getters_to_database_paths(getters=getters)
+        response_data = self.dynamodb_client.get_items_in_multiple_path_target(
+            key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
         )
-        # todo: add support for multiple items targets
+        return response_data
+
+    def get_multiple_fields_values_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]):
+        getters_database_paths = self._getters_to_database_paths(getters=getters)
+        response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+            key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
+        )
+        return response_data
+
 
     def query(self, key_name: str, key_value: str, fields_to_get: List[str], index_name: Optional[str] = None,
               limit: Optional[int] = None, query_kwargs: Optional[dict] = None) -> Optional[List[Any]]:
@@ -78,6 +98,7 @@ class BaseTable:
         else:
             return None
 
+
     def set_update_one_field(self, key_name: str, key_value: str, target_field: str, value_to_set: Any,
                              index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
         validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -91,8 +112,23 @@ class BaseTable:
             return True if response is not None else False
         return False
 
-    def set_update_multiple_fields(self):
-        raise Exception(f"Not implemented")
+    def set_update_multiple_fields(self, key_name: str, key_value: str, setters: List[FieldSetter]) -> bool:
+        dynamodb_setters: List[DynamoDBMapObjectSetter] = list()
+        for current_setter in setters:
+            validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                field_path=current_setter.target_path, fields_switch=self.fields_switch,
+                query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
+            )
+            if valid is True:
+                dynamodb_setters.append(DynamoDBMapObjectSetter(
+                    target_path_elements=target_path_elements, value_to_set=validated_data
+                ))
+
+        response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
+            key_name=key_name, key_value=key_value, setters=dynamodb_setters
+        )
+        return True if response is not None else False
+
 
     @property
     def internal_mapping(self) -> dict:
@@ -147,7 +183,11 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
             # if BaseField in variable_bases:
             if isinstance(variable_item, BaseField):
                 variable_item: BaseField
-                new_database_path_element = DatabasePathElement(element_key=variable_item.field_name, default_type=variable_item.field_type)
+                new_database_path_element = DatabasePathElement(
+                    element_key=variable_item.field_name,
+                    default_type=variable_item.default_field_type,
+                    custom_default_value=variable_item.custom_default_value
+                )
                 variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
                 output_mapping[variable_key] = ""
@@ -175,7 +215,11 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
 
             elif MapField in variable_bases:
                 variable_item: MapField
-                new_database_path_element = DatabasePathElement(element_key=variable_item.field_name, default_type=variable_item.field_type)
+                new_database_path_element = DatabasePathElement(
+                    element_key=variable_item.field_name,
+                    default_type=variable_item.field_type,
+                    custom_default_value=variable_item.custom_default_value
+                )
                 variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
 

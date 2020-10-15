@@ -233,15 +233,16 @@ class DynamoDbCoreAdapter:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
             if "Item" in response:
-                return GetItemResponse(item=Utils.dynamodb_to_python(dynamodb_object=response["Item"]), success=True)
+                e = Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"])
+                return GetItemResponse(item=Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"]), success=True)
             else:
                 return GetItemResponse(item=None, success=False)
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process"
                             "of being created. Failed to get attributes from DynamoDb table.")
         except Exception as e:
-            raise Exception(f"Failed to retrieve attributes from DynamoDb table."
-                            f"Exception of type {type(e).__name__} occurred: {str(e)}")
+            print(f"Failed to retrieve attributes from DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
+            return None
 
     def _execute_update_query(self, query_kwargs_dict: dict) -> Optional[Response]:
         try:
@@ -255,9 +256,8 @@ class DynamoDbCoreAdapter:
             print(f"{e} - No element has been found for the update query : {query_kwargs_dict}")
             return None
         except Exception as e:
-            print(type(e))
-            raise Exception(f"Failed to update attributes in DynamoDb table."
-                            f"Exception of type {type(e).__name__} occurred: {str(e)}")
+            print(f"Failed to update attributes in DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
+            return None
 
     def add_data_elements_to_list(self, key_name: str, key_value: Any, object_path: str,
                                   element_values: List[dict]) -> Optional[Response]:

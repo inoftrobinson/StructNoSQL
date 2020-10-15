@@ -18,6 +18,7 @@ class UsersTableModel(TableDataModel):
     multiTypes = BaseField(name="multiTypes", field_type=[str, NoneType], required=True)
     number1 = BaseField(name="number1", field_type=[int, float], required=False)
     string1 = BaseField(name="string1", field_type=str, required=False)
+    floatTest = BaseField(name="floatTest", field_type=float, required=False)
 
 
 class UsersTable(BaseTable):
@@ -207,6 +208,21 @@ class TestTableOperations(unittest.TestCase):
             query_kwargs={"projectId": self.test_project_id},
         )
         self.assertEqual(project_name_data, "test5")
+
+    def test_set_and_get_float_in_field_value(self):
+        source_float_value = 10.42021023492
+
+        set_float_value_success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="floatTest", value_to_set=source_float_value
+        )
+        self.assertTrue(set_float_value_success)
+
+        retrieved_float_value: Optional[float] = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id, field_to_get="floatTest"
+        )
+        self.assertEqual(retrieved_float_value, source_float_value)
+
 
 
 if __name__ == '__main__':

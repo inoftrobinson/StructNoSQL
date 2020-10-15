@@ -4,7 +4,7 @@ from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.field_loader import load as field_load
 from StructNoSQL.practical_logger import message_with_vars
-
+from StructNoSQL.utils.decimals import float_to_decimal
 
 NoneType = type(None)
 
@@ -207,6 +207,10 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
                         message=f"No map validator was found in a nested item of a list. Value will be removed from data.",
                         vars_dict={"listValue": value, "item": item, "itemIndex": i}
                     ))
+
+    elif value_type == float:
+        # DynamoDB does not support float types. They must be converted to Decimal's.
+        return float_to_decimal(float_number=value), True
 
     return value, True
 

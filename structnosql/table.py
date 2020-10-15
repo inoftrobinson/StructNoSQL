@@ -33,6 +33,9 @@ class BaseTable:
         assign_internal_mapping_from_class(table=self, class_instance=self.model)
 
 
+    def delete_record(self):
+        pass
+
     def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
             key_name=key_name, key_value=key_value,

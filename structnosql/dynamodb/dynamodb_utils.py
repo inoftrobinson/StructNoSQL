@@ -186,13 +186,24 @@ class Utils:
             return dynamodb_object
 
     @staticmethod
-    def _decimal_to_python(decimal_number: Decimal):
-        # todo: improve the way the decimal works, because sometimes
-        #  a value with no decimal will be converted to a float...
-        if ("%.f" % decimal_number) > "0":
-            return int(decimal_number)
-        else:
-            return int(decimal_number)
+    def dynamodb_to_python_higher_level(dynamodb_object: Any):
+        if isinstance(dynamodb_object, Decimal):
+            return Utils._decimal_to_python(decimal_number=dynamodb_object)
+        elif isinstance(dynamodb_object, list):
+            for i, item in enumerate(dynamodb_object):
+                dynamodb_object[i] = Utils.dynamodb_to_python_higher_level(dynamodb_object=item)
+            return dynamodb_object
+        elif isinstance(dynamodb_object, dict):
+            # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
+            for key, item in dynamodb_object.items():
+                dynamodb_object[key] = Utils.dynamodb_to_python_higher_level(dynamodb_object=item)
+            return dynamodb_object
+        return dynamodb_object
+
+    @staticmethod
+    def _decimal_to_python(decimal_number: Decimal) -> float or int:
+        decimal_float = decimal_number.__float__()
+        return decimal_float if decimal_float.is_integer() is not True else int(decimal_float)
 
     @staticmethod
     def _python_to_decimal(python_number: int or float) -> Decimal:

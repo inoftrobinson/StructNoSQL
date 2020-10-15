@@ -28,6 +28,12 @@ class FieldGetter:
 
 
 @dataclass
+class FieldRemover:
+    target_path: str
+    query_kwargs: Optional[dict] = None
+
+
+@dataclass
 class DynamoDBMapObjectSetter:
     target_path_elements: List[DatabasePathElement]
     value_to_set: Any

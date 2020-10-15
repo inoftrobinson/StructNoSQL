@@ -291,6 +291,33 @@ class DynamoDbCoreAdapter:
 
         return self._execute_update_query(query_kwargs_dict=kwargs)
 
+    def remove_data_elements_from_map(self, key_name: str, key_value: Any,
+                                      targets_path_elements: List[List[DatabasePathElement]]) -> Optional[Response]:
+        expression_attribute_names_dict = dict()
+        update_expression = "REMOVE "
+
+        num_targets = len(targets_path_elements)
+        for i_target, target in enumerate(targets_path_elements):
+            current_target_num_path_elements = len(target)
+            for i_path_element, path_element in enumerate(target):
+                current_path_key = f"#target{i_target}_pathKey{i_path_element}"
+                update_expression += current_path_key
+                expression_attribute_names_dict[current_path_key] = path_element.element_key
+                if i_path_element + 1 < current_target_num_path_elements:
+                    update_expression += "."
+            if i_target + 1 < num_targets:
+                update_expression += ", "
+
+        update_query_kwargs = {
+            "TableName": self.table_name,
+            "Key": {key_name: key_value},
+            "ReturnValues": "UPDATED_NEW",
+            "UpdateExpression": update_expression,
+            "ExpressionAttributeNames": expression_attribute_names_dict,
+        }
+        response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+        return response
+
     def initialize_all_elements_in_map_target(self, key_name: str, key_value: Any, target_path_elements: List[DatabasePathElement]) -> bool:
         current_path_target = ""
         expression_attribute_names_dict: Dict[str, str] = dict()
@@ -318,8 +345,8 @@ class DynamoDbCoreAdapter:
                 return False
         return True
 
-    def set_update_data_element_to_map(self, key_name: str, key_value: Any,
-                                       target_path_elements: List[DatabasePathElement], value: Any) -> Optional[Response]:
+    def set_update_data_element_to_map(self, key_name: str, key_value: Any, value: Any,
+                                       target_path_elements: List[DatabasePathElement]) -> Optional[Response]:
         expression_attribute_names_dict = dict()
         update_expression = "SET "
 

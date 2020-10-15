@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
-    DynamoDBMapObjectSetter
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter
+    DynamoDBMapObjectSetter, Response
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, FieldRemover
 from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
@@ -34,7 +34,11 @@ class BaseTable:
 
 
     def delete_record(self):
-        pass
+        raise Exception(f"Not yet implemented")
+
+    def put_record(self):
+        raise Exception(f"Not yet implemented")
+
 
     def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
@@ -131,6 +135,38 @@ class BaseTable:
             key_name=key_name, key_value=key_value, setters=dynamodb_setters
         )
         return True if response is not None else False
+
+
+    def remove_single_item_at_path_target(self, key_name: str, key_value: str, target_field: str,
+                                          query_kwargs: Optional[dict] = None) -> bool:
+        response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
+            key_name=key_name, key_value=key_value,
+            targets_path_elements=[process_and_make_single_rendered_database_path(
+                field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+            )]
+        )
+        return True if response is not None else False
+
+    def remove_multiple_items_at_path_targets(self, key_name: str, key_value: str, removers: List[FieldRemover]) -> bool:
+        if len(removers) > 0:
+            removers_database_paths: List[List[DatabasePathElement]] = list()
+            for current_remover in removers:
+                removers_database_paths.append(
+                    process_and_make_single_rendered_database_path(
+                        field_path=current_remover.target_path,
+                        fields_switch=self.fields_switch,
+                        query_kwargs=current_remover.query_kwargs
+                    )
+                )
+
+            response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
+                key_name=key_name, key_value=key_value, targets_path_elements=removers_database_paths
+            )
+            return True if response is not None else False
+        else:
+            # If no remover has been specified, we do not run the database operation, yet we still
+            # return True, since technically, what needed to be performed (nothing) was performed.
+            return True
 
 
     @property

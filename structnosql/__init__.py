@@ -2,4 +2,4 @@ from StructNoSQL.dynamodb.dynamodb_core import PrimaryIndex, GlobalSecondaryInde
 from StructNoSQL.fields import BaseField, MapModel, MapField, TableDataModel
 from StructNoSQL.table import BaseTable
 from StructNoSQL.validator import NoneType
-from StructNoSQL.dynamodb.models import FieldGetter, FieldSetter
+from StructNoSQL.dynamodb.models import FieldGetter, FieldSetter, FieldRemover

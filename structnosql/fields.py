@@ -63,12 +63,12 @@ class BaseItem:
 
                 if alias_variable_name == "Dict":
                     self._field_type = dict
+                    self._default_field_type = dict
                     self._dict_key_expected_type = alias_args[0]
                     self._dict_items_excepted_type = alias_args[1]
 
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
-
 
     def validate_data(self, load_data_into_objects: bool) -> Optional[Any]:
         from StructNoSQL.validator import validate_data

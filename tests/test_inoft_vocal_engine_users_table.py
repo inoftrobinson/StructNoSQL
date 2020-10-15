@@ -2,7 +2,7 @@ import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
-    NoneType, FieldGetter, FieldSetter
+    NoneType, FieldGetter, FieldSetter, FieldRemover
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.practical_logger import message_with_vars
 
@@ -19,6 +19,11 @@ class UsersTableModel(TableDataModel):
     number1 = BaseField(name="number1", field_type=[int, float], required=False)
     string1 = BaseField(name="string1", field_type=str, required=False)
     floatTest = BaseField(name="floatTest", field_type=float, required=False)
+
+    fieldToRemove = BaseField(name="fieldToRemove", field_type=str, required=False)
+    class SophisticatedRemovalModel(MapModel):
+        nestedVariable = BaseField(name="nestedVariable", field_type=str, required=False)
+    sophisticatedRemoval = BaseField(name="sophisticatedRemoval", field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)
 
 
 class UsersTable(BaseTable):
@@ -223,6 +228,76 @@ class TestTableOperations(unittest.TestCase):
         )
         self.assertEqual(retrieved_float_value, source_float_value)
 
+    def test_remove_basic_item_from_path_target(self):
+        success_field_set = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="fieldToRemove", value_to_set="yolo mon ami !"
+        )
+        self.assertTrue(success_field_set)
+
+        success_field_remove = self.users_table.remove_single_item_at_path_target(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="fieldToRemove"
+        )
+        self.assertTrue(success_field_remove)
+
+        retrieved_field_data = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="fieldToRemove"
+        )
+        self.assertIsNone(retrieved_field_data)
+
+    def test_remove_sophisticated_item_from_path_target(self):
+        query_kwargs = {"id": "sampleId"}
+
+        success_field_set = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="sophisticatedRemoval.{{id}}.nestedVariable",
+            query_kwargs=query_kwargs,
+            value_to_set="Soooooo, does it works ? :)"
+        )
+        self.assertTrue(success_field_set)
+
+        success_field_remove = self.users_table.remove_single_item_at_path_target(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="sophisticatedRemoval.{{id}}.nestedVariable",
+            query_kwargs=query_kwargs
+        )
+        self.assertTrue(success_field_remove)
+
+        retrieved_field_data = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="sophisticatedRemoval.{{id}}.nestedVariable",
+            query_kwargs=query_kwargs
+        )
+        self.assertIsNone(retrieved_field_data)
+
+    def test_remove_multiple_basic_and_sophisticated_items_from_path_target(self):
+        query_kwargs = {"id": "sampleIdTwo"}
+
+        success_fields_set = self.users_table.set_update_multiple_fields(
+            key_name="accountId", key_value=self.test_account_id,
+            setters=[
+                FieldSetter(
+                    target_path="fieldToRemove",
+                    value_to_set="multipleBasicAndSophisticatedRemoval"
+                ),
+                FieldSetter(
+                    target_path="sophisticatedRemoval.{{id}}.nestedVariable",
+                    query_kwargs=query_kwargs, value_to_set="nestedDude"
+                )
+            ]
+        )
+        self.assertTrue(success_fields_set)
+
+        success_fields_remove = self.users_table.remove_multiple_items_at_path_targets(
+            key_name="accountId", key_value=self.test_account_id,
+            removers=[
+                FieldRemover(target_path="fieldToRemove"),
+                FieldRemover(target_path="sophisticatedRemoval.{{id}}.nestedVariable", query_kwargs=query_kwargs)
+            ]
+        )
+        self.assertTrue(success_fields_remove)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,6 @@
 from typing import Optional, _GenericAlias, Tuple, List, Any
+
+from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.field_loader import load as field_load
 from StructNoSQL.practical_logger import message_with_vars
@@ -67,7 +69,8 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
         # todo: fix a bug, where for some reasons, when calling the get_single_field_value_from_single_item function, if what
         #  we get is a dict that has only key and one item, instead of returning the dict, we will return the value in the dict
         if item_type_to_return_to is not None and item_type_to_return_to.map_model is not None:
-            num_populated_required_fields = 0
+            populated_required_fields: List[BaseField] = list()
+
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():
                 item_matching_validation_model_variable: Optional[BaseField] = item_type_to_return_to.map_model.__dict__.get(key, None)
@@ -83,7 +86,7 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
                         value[key] = item
 
                         if item_matching_validation_model_variable.required is True:
-                            num_populated_required_fields += 1
+                            populated_required_fields.append(item_matching_validation_model_variable)
                     else:
                         item_keys_to_pop.append(key)
                 else:
@@ -97,9 +100,17 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
                 populated_object, kwargs_not_consumed = field_load(class_type=item_type_to_return_to.map_model, **value)
                 print(populated_object)
 
-            if item_type_to_return_to.map_model.num_required_fields != num_populated_required_fields:
-                # todo: finish the removing of the item if not all of its required fields have been populated
-                print("DID NOT REACHED ALL REQUIRED FIELDS !!!!")
+            if len(item_type_to_return_to.map_model.required_fields) != len(populated_required_fields):
+                missing_required_fields_database_paths: List[List[DatabasePathElement]] = list()
+                for current_required_field in item_type_to_return_to.map_model.required_fields:
+                    if current_required_field not in populated_required_fields:
+                        missing_required_fields_database_paths.append(current_required_field.database_path)
+
+                print(message_with_vars(
+                    message="Missing required fields on map element. Returning None and valid to False.",
+                    vars_dict={"missingRequiredFieldsDatabasePaths": missing_required_fields_database_paths}
+                ))
+                return None, False
         else:
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():

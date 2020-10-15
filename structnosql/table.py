@@ -168,8 +168,7 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
             ))
 
     class_variables = class_type.__dict__
-    num_required_fields: Optional[list] = getattr(class_type, "_num_required_fields", None)
-    # A static variable of a type is not accessible in the __dict__, but it is in the attributes.
+    required_fields = list()
 
     for variable_key, variable_item in class_variables.items():
         current_field_path = "" if nested_field_path is None else f"{nested_field_path}"
@@ -192,9 +191,8 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                 variable_item._table = table
                 output_mapping[variable_key] = ""
 
-                if num_required_fields is not None:
-                    if variable_item.required is True:
-                        num_required_fields += 1
+                if variable_item.required is True:
+                    required_fields.append(variable_item)
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 table.fields_switch[current_field_path] = variable_item
@@ -223,9 +221,8 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                 variable_item._database_path = [*current_path_elements, new_database_path_element]
                 variable_item._table = table
 
-                if num_required_fields is not None:
-                    if variable_item.required is True:
-                        num_required_fields += 1
+                if variable_item.required is True:
+                    required_fields.append(variable_item)
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 table.fields_switch[current_field_path] = variable_item
@@ -251,9 +248,8 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
         except Exception as e:
             print(e)
 
-    if num_required_fields is not None:
-        setattr(class_type, "_num_required_fields", num_required_fields)
-        # We need to set the attribute, because when we go the num_required_fields with the get_attr
-        # function, we did not get a reference to the attribute, but a copy of the attribute value.
+    setattr(class_type, "required_fields", required_fields)
+    # We need to set the attribute, because when we go the required_fields with the get_attr
+    # function, we did not get a reference to the attribute, but a copy of the attribute value.
 
     return output_mapping

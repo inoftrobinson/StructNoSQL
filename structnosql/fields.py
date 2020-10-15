@@ -15,7 +15,7 @@ class BaseDataModel:
 
 class MapModel(BaseDataModel):
     _default_primitive_type = dict
-    _num_required_fields = 0
+    required_fields: list = None
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -29,10 +29,6 @@ class MapModel(BaseDataModel):
     @property
     def dict(self) -> dict:
         return self.childrens_map if self.childrens_map is not None else self.kwargs
-
-    @property
-    def num_required_fields(self) -> int:
-        return self._num_required_fields
 
 
 class BaseItem:
@@ -51,7 +47,7 @@ class BaseItem:
         self._query = None
 
         self.map_key_expected_type: Optional[type] = None
-        self.map_model: Optional[MapModel] = None
+        self.map_model: Optional[MapModel or type] = None
 
         self._custom_default_value = custom_default_value
         self._field_type = field_type

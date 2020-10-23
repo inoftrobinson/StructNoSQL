@@ -42,9 +42,9 @@ for item_key, item in shopping_cart_items.items():
 
 ```
 
-# IN WRITING
-
 ## API Summary
+
+# IN WRITING, ONLY A FRACTION OF THE DOCS IS DONE
 
 ### Table :
 
@@ -87,7 +87,7 @@ for item_key, item in shopping_cart_items.items():
 
 [remove_multiple_items_at_path_targets](#remove_multiple_items_at_path_targets)
 
-### Operations constructor objects
+### Operations constructor objects :
 
 [FieldGetter](#FieldGetter)
 

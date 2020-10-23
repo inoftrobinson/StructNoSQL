@@ -46,6 +46,8 @@ for item_key, item in shopping_cart_items.items():
 ## API Summary
 
 [TableDataModel](#TableDataModel)
+[BaseField](#TableDataModel)
+[MapField](#MapField)
 
 
 ## API Reference

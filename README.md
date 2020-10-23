@@ -63,13 +63,6 @@ class UsersTableModel(TableDataModel):
     username = BaseField(name="username", field_type=str, required=True)
 ```
 
-
-#### Objects to primitives types :
-- MapModel : dict
-- Dict: dict
-- List: list
-
-
 ### `BaseField`
 Primary object to declare the fields of your table, or fields of items in maps and lists.
 
@@ -128,7 +121,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
  - `custom_default_value`: When you insert/update an item model, all the fields that were not required and that you did
  not specify will initialize themselves with the field_type that you precised (or the first acceptable field_type if
  you have a list or tuple of types as the field_type, or the primitive field_type of an object. [Learn more about 
- objects primitive types](#objects-to-primitives-types-:)). By specifying a custom_default_value, you can override this
+ objects primitive types](#Objects-to-primitives-types)). By specifying a custom_default_value, you can override this
  behavior just explained, and bring your own default_values to the initialization of a field.
     - type: `Any`
     - required: `False`
@@ -159,5 +152,10 @@ Primary object to declare the fields of your table, or fields of items in maps a
           projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
       ```
  
+ ### Various infos about the inner-working of StructNoSQL
  
+ #### Objects to primitives types :
+- MapModel : dict
+- Dict: dict
+- List: list
 

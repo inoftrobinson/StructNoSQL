@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Optional, Tuple
-from StructNoSQL2.dynamodb.models import DatabasePathElement
-from StructNoSQL2.exceptions import FieldTargetNotFoundException
-from StructNoSQL2.fields import BaseItem
-from StructNoSQL2.practical_logger import message_with_vars
+from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.exceptions import FieldTargetNotFoundException
+from StructNoSQL.fields import BaseItem
+from StructNoSQL.practical_logger import message_with_vars
 
 
 def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:

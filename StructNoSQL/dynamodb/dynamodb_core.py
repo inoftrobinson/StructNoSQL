@@ -8,11 +8,11 @@ from botocore.exceptions import ClientError
 from pydantic import BaseModel, validate_arguments
 from pydantic.dataclasses import dataclass
 
-from StructNoSQL2.dynamodb.dynamodb_utils import Utils
-from StructNoSQL2.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter
-from StructNoSQL2.practical_logger import message_with_vars
-from StructNoSQL2.safe_dict import SafeDict
-from StructNoSQL2.utils.static_logger import logger
+from StructNoSQL.dynamodb.dynamodb_utils import Utils
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter
+from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.safe_dict import SafeDict
+from StructNoSQL.utils.static_logger import logger
 
 HASH_KEY_TYPE = "HASH"
 SORT_KEY_TYPE = "RANGE"

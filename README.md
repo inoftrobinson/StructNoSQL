@@ -101,7 +101,7 @@ Class to inherit from to define the DataModel of a table.
 
 #### Example
 ```python
-from StructNoSQL2 import TableDataModel, BaseField
+from StructNoSQL import TableDataModel, BaseField
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str, required=True)
@@ -125,7 +125,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
     - default: `Any`
     - Examples :
       ```python
-      from StructNoSQL2 import TableDataModel, BaseField, MapModel, NoneType
+      from StructNoSQL import TableDataModel, BaseField, MapModel, NoneType
       from typing import Dict
       
       class AccountsTableModel(TableDataModel):
@@ -145,7 +145,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
     - default: `False`
     - Example :
       ```python
-      from StructNoSQL2 import TableDataModel, BaseField
+      from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
           accountId = BaseField(name="accountId", field_type=str, required=True)
@@ -158,7 +158,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
     - default: `False`
     - Example :
       ```python
-      from StructNoSQL2 import TableDataModel, BaseField
+      from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
           accountId = BaseField(name="accountId", field_type=str, not_modifiable=True)
@@ -173,7 +173,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
     - default: `None`
     - Example :
       ```python
-      from StructNoSQL2 import TableDataModel, BaseField
+      from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
           activePromoCode = BaseField(name="activePromoCode", field_type=str, custom_default_value="signupPromoCode")
@@ -188,7 +188,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
     - default: `None`
     - Example :
       ```python
-      from StructNoSQL2 import TableDataModel, BaseField, MapModel
+      from StructNoSQL import TableDataModel, BaseField, MapModel
       from typing import Dict
       
       class AccountsTableModel(TableDataModel):

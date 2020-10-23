@@ -154,7 +154,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
  
  ### Various infos about the inner-working of StructNoSQL
  
- #### Objects to primitives types :
+ #### Objects to primitives types
 - MapModel : dict
 - Dict: dict
 - List: list

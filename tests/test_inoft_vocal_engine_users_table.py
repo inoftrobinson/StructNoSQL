@@ -9,6 +9,7 @@ from StructNoSQL.practical_logger import message_with_vars
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str, required=True)
+    username = BaseField(name="username", field_type=str)
     class ProjectModel(MapModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
@@ -43,6 +44,8 @@ class TestTableOperations(unittest.TestCase):
         self.users_table = UsersTable()
         self.test_account_id = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
         self.test_project_id = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
+        self.test_account_email = "yay.com"
+        self.test_account_username = "Yay"
 
     def test_get_all_projects(self):
         response_items: Optional[List[dict]] = self.users_table.query(
@@ -311,6 +314,22 @@ class TestTableOperations(unittest.TestCase):
 
         success_delete_record_without_typo = self.users_table.delete_record(indexes_keys_selectors={"accountId": "testAccountId"})
         self.assertTrue(success_delete_record_without_typo)
+
+    def test_get_value_from_path_target_by_secondary_index(self):
+        account_id: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+            key_name="email", key_value=self.test_account_email, field_to_get="accountId"
+        )
+        self.assertEqual(account_id, self.test_account_id)
+
+        account_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
+            key_name="email", key_value=self.test_account_email,
+            getters={
+                "accountId": FieldGetter(target_path="accountId"),
+                "username": FieldGetter(target_path="username")
+            }
+        )
+        self.assertEqual(account_data.get("accountId", None), self.test_account_id)
+        self.assertEqual(account_data.get("username", None), self.test_account_username)
 
 
 if __name__ == '__main__':

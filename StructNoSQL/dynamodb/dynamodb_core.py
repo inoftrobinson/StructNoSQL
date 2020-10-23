@@ -161,6 +161,9 @@ class DynamoDbCoreAdapter:
         self.create_table = create_table
         self.billing_mode = billing_mode
         self.global_secondary_indexes = global_secondary_indexes
+        self._global_secondary_indexes_hash_keys = list()
+        for secondary_index in self.global_secondary_indexes:
+            self._global_secondary_indexes_hash_keys.append(secondary_index.hash_key_name)
 
         # We store the database clients in a static variable, so that if we init the class with
         # the same region_name, we do not need to wait for a new initialization of the client.
@@ -489,22 +492,47 @@ class DynamoDbCoreAdapter:
             print("More than one item has been found. Returning first item.")
             return response.items[0]
 
+    def _get_or_query_single_item(self, key_name: str, key_value: str, fields_to_get: List[str]) -> Optional[dict]:
+        if self.primary_index.hash_key_name == key_name:
+            response_item: Optional[dict] = self.get_item_by_primary_key(
+                key_name=key_name, key_value=key_value, fields_to_get=fields_to_get
+            ).item
+            return response_item
+        else:
+            if key_name not in self._global_secondary_indexes_hash_keys:
+                print(message_with_vars(
+                    message="A key_name was not the primary_index key_name, and was not found in the global_secondary_indexes"
+                            "hash_keys. Database query not executed, and None is being returned.",
+                    vars_dict={"primary_index.hash_key_name": self.primary_index.hash_key_name,
+                               "_global_secondary_indexes_hash_keys": self._global_secondary_indexes_hash_keys,
+                               "key_name": key_name, "key_value": key_value, "fields_to_get": fields_to_get}
+                ))
+                return None
+            else:
+                response_items: Optional[List[dict]] = self.query_by_key(
+                    index_name=key_name, key_name=key_name, key_value=key_value,
+                    fields_to_get=fields_to_get, query_limit=1
+                ).items
+                if isinstance(response_items, list) and len(response_items) > 0:
+                    return response_items[0]
+                else:
+                    return None
+
     def get_data_in_path_target(self, key_name: str, key_value: str, target_path_elements: List[DatabasePathElement],
                                 num_keys_to_navigation_into: int) -> Optional[any]:
         target_field = self._database_path_elements_to_dynamodb_target_string(database_path_elements=target_path_elements)
-        response_item: Optional[dict] = self.get_item_by_primary_key(
-            key_name=key_name, key_value=key_value, fields_to_get=[target_field]
-        ).item
-        for i, path_element in enumerate(target_path_elements):
-            if i + 1 > num_keys_to_navigation_into or (not isinstance(response_item, dict)):
-                break
+        response_item = self._get_or_query_single_item(key_name=key_name, key_value=key_value, fields_to_get=[target_field])
+        if response_item is not None:
+            for i, path_element in enumerate(target_path_elements):
+                if i + 1 > num_keys_to_navigation_into or (not isinstance(response_item, dict)):
+                    break
 
-            response_item = response_item.get(path_element.element_key, None)
-            if response_item is None:
-                # If the response_item is None, it means that one key has not been found,
-                # so we need to break the loop in order to try to call get on a None object,
-                # and then we will return the response_item, so we will return None.
-                break
+                response_item = response_item.get(path_element.element_key, None)
+                if response_item is None:
+                    # If the response_item is None, it means that one key has not been found,
+                    # so we need to break the loop in order to try to call get on a None object,
+                    # and then we will return the response_item, so we will return None.
+                    break
         return response_item
 
     def get_value_in_path_target(self, key_name: str, key_value: str, target_path_elements: List[DatabasePathElement]) -> Optional[any]:
@@ -531,10 +559,8 @@ class DynamoDbCoreAdapter:
         for path_elements_key, path_elements_item in targets_paths_elements.items():
             fields_to_get.append(self._database_path_elements_to_dynamodb_target_string(database_path_elements=path_elements_item))
 
-        response_items: Optional[dict] = self.get_item_by_primary_key(
-            key_name=key_name, key_value=key_value, fields_to_get=fields_to_get
-        ).item
-        if response_items is not None:
+        response_item = self._get_or_query_single_item(key_name=key_name, key_value=key_value, fields_to_get=fields_to_get)
+        if response_item is not None:
             output_dict: Dict[str, Any] = dict()
 
             for path_elements_key, path_elements_item in targets_paths_elements.items():
@@ -542,7 +568,7 @@ class DynamoDbCoreAdapter:
                     num_keys_to_navigation_into = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
                     first_path_element_item_element_key = path_elements_item[0].element_key
 
-                    current_navigated_response_item_value = response_items.get(first_path_element_item_element_key)
+                    current_navigated_response_item_value = response_item.get(first_path_element_item_element_key)
                     if current_navigated_response_item_value is not None:
                         current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
                         # We get separately the in its own dictionary the item with the key of the first_path_element, because when we

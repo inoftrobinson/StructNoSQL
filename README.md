@@ -45,10 +45,52 @@ for item_key, item in shopping_cart_items.items():
 
 ## API Summary
 
+### Table :
+
+[BaseTable](#BaseTable)
+
+[PrimaryIndex](#PrimaryIndex)
+
+[GlobalSecondaryIndex](#GlobalSecondaryIndex)
+
+### Data Models :
 [TableDataModel](#TableDataModel)
-[BaseField](#TableDataModel)
+
+[MapModel](#MapModel)
+
+### Fields :
+
+[BaseField](#BaseField)
+
 [MapField](#MapField)
 
+### Operations :
+
+[put_record](#put_record)
+
+[delete_record](#delete_record)
+
+[get_single_field_item_from_single_item](#get_single_field_item_from_single_item)
+
+[get_single_field_value_from_single_item](#get_single_field_value_from_single_item)
+
+[get_multiple_fields_items_from_single_item](#get_multiple_fields_items_from_single_item)
+
+[get_multiple_fields_values_from_single_item](#get_multiple_fields_values_from_single_item)
+
+[set_update_one_field](#set_update_one_field)
+
+[set_update_multiple_fields](#set_update_multiple_fields)
+
+[remove_single_item_at_path_target](#remove_single_item_at_path_target)
+
+[remove_multiple_items_at_path_targets](#remove_multiple_items_at_path_targets)
+
+### Operations constructor objects
+
+[FieldGetter](#FieldGetter)
+
+[FieldSetter](#FieldSetter)
 
 ## API Reference
 
@@ -160,4 +202,6 @@ Primary object to declare the fields of your table, or fields of items in maps a
 - MapModel : dict
 - Dict: dict
 - List: list
+
+ #### Conversion of floats to Decimals :
 

@@ -73,7 +73,7 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
 
             item_keys_to_pop: List[str] = list()
             for key, item in value.items():
-                item_matching_validation_model_variable: Optional[BaseField] = item_type_to_return_to.map_model.__dict__.get(key, None)
+                item_matching_validation_model_variable: Optional[BaseField] = getattr(item_type_to_return_to.map_model, key, None)
                 if item_matching_validation_model_variable is not None:
                     item, valid = validate_data(
                         value=item, item_type_to_return_to=item_matching_validation_model_variable,
@@ -138,7 +138,7 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
 
                         element_item_keys_to_pop: List[str] = list()
                         for element_item_key, element_item_value in item.items():
-                            element_item_matching_validation_model_variable: Optional[BaseField] = dict_items_excepted_type.__dict__.get(element_item_key, None)
+                            element_item_matching_validation_model_variable: Optional[BaseField] = getattr(dict_items_excepted_type, element_item_key, None)
                             if element_item_matching_validation_model_variable is not None:
                                 element_item_value, valid = validate_data(
                                     value=element_item_value, item_type_to_return_to=element_item_matching_validation_model_variable,
@@ -193,7 +193,7 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
         if list_items_models is not None:
             indexes_to_pop: List[int] = list()
             for i, item in enumerate(value):
-                matching_validation_model_variable: Optional[BaseField] = map_model.__dict__.get(key, None)
+                matching_validation_model_variable: Optional[BaseField] = getattr(map_model, key, None)
                 if matching_validation_model_variable is not None:
                     item, valid = validate_data(
                         value=item, expected_value_type=matching_validation_model_variable.field_type,

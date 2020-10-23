@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
     DynamoDBMapObjectSetter, Response
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, FieldRemover
-from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem
+from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem, TableDataModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
@@ -27,17 +27,50 @@ class BaseTable:
         )
 
         if not isinstance(data_model, type):
-            self.model = data_model
+            self._model = data_model
         else:
-            self.model = data_model()
-        assign_internal_mapping_from_class(table=self, class_instance=self.model)
+            self._model = data_model()
+        self._model_virtual_map_field = None
 
+        assign_internal_mapping_from_class(table=self, class_instance=self._model)
 
-    def delete_record(self):
-        raise Exception(f"Not yet implemented")
+    @property
+    def model(self) -> TableDataModel:
+        return self._model
 
-    def put_record(self):
-        raise Exception(f"Not yet implemented")
+    @property
+    def model_virtual_map_field(self) -> MapField:
+        if self._model_virtual_map_field is None:
+            self._model_virtual_map_field = MapField(name="", model=self._model)
+            # The model_virtual_map_field is a MapField with no name, that use the table model, which easily
+            # give us the ability to use the functions of the MapField object (for example, functions for
+            # data validation), with the data model of the table itself. For example, the put_record
+            # operation, needs to validate its data, based on the table data model, not a MapField.
+        return self._model_virtual_map_field
+
+    def put_record(self, record_dict_data: dict) -> bool:
+        self.model_virtual_map_field.populate(value=record_dict_data)
+        validated_data, is_valid = self.model_virtual_map_field.validate_data()
+        if is_valid is True:
+            return self.dynamodb_client.put_record(item_dict=validated_data)
+        else:
+            return False
+
+    def delete_record(self, indexes_keys_selectors: dict) -> bool:
+        found_all_indexes = True
+        for index_key, index_target_value in indexes_keys_selectors.items():
+            index_matching_field = getattr(self.model, index_key, None)
+            if index_matching_field is None:
+                found_all_indexes = False
+                print(message_with_vars(
+                    message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
+                    vars_dict={"index_key": index_key, "index_target_value": index_target_value, "index_matching_field": index_matching_field, "table.model": self.model}
+                ))
+
+        if found_all_indexes is True:
+            return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys_selectors)
+        else:
+            return False
 
 
     def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
@@ -267,22 +300,9 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                 table.fields_switch[current_field_path] = variable_item
 
                 output_mapping[variable_item.field_name] = assign_internal_mapping_from_class(
-                    table=table, class_type=variable_item,
-                    nested_field_path=current_field_path,
+                    table=table, class_type=variable_item, nested_field_path=current_field_path,
                     current_path_elements=variable_item.database_path
                 )
-
-            elif MapModel in variable_bases:
-                variable_item: MapField
-                print(variable_item)
-                continue
-
-                variable_item: MapModel
-                variable_item._database_path = {**current_path_elements}
-                output_mapping[variable_key] = assign_internal_mapping_from_class(
-                    table=table, class_type=variable_item, current_path_elements=variable_item.database_path
-                )
-
 
         except Exception as e:
             print(e)

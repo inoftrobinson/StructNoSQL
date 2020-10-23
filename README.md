@@ -1,7 +1,7 @@
 # StructNoSQL
 Structured document based NoSQL client for DynamoDB with automatic data validation and advanced database queries functions.
 
-### Installation (Python 3.7 is recommanded. Python 3.6+ is required) :
+### Installation (Python 3.6+ is required) :
 
 ```
 pip install StructNoSQL
@@ -41,3 +41,120 @@ for item_key, item in shopping_cart_items.items():
     # try to access them or even if you perform operations on them.
 
 ```
+
+
+## API Reference
+
+[TableDataModel](#TableDataModel)
+
+### `TableDataModel`
+
+Class to inherit from to define the DataModel of a table.
+
+#### Example
+```python
+from StructNoSQL import TableDataModel, BaseField
+
+class UsersTableModel(TableDataModel):
+    accountId = BaseField(name="accountId", field_type=str, required=True)
+    username = BaseField(name="username", field_type=str, required=True)
+```
+
+
+#### Objects to primitives types :
+- MapModel : dict
+- Dict: dict
+- List: list
+
+
+### `BaseField`
+Primary object to declare the fields of your table, or fields of items in maps and lists.
+
+#### Arguments
+
+ - `name`: The name that your field will have in your database, in the data gotten from the database, in your target 
+ paths, and that will be expected in set/update operations to the database. You are not required to have the same name
+ for the name parameter and the variable name to which you assigned the BaseField object, yet, we encourage it for code 
+ visibility.
+    - type: `str`
+    - required: `True`
+ - `field_type`: 
+    - type: `str|float|int|NoneType|Any|MapModel|list|dict|Dict[type, MapModel]|[type1, type2, ...]|(type1, type2, ...)`
+    - required: `False`
+    - default: `Any`
+    - Examples :
+      ```python
+      from StructNoSQL import TableDataModel, BaseField, MapModel, NoneType
+      from typing import Dict
+      
+      class AccountsTableModel(TableDataModel):
+          accountId = BaseField(name="accountId", field_type=str)
+          class ProjectModel(MapModel):
+              projectName = BaseField(name="projectName", field_type=str)
+          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
+          activePromoCode = BaseField(name="activePromoCode", field_type=[str, NoneType])
+      ```
+ - `required`: If a required field is missing from any data (both when setting/updating data, and when retrieving it), 
+ in a table model or in a MapModel, the data validation will print an error (without raising an exception), and not 
+ insert or include the data in the response. If some items in a list or map fails the data validation, only the specific 
+ items that fails will not be inserted/not included in the response; the other items that passed the data validation 
+ will be included.
+    - type: `bool`
+    - required: `False`
+    - default: `False`
+    - Example :
+      ```python
+      from StructNoSQL import TableDataModel, BaseField
+      
+      class AccountsTableModel(TableDataModel):
+          accountId = BaseField(name="accountId", field_type=str, required=True)
+      ```
+ - `not_modifiable`: Act as a read-only parameter. Once a field_value that is not_modifiable is set, trying to change
+ or update its value will cause a rejection from the data validation (without raising an exception). You might use
+ this parameter for your id's fields.
+    - type: `bool`
+    - required: `False`
+    - default: `False`
+    - Example :
+      ```python
+      from StructNoSQL import TableDataModel, BaseField
+      
+      class AccountsTableModel(TableDataModel):
+          accountId = BaseField(name="accountId", field_type=str, not_modifiable=True)
+      ```
+ - `custom_default_value`: When you insert/update an item model, all the fields that were not required and that you did
+ not specify will initialize themselves with the field_type that you precised (or the first acceptable field_type if
+ you have a list or tuple of types as the field_type, or the primitive field_type of an object. [Learn more about 
+ objects primitive types](#objects-to-primitives-types-:)). By specifying a custom_default_value, you can override this
+ behavior just explained, and bring your own default_values to the initialization of a field.
+    - type: `Any`
+    - required: `False`
+    - default: `None`
+    - Example :
+      ```python
+      from StructNoSQL import TableDataModel, BaseField
+      
+      class AccountsTableModel(TableDataModel):
+          activePromoCode = BaseField(name="activePromoCode", field_type=str, custom_default_value="signupPromoCode")
+      ```
+ - `key_name`: Reserved for BaseField's with field_type Dict[str, type]. Allows you to define a specific key that will
+ be used in your database_path for navigating inside an item in your field, instead of the default f"{field.name}key".
+ So, without specifying a key_name on our projects field below, the key_name in the database_path to navigate into
+ items of the dict, would be projectsKey (the name of the field, with 'Key' appended to it). By defining our own 
+ key_name, we can customize the key to something more fitting to what the key represent, for example : 'projectId'.
+    - type: `str`
+    - required: `False`
+    - default: `None`
+    - Example :
+      ```python
+      from StructNoSQL import TableDataModel, BaseField, MapModel
+      from typing import Dict
+      
+      class AccountsTableModel(TableDataModel):
+          class ProjectModel(MapModel):
+              projectName = BaseField(name="projectName", field_type=str)
+          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
+      ```
+ 
+ 
+

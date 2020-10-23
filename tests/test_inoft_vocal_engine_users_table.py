@@ -8,7 +8,7 @@ from StructNoSQL.practical_logger import message_with_vars
 
 
 class UsersTableModel(TableDataModel):
-    accountId = BaseField(name="accountId", field_type=str)
+    accountId = BaseField(name="accountId", field_type=str, required=True)
     class ProjectModel(MapModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
@@ -298,6 +298,19 @@ class TestTableOperations(unittest.TestCase):
             ]
         )
         self.assertTrue(success_fields_remove)
+
+    def test_put_and_delete_records(self):
+        success_put_invalid_record = self.users_table.put_record(record_dict_data={"invalidAccountId": "testAccountId", "multiTypes": "testPutRecord"})
+        self.assertFalse(success_put_invalid_record)
+
+        success_put_valid_record = self.users_table.put_record(record_dict_data={"accountId": "testAccountId", "multiTypes": "testPutRecord"})
+        self.assertTrue(success_put_valid_record)
+
+        success_delete_record_with_index_typo = self.users_table.delete_record(indexes_keys_selectors={"accountIdWithTypo": "testAccountId"})
+        self.assertFalse(success_delete_record_with_index_typo)
+
+        success_delete_record_without_typo = self.users_table.delete_record(indexes_keys_selectors={"accountId": "testAccountId"})
+        self.assertTrue(success_delete_record_without_typo)
 
 
 if __name__ == '__main__':

@@ -6,9 +6,6 @@ from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 
 
-class TableDataModel:
-    pass
-
 class BaseDataModel:
     def __init__(self):
         self.childrens_map: Optional[dict] = None
@@ -29,6 +26,11 @@ class MapModel(BaseDataModel):
     @property
     def dict(self) -> dict:
         return self.childrens_map if self.childrens_map is not None else self.kwargs
+
+class TableDataModel(MapModel):
+    # The TableDataModel inherit from MapModel, to allow easier validation of record data.
+    # For example, when the put_record function is used, and needs data validation.
+    pass
 
 
 class BaseItem:
@@ -70,7 +72,7 @@ class BaseItem:
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
 
-    def validate_data(self, load_data_into_objects: bool) -> Optional[Any]:
+    def validate_data(self, load_data_into_objects: bool = False) -> Tuple[Optional[Any], bool]:
         from StructNoSQL.validator import validate_data
         validated_data, valid = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,

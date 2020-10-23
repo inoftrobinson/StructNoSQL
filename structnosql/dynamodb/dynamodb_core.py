@@ -172,7 +172,7 @@ class DynamoDbCoreAdapter:
             print(f"Re-using the already created dynamodb client for the default region")
         else:
             print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
-                  f"\nOtherwise the framework will get stuck at initializing the {self}")
+                  f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
             dynamodb_regions = Session().get_available_regions("dynamodb")
             if region_name in dynamodb_regions:
@@ -211,15 +211,27 @@ class DynamoDbCoreAdapter:
                 if e.__class__.__name__ != "ResourceInUseException":
                     raise Exception(f"Create table if not exists request failed: Exception of type {type(e).__name__} occurred {str(e)}")
 
-    def put_item_dict(self, item_dict: dict) -> Response:
+    def put_record(self, item_dict: dict) -> bool:
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.put_item(Item=item_dict)
-            return response
+            return True if response is not None else False
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to save attributes to DynamoDb table.")
         except Exception as e:
-            raise Exception(f"Failed to save attributes to DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
+            print(f"Failed to save attributes to DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
+        return False
+
+    def delete_record(self, indexes_keys_selectors: dict) -> bool:
+        try:
+            table = self.dynamodb.Table(self.table_name)
+            response = table.delete_item(Key=indexes_keys_selectors)
+            return True if response is not None else False
+        except ResourceNotExistsError:
+            raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to save attributes to DynamoDb table.")
+        except Exception as e:
+            print(e)
+        return False
 
     def get_item_by_primary_key(self, key_name: str, key_value: any, fields_to_get: Optional[List[str]]) -> Optional[GetItemResponse]:
         if fields_to_get is not None:

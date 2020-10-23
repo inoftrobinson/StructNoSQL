@@ -1,10 +1,10 @@
 from typing import Optional, List, Dict, Any
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
+from StructNoSQL2.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
     DynamoDBMapObjectSetter, Response
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, FieldRemover
-from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem, TableDataModel
-from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
+from StructNoSQL2.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, FieldRemover
+from StructNoSQL2.fields import BaseField, MapModel, MapField, MapItem, TableDataModel
+from StructNoSQL2.practical_logger import message_with_vars
+from StructNoSQL2.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
 
 

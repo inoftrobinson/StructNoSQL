@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 
-from StructNoSQL.dynamodb.dynamodb_core import Response
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL2.dynamodb.dynamodb_core import Response
+from StructNoSQL2.dynamodb.models import DatabasePathElement
 
 
 class Query:
@@ -9,8 +9,8 @@ class Query:
             self, table, variable_validator: Any, key_name: str, key_value: str, index_name: Optional[str] = None,
             target_database_path: Optional[List[DatabasePathElement]] = None,
     ):
-        from StructNoSQL.table import BaseTable
-        from StructNoSQL.fields import BaseField
+        from StructNoSQL2.table import BaseTable
+        from StructNoSQL2.fields import BaseField
         self._table: BaseTable = table
         self._variable_validator: BaseField = variable_validator
 

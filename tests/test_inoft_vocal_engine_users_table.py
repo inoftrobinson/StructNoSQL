@@ -1,10 +1,10 @@
 import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
+from StructNoSQL2 import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
     NoneType, FieldGetter, FieldSetter, FieldRemover
-from StructNoSQL.exceptions import FieldTargetNotFoundException
-from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL2.exceptions import FieldTargetNotFoundException
+from StructNoSQL2.practical_logger import message_with_vars
 
 
 class UsersTableModel(TableDataModel):

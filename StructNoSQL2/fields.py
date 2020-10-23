@@ -1,9 +1,9 @@
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
-from StructNoSQL.dummy_object import DummyObject
-from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.query import Query
+from StructNoSQL2.dummy_object import DummyObject
+from StructNoSQL2.dynamodb.models import DatabasePathElement
+from StructNoSQL2.practical_logger import message_with_vars
+from StructNoSQL2.query import Query
 
 
 class BaseDataModel:
@@ -73,7 +73,7 @@ class BaseItem:
                     raise Exception(f"List not yet implemented.")
 
     def validate_data(self, load_data_into_objects: bool = False) -> Tuple[Optional[Any], bool]:
-        from StructNoSQL.validator import validate_data
+        from StructNoSQL2.validator import validate_data
         validated_data, valid = validate_data(
             value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
             expected_value_type=self._field_type, map_model=self.map_model,
@@ -240,7 +240,7 @@ class MapItem(BaseField):
         super().__init__(name=None, field_type=dict, custom_default_value=dict())
         self.map_model = model_type
 
-        from StructNoSQL.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
+        from StructNoSQL2.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
         element_key = make_dict_key_var_name(parent_field.key_name)
         default_type = try_to_get_primitive_default_type_of_item(parent_field.dict_items_excepted_type)
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)

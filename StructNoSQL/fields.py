@@ -184,7 +184,7 @@ class BaseField(BaseItem):
     def dict_item(self):
         """ :return: BaseField """
         if self._field_type == dict and self.dict_items_excepted_type is not None:
-            map_item = MapItem(model_type=self.dict_items_excepted_type, parent_field=self)
+            map_item = MapItem(parent_field=self, field_type=self.dict_items_excepted_type, model_type=self.dict_items_excepted_type)
             return map_item
         else:
             raise Exception(message_with_vars(
@@ -236,8 +236,8 @@ class BaseField(BaseItem):
 class MapItem(BaseField):
     _default_primitive_type = dict
 
-    def __init__(self, model_type: type, parent_field: BaseField):
-        super().__init__(name=None, field_type=dict, custom_default_value=dict())
+    def __init__(self, parent_field: BaseField, model_type: type, field_type: type):
+        super().__init__(name=None, field_type=field_type, custom_default_value=field_type())
         self.map_model = model_type
 
         from StructNoSQL.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item

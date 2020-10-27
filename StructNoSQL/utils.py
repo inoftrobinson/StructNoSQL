@@ -50,4 +50,3 @@ def get_function_or_class_from_file_and_path(file_filepath: str, path_qualname: 
                                                             path_remaining_elements=path_list[1:])
     return None
 
-

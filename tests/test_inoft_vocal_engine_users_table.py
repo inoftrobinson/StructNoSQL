@@ -32,6 +32,8 @@ class UsersTableModel(TableDataModel):
         sampleText = BaseField(name="sampleText", field_type=str, required=False)
     testMapModel = MapField(name="testMapModel", model=TestMapModel)
 
+    testDictWithPrimitiveValue = BaseField(name="testDictWithPrimitiveValue", field_type=Dict[str, bool], key_name="key")
+
 
 class UsersTable(BaseTable):
     def __init__(self):
@@ -357,6 +359,22 @@ class TestTableOperations(unittest.TestCase):
             target_field="testMapModel.sampleText"
         )
         self.assertEqual(remove_field_success, True)
+
+    def test_set_dict_item_with_primitive_value(self):
+        success_valid = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testDictWithPrimitiveValue.{{key}}",
+            query_kwargs={"key": "one"}, value_to_set=True
+        )
+        self.assertTrue(success_valid)
+
+        success_invalid = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testDictWithPrimitiveValue.{{key}}",
+            query_kwargs={"key": "one"},
+            value_to_set={"keyOfDictThatShouldNotBeHere": True}
+        )
+        self.assertFalse(success_invalid)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,8 @@
 import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+from uuid import uuid4
+
 from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
     NoneType, FieldGetter, FieldSetter, FieldRemover
 from StructNoSQL.exceptions import FieldTargetNotFoundException
@@ -9,7 +11,7 @@ from StructNoSQL.practical_logger import message_with_vars
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str, required=True)
-    username = BaseField(name="username", field_type=str)
+    username = BaseField(name="accountUsername", field_type=str)
     class ProjectModel(MapModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
@@ -25,6 +27,10 @@ class UsersTableModel(TableDataModel):
     class SophisticatedRemovalModel(MapModel):
         nestedVariable = BaseField(name="nestedVariable", field_type=str, required=False)
     sophisticatedRemoval = BaseField(name="sophisticatedRemoval", field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)
+
+    class TestMapModel(MapModel):
+        sampleText = BaseField(name="sampleText", field_type=str, required=False)
+    testMapModel = MapField(name="testMapModel", model=TestMapModel)
 
 
 class UsersTable(BaseTable):
@@ -325,12 +331,32 @@ class TestTableOperations(unittest.TestCase):
             key_name="email", key_value=self.test_account_email,
             getters={
                 "accountId": FieldGetter(target_path="accountId"),
-                "username": FieldGetter(target_path="username")
+                "accountUsername": FieldGetter(target_path="accountUsername")
             }
         )
         self.assertEqual(account_data.get("accountId", None), self.test_account_id)
-        self.assertEqual(account_data.get("username", None), self.test_account_username)
+        self.assertEqual(account_data.get("accountUsername", None), self.test_account_username)
 
+    def test_set_data_inside_a_map_model_field(self):
+        dummy_value = str(uuid4())
+
+        set_update_success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testMapModel.sampleText", value_to_set=dummy_value
+        )
+        self.assertEqual(set_update_success, True)
+
+        retrieved_value = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="testMapModel.sampleText"
+        )
+        self.assertEqual(retrieved_value, dummy_value)
+
+        remove_field_success = self.users_table.remove_single_item_at_path_target(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testMapModel.sampleText"
+        )
+        self.assertEqual(remove_field_success, True)
 
 if __name__ == '__main__':
     unittest.main()

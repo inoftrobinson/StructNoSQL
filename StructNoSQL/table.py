@@ -7,6 +7,7 @@ from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
 
+# todo: add ability to add or remove items from list's
 
 class DatabaseKey(str):
     pass
@@ -100,14 +101,14 @@ class BaseTable:
             )
         return getters_database_paths
 
-    def get_multiple_fields_items_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]):
+    def get_multiple_fields_items_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_items_in_multiple_path_target(
             key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
         )
         return response_data
 
-    def get_multiple_fields_values_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]):
+    def get_multiple_fields_values_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
             key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
@@ -246,13 +247,28 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
         current_field_path = "" if nested_field_path is None else f"{nested_field_path}"
 
         try:
-            if not isinstance(variable_item, type):
-                variable_bases = variable_item.__class__.__bases__
-            else:
-                variable_bases = variable_item.__bases__
+            if isinstance(variable_item, MapField):
+                variable_item: MapField
+                new_database_path_element = DatabasePathElement(
+                    element_key=variable_item.field_name,
+                    default_type=variable_item.field_type,
+                    custom_default_value=variable_item.custom_default_value
+                )
+                variable_item._database_path = [*current_path_elements, new_database_path_element]
+                variable_item._table = table
 
-            # if BaseField in variable_bases:
-            if isinstance(variable_item, BaseField):
+                if variable_item.required is True:
+                    required_fields.append(variable_item)
+
+                current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
+                table.fields_switch[current_field_path] = variable_item
+
+                output_mapping[variable_item.field_name] = assign_internal_mapping_from_class(
+                    table=table, class_type=variable_item.map_model, nested_field_path=current_field_path,
+                    current_path_elements=[*variable_item.database_path]
+                )
+
+            elif isinstance(variable_item, BaseField):
                 variable_item: BaseField
                 new_database_path_element = DatabasePathElement(
                     element_key=variable_item.field_name,
@@ -282,27 +298,6 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                         table=table, class_type=variable_item.dict_items_excepted_type, nested_field_path=current_field_path,
                         current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                     )
-
-            elif MapField in variable_bases:
-                variable_item: MapField
-                new_database_path_element = DatabasePathElement(
-                    element_key=variable_item.field_name,
-                    default_type=variable_item.field_type,
-                    custom_default_value=variable_item.custom_default_value
-                )
-                variable_item._database_path = [*current_path_elements, new_database_path_element]
-                variable_item._table = table
-
-                if variable_item.required is True:
-                    required_fields.append(variable_item)
-
-                current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
-                table.fields_switch[current_field_path] = variable_item
-
-                output_mapping[variable_item.field_name] = assign_internal_mapping_from_class(
-                    table=table, class_type=variable_item, nested_field_path=current_field_path,
-                    current_path_elements=variable_item.database_path
-                )
 
         except Exception as e:
             print(e)

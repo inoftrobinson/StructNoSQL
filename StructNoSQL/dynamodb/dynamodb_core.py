@@ -50,14 +50,18 @@ class GlobalSecondaryIndex(Index):
     ALL_PROJECTIONS_TYPES = [PROJECTION_TYPE_USE_ALL, PROJECTION_TYPE_KEYS_ONLY, PROJECTION_TYPE_INCLUDE]
 
     projection_type: str
+    non_key_attributes: Optional[List[str]]
 
     def __init__(self, hash_key_name: str, hash_key_variable_python_type: Type,
                  projection_type: str, non_key_attributes: Optional[List[str]],
                  sort_key_name: Optional[str] = None, sort_key_variable_python_type: Optional[Type] = None,
                  index_custom_name: Optional[str] = None):
 
-        super().__init__(hash_key_name=hash_key_name, hash_key_variable_python_type=hash_key_variable_python_type,
-                         sort_key_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type)
+        super().__init__(
+            hash_key_name=hash_key_name, hash_key_variable_python_type=hash_key_variable_python_type,
+            sort_key_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type,
+            projection_type=projection_type, non_key_attributes=non_key_attributes
+        )
 
         if projection_type not in self.ALL_PROJECTIONS_TYPES:
             raise Exception(f"{projection_type} has not been found in the available projection_types : {self.ALL_PROJECTIONS_TYPES}")

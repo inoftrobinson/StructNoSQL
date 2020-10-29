@@ -187,7 +187,6 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
                 value.pop(item_key_to_pop)
             return value, True
 
-
     elif value_type == list:
         value: list
         if list_items_models is not None:

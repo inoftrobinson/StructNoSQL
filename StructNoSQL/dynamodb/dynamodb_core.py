@@ -51,16 +51,24 @@ class GlobalSecondaryIndex(Index):
 
     projection_type: str
 
-    def __init__(self, projection_type: str, hash_key_name: str, hash_key_variable_python_type: Type,
+    def __init__(self, hash_key_name: str, hash_key_variable_python_type: Type,
+                 projection_type: str, non_key_attributes: Optional[List[str]],
                  sort_key_name: Optional[str] = None, sort_key_variable_python_type: Optional[Type] = None,
                  index_custom_name: Optional[str] = None):
 
         super().__init__(hash_key_name=hash_key_name, hash_key_variable_python_type=hash_key_variable_python_type,
-                         sort_key_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type,
-                         projection_type=projection_type)
+                         sort_key_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type)
 
         if projection_type not in self.ALL_PROJECTIONS_TYPES:
             raise Exception(f"{projection_type} has not been found in the available projection_types : {self.ALL_PROJECTIONS_TYPES}")
+        if non_key_attributes is not None:
+            if projection_type == self.PROJECTION_TYPE_INCLUDE:
+                self.non_key_attributes = non_key_attributes
+            else:
+                raise Exception(f"In order to use non_key_attributes, you must specify the projection_type as {self.PROJECTION_TYPE_INCLUDE}")
+        else:
+            self.non_key_attributes = None
+
         self.projection_type = projection_type
 
     def to_dict(self):
@@ -84,6 +92,9 @@ class GlobalSecondaryIndex(Index):
                 "ProjectionType": self.projection_type
             }
         }
+        if self.non_key_attributes is not None:
+            output_dict["Projection"]["NonKeyAttributes"] = self.non_key_attributes
+
         if self.sort_key_name is not None and self.sort_key_variable_python_type is not None:
             output_dict["KeySchema"].append({
                 "AttributeName": self.sort_key_name,

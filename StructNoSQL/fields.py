@@ -262,6 +262,3 @@ class ListField(BaseField):
         self._list_items_model = items_model
         # todo: allow to have multiple items_model and that an item can be one of many item models
         # self.populate(value=model().dict)
-
-
-

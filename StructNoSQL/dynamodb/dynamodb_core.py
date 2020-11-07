@@ -16,6 +16,7 @@ from StructNoSQL.utils.static_logger import logger
 
 HASH_KEY_TYPE = "HASH"
 SORT_KEY_TYPE = "RANGE"
+EXPRESSION_MAX_BYTES_SIZE = 4000  # DynamoDB max expression size is 4kb
 
 
 class GetItemResponse(BaseModel):
@@ -53,7 +54,7 @@ class GlobalSecondaryIndex(Index):
     non_key_attributes: Optional[List[str]]
 
     def __init__(self, hash_key_name: str, hash_key_variable_python_type: Type,
-                 projection_type: str, non_key_attributes: Optional[List[str]],
+                 projection_type: str, non_key_attributes: Optional[List[str]] = None,
                  sort_key_name: Optional[str] = None, sort_key_variable_python_type: Optional[Type] = None,
                  index_custom_name: Optional[str] = None):
 
@@ -410,40 +411,8 @@ class DynamoDbCoreAdapter:
                 response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         return response
 
-    def set_update_multiple_data_elements_to_map(self, key_name: str, key_value: Any,
-                                                 setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
-        if not len(setters) > 0:
-            # If we tried to run the query with no object setter,
-            # she will crash when executed. So we return None.
-            return None
-
-        update_query_kwargs = {
-            "TableName": self.table_name,
-            "Key": {key_name: key_value},
-            "ReturnValues": "UPDATED_NEW"
-        }
-        update_expression = "SET "
-        expression_attribute_names_dict = dict()
-        attribute_values_expression_dict = dict()
-        for i_setter, current_setter in enumerate(setters):
-            for i_path, current_path_element in enumerate(current_setter.target_path_elements):
-                current_path_key = f"#setter{i_setter}_pathKey{i_path}"
-                update_expression += current_path_key
-                expression_attribute_names_dict[current_path_key] = current_path_element.element_key
-                if i_path + 1 < len(current_setter.target_path_elements):
-                    update_expression += "."
-                else:
-                    update_expression += f" = :item{i_setter}"
-                    attribute_values_expression_dict[f":item{i_setter}"] = current_setter.value_to_set
-
-            if i_setter + 1 < len(setters):
-                update_expression += ", "
-
-        update_query_kwargs["UpdateExpression"] = update_expression
-        update_query_kwargs["ExpressionAttributeValues"] = attribute_values_expression_dict
-        if len(expression_attribute_names_dict) > 0:
-            update_query_kwargs["ExpressionAttributeNames"] = expression_attribute_names_dict
-
+    def _execute_update_query_with_initialization_if_missing(self, key_name: str, key_value: Any, update_query_kwargs: dict,
+                                                             setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         if response is None:
             # If the response is None, it means that one of the path of the
@@ -458,6 +427,86 @@ class DynamoDbCoreAdapter:
                 ))
             response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         return response
+
+    def set_update_multiple_data_elements_to_map(self, key_name: str, key_value: Any,
+                                                 setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
+        if not len(setters) > 0:
+            # If we tried to run the query with no object setter,
+            # she will crash when executed. So we return None.
+            return None
+
+        update_query_kwargs = {
+            "TableName": self.table_name,
+            "Key": {key_name: key_value},
+            "ReturnValues": "UPDATED_NEW"
+        }
+        update_expression = "SET "
+        expression_attribute_names_dict = dict()
+        expression_attribute_values_dict = dict()
+
+        from sys import getsizeof
+        consumed_setters: List[DynamoDBMapObjectSetter] = list()
+        for i_setter, current_setter in enumerate(setters):
+            current_setter_update_expression = ""
+            current_setter_attribute_names = dict()
+            current_setter_attribute_values = dict()
+
+            for i_path, current_path_element in enumerate(current_setter.target_path_elements):
+                current_path_key = f"#setter{i_setter}_pathKey{i_path}"
+                current_setter_update_expression += current_path_key
+                current_setter_attribute_names[current_path_key] = current_path_element.element_key
+                if i_path + 1 < len(current_setter.target_path_elements):
+                    current_setter_update_expression += "."
+                else:
+                    current_setter_update_expression += f" = :item{i_setter}"
+                    current_setter_attribute_values[f":item{i_setter}"] = current_setter.value_to_set
+
+            complete_update_expression_bytes_size = getsizeof(update_expression)
+            # complete_update_query_attribute_names_bytes_size = getsizeof(expression_attribute_names_dict)
+            # complete_update_query_attribute_values_bytes_size = getsizeof(expression_attribute_values_dict)
+            current_setter_update_expression_bytes_size = getsizeof(current_setter_update_expression)
+            # current_setter_attribute_names_bytes_size = getsizeof(current_setter_attribute_names)
+            # current_setter_attribute_values_bytes_size = getsizeof(current_setter_attribute_values)
+            update_expression_bytes_size_if_setter_is_added = complete_update_expression_bytes_size + current_setter_update_expression_bytes_size
+            # attributes_names_bytes_size_if_setter_is_added = complete_update_query_attribute_names_bytes_size + current_setter_attribute_names_bytes_size
+            # attributes_values_bytes_size_if_setter_is_added = complete_update_query_attribute_values_bytes_size + current_setter_attribute_values_bytes_size
+            if update_expression_bytes_size_if_setter_is_added < EXPRESSION_MAX_BYTES_SIZE:
+                if i_setter > 0:
+                    update_expression += ", "
+                update_expression += current_setter_update_expression
+                expression_attribute_names_dict = {**expression_attribute_names_dict, **current_setter_attribute_names}
+                expression_attribute_values_dict = {**expression_attribute_values_dict, **current_setter_attribute_values}
+                consumed_setters.append(current_setter)
+            else:
+                print(message_with_vars(
+                    message="Update operation expression size has reached over 4kb. "
+                            "The operation will be divided in a secondary operation (which could also be divided)",
+                    vars_dict={
+                        'key_name': key_name, 'key_value': key_value,
+                        'setters': setters, 'update_expression': update_expression,
+                        'current_setter_update_expression': current_setter_update_expression,
+                        'current_setter_attribute_names': current_setter_attribute_names,
+                        'current_setter_attribute_values': current_setter_attribute_values
+                    }
+                ))
+                break
+
+        update_query_kwargs["UpdateExpression"] = update_expression
+        update_query_kwargs["ExpressionAttributeValues"] = expression_attribute_values_dict
+        if len(expression_attribute_names_dict) > 0:
+            update_query_kwargs["ExpressionAttributeNames"] = expression_attribute_names_dict
+
+        response = self._execute_update_query_with_initialization_if_missing(
+            key_name=key_name, key_value=key_value,
+            update_query_kwargs=update_query_kwargs, setters=consumed_setters
+        )
+        if len(consumed_setters) == len(setters):
+            return response
+        else:
+            for setter in consumed_setters:
+                setters.remove(setter)
+            return self.set_update_multiple_data_elements_to_map(key_name=key_name, key_value=key_value, setters=setters)
+
 
     def query_by_key(self, key_name: str, key_value: Any, index_name: Optional[str] = None,
                      fields_to_get: Optional[list] = None, filter_expression: Optional[Any] = None,
@@ -673,5 +722,3 @@ class DynamoDbCoreAdapter:
             output_kwargs["ProjectionExpression"] = projection_expression
 
         return output_kwargs
-
-

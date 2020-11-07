@@ -42,7 +42,7 @@ class UsersTable(BaseTable):
             GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type="ALL"),
             GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
         ]
-        super().__init__(table_name="inoft-vocal-engine_accounts-data", region_name="eu-west-2", data_model=UsersTableModel(),
+        super().__init__(table_name="inoft-vocal-engine_accounts-data_dev", region_name="eu-west-2", data_model=UsersTableModel(),
                          primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
 
@@ -212,7 +212,7 @@ class TestTableOperations(unittest.TestCase):
                 FieldSetter(
                     target_path="projects.{{projectId}}.projectName",
                     query_kwargs={"projectId": self.test_project_id},
-                    value_to_set="test5", 
+                    value_to_set="test5",
                 )
             ]
         )

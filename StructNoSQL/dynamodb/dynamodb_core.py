@@ -470,7 +470,7 @@ class DynamoDbCoreAdapter:
             update_expression_bytes_size_if_setter_is_added = complete_update_expression_bytes_size + current_setter_update_expression_bytes_size
             # attributes_names_bytes_size_if_setter_is_added = complete_update_query_attribute_names_bytes_size + current_setter_attribute_names_bytes_size
             # attributes_values_bytes_size_if_setter_is_added = complete_update_query_attribute_values_bytes_size + current_setter_attribute_values_bytes_size
-            if (update_expression_bytes_size_if_setter_is_added < EXPRESSION_MAX_BYTES_SIZE):
+            if update_expression_bytes_size_if_setter_is_added < EXPRESSION_MAX_BYTES_SIZE:
                 if i_setter > 0:
                     update_expression += ", "
                 update_expression += current_setter_update_expression

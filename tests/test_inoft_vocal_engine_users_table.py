@@ -1,6 +1,8 @@
 import unittest
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+from uuid import uuid4
+
 from StructNoSQL import BaseTable, BaseField, MapModel, MapField, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, \
     NoneType, FieldGetter, FieldSetter, FieldRemover
 from StructNoSQL.exceptions import FieldTargetNotFoundException
@@ -9,6 +11,7 @@ from StructNoSQL.practical_logger import message_with_vars
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str, required=True)
+    username = BaseField(name="accountUsername", field_type=str)
     class ProjectModel(MapModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
@@ -25,6 +28,12 @@ class UsersTableModel(TableDataModel):
         nestedVariable = BaseField(name="nestedVariable", field_type=str, required=False)
     sophisticatedRemoval = BaseField(name="sophisticatedRemoval", field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)
 
+    class TestMapModel(MapModel):
+        sampleText = BaseField(name="sampleText", field_type=str, required=False)
+    testMapModel = MapField(name="testMapModel", model=TestMapModel)
+
+    testDictWithPrimitiveValue = BaseField(name="testDictWithPrimitiveValue", field_type=Dict[str, bool], key_name="key")
+
 
 class UsersTable(BaseTable):
     def __init__(self):
@@ -33,7 +42,7 @@ class UsersTable(BaseTable):
             GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type="ALL"),
             GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
         ]
-        super().__init__(table_name="inoft-vocal-engine_accounts-data", region_name="eu-west-2", data_model=UsersTableModel(),
+        super().__init__(table_name="inoft-vocal-engine_accounts-data_dev", region_name="eu-west-2", data_model=UsersTableModel(),
                          primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
 
@@ -43,6 +52,8 @@ class TestTableOperations(unittest.TestCase):
         self.users_table = UsersTable()
         self.test_account_id = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
         self.test_project_id = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
+        self.test_account_email = "yay.com"
+        self.test_account_username = "Yay"
 
     def test_get_all_projects(self):
         response_items: Optional[List[dict]] = self.users_table.query(
@@ -201,7 +212,7 @@ class TestTableOperations(unittest.TestCase):
                 FieldSetter(
                     target_path="projects.{{projectId}}.projectName",
                     query_kwargs={"projectId": self.test_project_id},
-                    value_to_set="test5", 
+                    value_to_set="test5",
                 )
             ]
         )
@@ -312,6 +323,58 @@ class TestTableOperations(unittest.TestCase):
         success_delete_record_without_typo = self.users_table.delete_record(indexes_keys_selectors={"accountId": "testAccountId"})
         self.assertTrue(success_delete_record_without_typo)
 
+    def test_get_value_from_path_target_by_secondary_index(self):
+        account_id: Optional[str] = self.users_table.get_single_field_value_from_single_item(
+            key_name="email", key_value=self.test_account_email, field_to_get="accountId"
+        )
+        self.assertEqual(account_id, self.test_account_id)
+
+        account_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
+            key_name="email", key_value=self.test_account_email,
+            getters={
+                "accountId": FieldGetter(target_path="accountId"),
+                "accountUsername": FieldGetter(target_path="accountUsername")
+            }
+        )
+        self.assertEqual(account_data.get("accountId", None), self.test_account_id)
+        self.assertEqual(account_data.get("accountUsername", None), self.test_account_username)
+
+    def test_set_data_inside_a_map_model_field(self):
+        dummy_value = str(uuid4())
+
+        set_update_success = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testMapModel.sampleText", value_to_set=dummy_value
+        )
+        self.assertEqual(set_update_success, True)
+
+        retrieved_value = self.users_table.get_single_field_value_from_single_item(
+            key_name="accountId", key_value=self.test_account_id,
+            field_to_get="testMapModel.sampleText"
+        )
+        self.assertEqual(retrieved_value, dummy_value)
+
+        remove_field_success = self.users_table.remove_single_item_at_path_target(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testMapModel.sampleText"
+        )
+        self.assertEqual(remove_field_success, True)
+
+    def test_set_dict_item_with_primitive_value(self):
+        success_valid = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testDictWithPrimitiveValue.{{key}}",
+            query_kwargs={"key": "one"}, value_to_set=True
+        )
+        self.assertTrue(success_valid)
+
+        success_invalid = self.users_table.set_update_one_field(
+            key_name="accountId", key_value=self.test_account_id,
+            target_field="testDictWithPrimitiveValue.{{key}}",
+            query_kwargs={"key": "one"},
+            value_to_set={"keyOfDictThatShouldNotBeHere": True}
+        )
+        self.assertFalse(success_invalid)
 
 if __name__ == '__main__':
     unittest.main()

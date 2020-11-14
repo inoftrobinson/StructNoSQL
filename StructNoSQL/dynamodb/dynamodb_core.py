@@ -510,12 +510,14 @@ class DynamoDbCoreAdapter:
 
     def query_by_key(self, key_name: str, key_value: Any, index_name: Optional[str] = None,
                      fields_to_get: Optional[list] = None, filter_expression: Optional[Any] = None,
-                     query_limit: Optional[int] = None) -> Response:
+                     query_limit: Optional[int] = None, **additional_kwargs) -> Response:
 
         if fields_to_get is not None:
             kwargs = self._fields_to_get_to_expressions(fields_to_get=fields_to_get)
         else:
             kwargs = dict()
+        if additional_kwargs is not None:
+            kwargs = {**kwargs, **additional_kwargs}
 
         kwargs["KeyConditionExpression"] = Key(key_name).eq(key_value)
         if index_name is not None:

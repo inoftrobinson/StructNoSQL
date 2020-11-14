@@ -17,6 +17,9 @@ def validate_data(value: Any, expected_value_type: Any, load_data_into_objects: 
 
     value_type = type(value)
 
+    if expected_value_type == Any:
+        return value, True
+
     if type(expected_value_type) in [list, tuple]:
         has_found_match = False
         for acceptable_value_type in expected_value_type:

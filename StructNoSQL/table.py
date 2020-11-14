@@ -117,15 +117,16 @@ class BaseTable:
         return response_data
 
 
-    def query(self, key_name: str, key_value: str, fields_to_get: List[str], index_name: Optional[str] = None,
-              limit: Optional[int] = None, query_kwargs: Optional[dict] = None) -> Optional[List[Any]]:
+    def query(self, key_name: str, key_value: str, fields_to_get: List[str], index_name: Optional[str] = None, limit: Optional[int] = None,
+              query_kwargs: Optional[dict] = None, filter_expression: Optional[Any] = None, **additional_kwargs) -> Optional[List[Any]]:
         # rendered_fields_paths = make_rendered_fields_paths(fields_paths=fields_to_get, query_kwargs=query_kwargs)
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_to_get, fields_switch=self.fields_switch
         )
         response = self.dynamodb_client.query_by_key(
-            key_name=key_name, key_value=key_value, fields_to_get=fields_to_get,
-            index_name=index_name, query_limit=limit
+            key_name=key_name, key_value=key_value,
+            fields_to_get=fields_to_get, index_name=index_name, query_limit=limit,
+            filter_expression=filter_expression, **additional_kwargs
         )
         if response is not None:
             for current_item in response.items:

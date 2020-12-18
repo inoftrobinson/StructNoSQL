@@ -8,6 +8,8 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
     process_and_get_field_path_object_from_field_path, make_rendered_database_path
 from StructNoSQL.utils.types import PRIMITIVE_TYPES
+from StructNoSQL.utils.decimals import float_to_decimal_serializer
+
 
 # todo: add ability to add or remove items from list's
 
@@ -178,13 +180,17 @@ class BaseTable:
                 else:
                     target_path_elements = safe_target_field.database_path + current_setter.unsafe_path_continuation
 
+                processed_value_to_set: Any = float_to_decimal_serializer(current_setter.value_to_set)
+                # Since the data is not validated, we pass it to the float_to_decimal_serializer
+                # function (which normally should be called by the data validation function)
+
                 rendered_target_path_elements = make_rendered_database_path(
                     database_path_elements=target_path_elements,
                     query_kwargs=current_setter.query_kwargs
                 )
                 dynamodb_setters.append(DynamoDBMapObjectSetter(
                     target_path_elements=rendered_target_path_elements,
-                    value_to_set=current_setter.value_to_set
+                    value_to_set=processed_value_to_set
                 ))
 
         response = self.dynamodb_client.set_update_multiple_data_elements_to_map(

@@ -12,4 +12,3 @@ setup(
     author_email="robinson@inoft.com",
     description="Structured document based NoSQL client for DynamoDB with automatic data validation and advanced database queries functions.",
 )
-

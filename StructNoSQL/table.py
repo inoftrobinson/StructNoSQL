@@ -1,11 +1,12 @@
 from typing import Optional, List, Dict, Any, Set
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, \
     DynamoDBMapObjectSetter, Response
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, FieldRemover
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.fields import BaseField, MapModel, MapField, MapItem, TableDataModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
-    process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
+    process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
+    process_and_get_field_path_object_from_field_path, make_rendered_database_path
 from StructNoSQL.utils.types import PRIMITIVE_TYPES
 
 # todo: add ability to add or remove items from list's
@@ -156,16 +157,34 @@ class BaseTable:
             return True if response is not None else False
         return False
 
-    def set_update_multiple_fields(self, key_name: str, key_value: str, setters: List[FieldSetter]) -> bool:
+    def set_update_multiple_fields(self, key_name: str, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         dynamodb_setters: List[DynamoDBMapObjectSetter] = list()
         for current_setter in setters:
-            validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
-                field_path=current_setter.target_path, fields_switch=self.fields_switch,
-                query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
-            )
-            if valid is True:
+            if isinstance(current_setter, FieldSetter):
+                validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                    field_path=current_setter.target_path, fields_switch=self.fields_switch,
+                    query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
+                )
+                if valid is True:
+                    dynamodb_setters.append(DynamoDBMapObjectSetter(
+                        target_path_elements=target_path_elements, value_to_set=validated_data
+                    ))
+            elif isinstance(current_setter, UnsafeFieldSetter):
+                safe_target_field = process_and_get_field_path_object_from_field_path(
+                    field_path_key=current_setter.safe_base_target_path, fields_switch=self.fields_switch
+                )
+                if current_setter.unsafe_path_continuation is None:
+                    target_path_elements = safe_target_field.database_path
+                else:
+                    target_path_elements = safe_target_field.database_path + current_setter.unsafe_path_continuation
+
+                rendered_target_path_elements = make_rendered_database_path(
+                    database_path_elements=target_path_elements,
+                    query_kwargs=current_setter.query_kwargs
+                )
                 dynamodb_setters.append(DynamoDBMapObjectSetter(
-                    target_path_elements=target_path_elements, value_to_set=validated_data
+                    target_path_elements=rendered_target_path_elements,
+                    value_to_set=current_setter.value_to_set
                 ))
 
         response = self.dynamodb_client.set_update_multiple_data_elements_to_map(

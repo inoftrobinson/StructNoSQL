@@ -20,6 +20,13 @@ class FieldSetter:
     value_to_set: Any
     query_kwargs: Optional[dict] = None
 
+@dataclass
+class UnsafeFieldSetter:
+    value_to_set: Any
+    safe_base_target_path: Optional[str] = None
+    unsafe_path_continuation: Optional[List[DatabasePathElement]] = None
+    query_kwargs: Optional[dict] = None
+
 
 @dataclass
 class FieldGetter:

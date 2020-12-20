@@ -72,12 +72,11 @@ class BaseItem:
                 elif alias_variable_name == "List":
                     raise Exception(f"List not yet implemented.")
 
-    def validate_data(self, load_data_into_objects: bool = False) -> Tuple[Optional[Any], bool]:
+    def validate_data(self) -> Tuple[Optional[Any], bool]:
         from StructNoSQL.validator import validate_data
         validated_data, valid = validate_data(
-            value=self._value, item_type_to_return_to=self, load_data_into_objects=load_data_into_objects,
-            expected_value_type=self._field_type, map_model=self.map_model,
-            dict_items_excepted_type=self.dict_items_excepted_type, dict_excepted_key_type=self.dict_key_expected_type
+            value=self._value, item_type_to_return_to=self,
+            expected_value_type=self._field_type,
         )
         self._value = validated_data
         return validated_data, valid
@@ -148,7 +147,6 @@ class BaseItem:
     def database_path(self) -> Optional[List[DatabasePathElement]]:
         return self._database_path
 
-
     @property
     def table(self):
         return self._table
@@ -193,29 +191,6 @@ class BaseField(BaseItem):
                 vars_dict={"fieldName": self.field_name, "fieldType": self.field_type,
                            "dictItemsExceptedType": self.dict_items_excepted_type}
             ))
-
-    def __getattr__(self, key):
-        item = self.__dict__.get(key, None)
-        if item is not None:
-            return item
-        else:
-            print(key)
-            print(self.dict_items_excepted_type.__dict__)
-            if self._field_type == dict:
-                if isinstance(self.dict_items_excepted_type, (list, tuple)):
-                    for expected_type in self.dict_items_excepted_type:
-                        dict_expected_type_item = expected_type.__dict__.get(key, None)
-                        if dict_expected_type_item is not None:
-                            return dict_expected_type_item
-                else:
-                    dict_expected_type_item = self.dict_items_excepted_type.__dict__.get(key, None)
-                    if dict_expected_type_item is not None:
-                        return dict_expected_type_item
-
-        raise AttributeError(message_with_vars(
-            message="Attribute missing from BaseField and its dict_item expected type.",
-            vars_dict={"attributeKey": key, "__dict__": self.__dict__}
-        ))
 
     def post(self, value: any):
         print(self._database_path)

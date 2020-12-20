@@ -29,14 +29,14 @@ class Query:
     def first_item(self) -> Optional[dict]:
         pass
 
-    def first_value(self, load_data_into_objects: bool = False) -> Optional[dict]:
+    def first_value(self) -> Optional[dict]:
         if self.target_database_path is not None:
             response = self._table.dynamodb_client.get_value_in_path_target(
                 key_name=self.key_name, key_value=self.key_value,
                 target_path_elements=self.target_database_path
             )
             self._variable_validator.populate(value=response)
-            self._variable_validator.validate_data(load_data_into_objects=load_data_into_objects)
+            self._variable_validator.validate_data()
             return self._variable_validator.value
         else:
             # todo: improve that, and return the value not the item itself
@@ -47,7 +47,7 @@ class Query:
     def set_update(self, value: Any) -> Optional[Response]:
         if self.target_database_path is not None:
             self._variable_validator.populate(value=value)
-            validated_data, valid = self._variable_validator.validate_data(load_data_into_objects=False)
+            validated_data, valid = self._variable_validator.validate_data()
             if valid is True:
                 response = self._table.dynamodb_client.set_update_data_element_to_map(
                     key_name=self.key_name, key_value=self.key_value,

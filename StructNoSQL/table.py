@@ -140,7 +140,7 @@ class BaseTable:
                         if matching_field_path_object is not None:
                             if matching_field_path_object.database_path is not None:
                                 matching_field_path_object.populate(value=current_item_value)
-                                current_item[current_item_key], valid = matching_field_path_object.validate_data(load_data_into_objects=False)
+                                current_item[current_item_key], valid = matching_field_path_object.validate_data()
             return response.items
         else:
             return None

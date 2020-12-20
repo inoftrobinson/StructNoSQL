@@ -11,6 +11,8 @@ class DatabasePathElement:
     def get_default_value(self) -> Any:
         if self.custom_default_value is not None:
             return self.custom_default_value
+        if self.default_type is Any:
+            return None
         return self.default_type()
 
 

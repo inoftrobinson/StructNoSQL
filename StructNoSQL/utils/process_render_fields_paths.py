@@ -77,7 +77,7 @@ def process_validate_data_and_make_single_rendered_database_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
     field_path_object.populate(value=data_to_validate)
-    validated_data, valid = field_path_object.validate_data(load_data_into_objects=False)
+    validated_data, valid = field_path_object.validate_data()
     if valid is True:
         rendered_database_path_elements = make_rendered_database_path(
             database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs

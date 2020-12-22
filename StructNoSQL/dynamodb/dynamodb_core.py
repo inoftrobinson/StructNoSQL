@@ -178,8 +178,9 @@ class DynamoDbCoreAdapter:
         self.billing_mode = billing_mode
         self.global_secondary_indexes = global_secondary_indexes
         self._global_secondary_indexes_hash_keys = list()
-        for secondary_index in self.global_secondary_indexes:
-            self._global_secondary_indexes_hash_keys.append(secondary_index.hash_key_name)
+        if self.global_secondary_indexes is not None:
+            for secondary_index in self.global_secondary_indexes:
+                self._global_secondary_indexes_hash_keys.append(secondary_index.hash_key_name)
 
         # We store the database clients in a static variable, so that if we init the class with
         # the same region_name, we do not need to wait for a new initialization of the client.

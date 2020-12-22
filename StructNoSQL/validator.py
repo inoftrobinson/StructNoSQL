@@ -7,6 +7,8 @@ from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serializer
 
 NoneType = type(None)
+class ActiveSelf:
+    pass
 
 
 def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: Optional[BaseItem] = None) -> Tuple[Any, bool]:

@@ -154,18 +154,39 @@ class BaseItem:
 
 class BaseField(BaseItem):
     def __init__(self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
-                 custom_default_value: Optional[Any] = None, key_name: Optional[str] = None):
+                 custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32):
         super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
         self._name = name
         self._required = required
         self._key_name = None
 
+        if max_nested_depth is not None and max_nested_depth > 32:
+            raise Exception(f"DynamoDB support a maximum depth of nested of items of 32. This is not imposed by StructNoSQL but a platform limitation.\n"
+                            f"See : https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html#limits-attributes")
+        self._max_nested = max_nested_depth
+
         if not_modifiable is True:
             raise Exception(f"Not modifiable not yet implemented")
 
         if key_name is not None:
-            if field_type == dict or type(field_type) == _GenericAlias:
+            insta = isinstance(field_type, (tuple, list))
+            if field_type is dict or type(field_type) is _GenericAlias:
                 self._key_name = key_name
+            elif isinstance(field_type, (tuple, list)):
+                raise Exception(f"Multiple dictionaries are not yet supported.")
+                all_items_are_dict = True
+                for item in field_type:
+                    item_type = type(item)
+                    if not isinstance(item, (dict, _GenericAlias)):
+                        all_items_are_dict = False
+                        break
+                if all_items_are_dict is True:
+                    self._key_name = key_name
+                else:
+                    raise Exception(message_with_vars(
+                        "key_name cannot be set on a field that is a tuple or list that does not exclusivly contains dict or Dict items",
+                        vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
+                    ))
             else:
                 raise Exception(message_with_vars(
                     "key_name cannot be set on a field that is not of type dict or Dict",
@@ -207,6 +228,15 @@ class BaseField(BaseItem):
     def required(self) -> bool:
         return self._required
 
+    @property
+    def max_nested(self) -> int:
+        # todo: find a better name than max_nested
+        return self._max_nested
+
+    def copy(self):
+        # return BaseField(name=self._name, field_type=self._field_type, required=self._required, custom_default_value=self._custom_default_value, key_name=self._key_name, max_nested_depth=self._max_nested)
+        from copy import copy
+        return copy(self)
 
 class MapItem(BaseField):
     _default_primitive_type = dict

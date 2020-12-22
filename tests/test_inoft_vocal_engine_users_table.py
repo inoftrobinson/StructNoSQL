@@ -10,7 +10,7 @@ from StructNoSQL.practical_logger import message_with_vars
 
 class UsersTableModel(TableDataModel):
     accountId = BaseField(name="accountId", field_type=str, required=True)
-    username = BaseField(name="accountUsername", field_type=str)
+    username = BaseField(name="username", field_type=str)
     class ProjectModel(MapModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
@@ -41,7 +41,7 @@ class UsersTable(BaseTable):
             GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type="ALL"),
             GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
         ]
-        super().__init__(table_name="inoft-vocal-engine_accounts-data_dev", region_name="eu-west-2", data_model=UsersTableModel(),
+        super().__init__(table_name="structnosql-playground", region_name="eu-west-2", data_model=UsersTableModel(),
                          primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True)
 
 
@@ -332,11 +332,11 @@ class TestTableOperations(unittest.TestCase):
             key_name="email", key_value=self.test_account_email,
             getters={
                 "accountId": FieldGetter(target_path="accountId"),
-                "accountUsername": FieldGetter(target_path="accountUsername")
+                "username": FieldGetter(target_path="username")
             }
         )
         self.assertEqual(account_data.get("accountId", None), self.test_account_id)
-        self.assertEqual(account_data.get("accountUsername", None), self.test_account_username)
+        self.assertEqual(account_data.get("username", None), self.test_account_username)
 
     def test_set_data_inside_a_map_model_field(self):
         dummy_value = str(uuid4())

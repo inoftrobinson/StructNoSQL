@@ -19,10 +19,15 @@ class NestedFieldTableModel(TableDataModel):
 class Table(BaseTable):
     def __init__(self):
         primary_index = PrimaryIndex(hash_key_name="accountId", hash_key_variable_python_type=str)
+        globals_secondary_indexes = [
+            GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type="ALL"),
+            GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
+        ]
         super().__init__(
             table_name="structnosql-playground", region_name="eu-west-2",
             data_model=NestedFieldTableModel(),
-            primary_index=primary_index, auto_create_table=True
+            primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes,
+            auto_create_table=True
         )
 
 

@@ -375,11 +375,6 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                         default_type=nested_variable_item.default_field_type,
                                         custom_default_value=nested_variable_item.custom_default_value
                                     ))
-                                    current_nested_database_path.append(DatabasePathElement(
-                                        element_key=nested_variable_item.field_name,
-                                        default_type=nested_variable_item.default_field_type,
-                                        custom_default_value=nested_variable_item.custom_default_value
-                                    ))
                                     field_is_valid = table.fields_switch.set(key=current_nested_field_path, item=map_item)
                                     if field_is_valid is True:
                                         if variable_item.dict_items_excepted_type not in PRIMITIVE_TYPES:
@@ -388,6 +383,11 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                                 nested_field_path=current_nested_field_path,
                                                 current_path_elements=[*current_nested_database_path], is_nested=True
                                             )
+                                    current_nested_database_path.append(DatabasePathElement(
+                                        element_key=nested_variable_item.field_name,
+                                        default_type=nested_variable_item.default_field_type,
+                                        custom_default_value=nested_variable_item.custom_default_value
+                                    ))
                         else:
                             current_field_path += ".{{" + variable_item.key_name + "}}"
                             map_item = MapItem(

@@ -321,7 +321,7 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                     required_fields.append(variable_item)
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
-                field_is_valid = table.fields_switch.set(key=current_field_path, item=variable_item)
+                field_is_valid = table.fields_switch.set(key=current_field_path, item=copy(variable_item))
                 if field_is_valid is True:
                     output_mapping[variable_item.field_name] = assign_internal_mapping_from_class(
                         table=table, class_type=variable_item.map_model, nested_field_path=current_field_path,
@@ -402,6 +402,7 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                         table=table, class_type=variable_item.dict_items_excepted_type, nested_field_path=current_field_path,
                                         current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                                     )
+
 
         except Exception as e:
             print(e)

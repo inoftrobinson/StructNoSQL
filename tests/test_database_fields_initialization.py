@@ -16,7 +16,7 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
         super().__init__(methodName=method_name)
         self.users_table = UsersTable(data_model=TableModel())
 
-    def test_update_project_name(self):
+    def test_initialize_new_nested_object(self):
         project_id = "testFieldInitializationNewProjectId"
         query_kwargs = {'nestedObjectId': project_id}
 

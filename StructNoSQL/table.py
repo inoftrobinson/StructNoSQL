@@ -94,29 +94,49 @@ class BaseTable:
             return False
 
     def get_one_field_item_from_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
-        response_data = self.dynamodb_client.get_item_in_path_target(
-            key_name=key_name, key_value=key_value,
-            field_path_elements=process_and_make_single_rendered_database_path(
-                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-            )
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        return response_data
+        if has_multiple_fields_path is not True:
+            field_path_elements: List[DatabasePathElement]
+            response_data = self.dynamodb_client.get_item_in_path_target(
+                key_name=key_name, key_value=key_value, field_path_elements=field_path_elements
+            )
+            return response_data
+        else:
+            field_path_elements: Dict[str, List[DatabasePathElement]]
+            response_data = self.dynamodb_client.get_items_in_multiple_path_target(
+                key_name=key_name, key_value=key_value, targets_paths_elements=field_path_elements
+            )
+            return response_data
 
     def get_one_field_value_from_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
-        response_data = self.dynamodb_client.get_value_in_path_target(
-            key_name=key_name, key_value=key_value,
-            field_path_elements=process_and_make_single_rendered_database_path(
-                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-            )
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        return response_data
+        if has_multiple_fields_path is not True:
+            field_path_elements: List[DatabasePathElement]
+            response_data = self.dynamodb_client.get_value_in_path_target(
+                key_name=key_name, key_value=key_value, field_path_elements=field_path_elements
+            )
+            return response_data
+        else:
+            field_path_elements: Dict[str, List[DatabasePathElement]]
+            response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+                key_name=key_name, key_value=key_value, targets_paths_elements=field_path_elements
+            )
+            return response_data
 
-    def _getters_to_database_paths(self, getters: Dict[str, FieldGetter]) -> Dict[str, List[DatabasePathElement]]:
+    def _getters_to_database_paths(self, getters: Dict[str, FieldGetter]) -> Dict[str, List[DatabasePathElement] or Dict[str, List[DatabasePathElement]]]:
         getters_database_paths: Dict[str, List[DatabasePathElement]] = dict()
         for getter_key, getter_item in getters.items():
-            getters_database_paths[getter_key] = process_and_make_single_rendered_database_path(
+            getter_field_path_elements, getter_has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
             )
+            getter_field_path_elements: List[DatabasePathElement]
+            getters_database_paths[getter_key] = getter_field_path_elements
+            # No matter if getter_has_multiple_fields_path is True, we still add the getters_database_paths the same way. We will perform
+            # different logic later on, depending on if we have a Dict[str, List[DatabasePathElement]] or simple a List[DatabasePathElement]
         return getters_database_paths
 
     def get_multiple_fields_items_from_single_record(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
@@ -182,9 +202,10 @@ class BaseTable:
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     ))
             elif isinstance(current_setter, UnsafeFieldSetter):
-                safe_field_path_object = process_and_get_field_path_object_from_field_path(
+                safe_field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
                     field_path_key=current_setter.safe_base_field_path, fields_switch=self.fields_switch
                 )
+                # todo: add support for multiple fields path
                 if current_setter.unsafe_path_continuation is None:
                     field_path_elements = safe_field_path_object.database_path
                 else:
@@ -209,11 +230,15 @@ class BaseTable:
         return True if response is not None else False
 
     def remove_one_field_item_in_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        )
+        target_path_elements = [field_path_elements] if has_multiple_fields_path is not True else list(field_path_elements.values())
+        # The remove_data_elements_from_map function expect a List[List[DatabasePathElement]]. If we have a single field_path, we wrap the field_path_elements
+        # inside a list. And if we have multiple fields_paths (which will be structured inside a dict), we turn the convert the values of the dict to a list.
+
         response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
-            key_name=key_name, key_value=key_value,
-            targets_path_elements=[process_and_make_single_rendered_database_path(
-                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-            )]
+            key_name=key_name, key_value=key_value, targets_path_elements=target_path_elements
         )
         return True if response is not None else False
 
@@ -221,13 +246,16 @@ class BaseTable:
         if len(removers) > 0:
             removers_database_paths: List[List[DatabasePathElement]] = list()
             for current_remover in removers:
-                removers_database_paths.append(
-                    process_and_make_single_rendered_database_path(
-                        field_path=current_remover.field_path,
-                        fields_switch=self.fields_switch,
-                        query_kwargs=current_remover.query_kwargs
-                    )
+                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                    field_path=current_remover.field_path, fields_switch=self.fields_switch, query_kwargs=current_remover.query_kwargs
                 )
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    removers_database_paths.append(field_path_elements)
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    for field_paths_elements_item in field_path_elements.values():
+                        removers_database_paths.append(field_paths_elements_item)
 
             response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
                 key_name=key_name, key_value=key_value, targets_path_elements=removers_database_paths

@@ -323,8 +323,7 @@ class DynamoDbCoreAdapter:
 
         return self._execute_update_query(query_kwargs_dict=kwargs)
 
-    def remove_data_elements_from_map(self, key_name: str, key_value: Any,
-                                      targets_path_elements: List[List[DatabasePathElement]]) -> Optional[Response]:
+    def remove_data_elements_from_map(self, key_name: str, key_value: Any, targets_path_elements: List[List[DatabasePathElement]]) -> Optional[Response]:
         expression_attribute_names_dict = dict()
         update_expression = "REMOVE "
 
@@ -686,7 +685,6 @@ class DynamoDbCoreAdapter:
             targets_paths_elements=targets_paths_elements,
             num_keys_to_stop_at_before_reaching_end_of_item=1
         )
-
 
     @staticmethod
     def _database_path_elements_to_dynamodb_target_string(database_path_elements: List[DatabasePathElement]) -> str:

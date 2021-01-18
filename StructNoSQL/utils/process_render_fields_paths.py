@@ -1,26 +1,59 @@
+import re
 from typing import List, Dict, Any, Optional, Tuple
 from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
 
+MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(.\[)(.*)(\])'
 
-def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:
-    current_field_object = fields_switch.get(field_path_key, None)
+
+def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:
+    current_field_object: Optional[BaseItem] = fields_switch.get(field_path_key, None)
     if current_field_object is not None:
         return current_field_object
     else:
         raise FieldTargetNotFoundException(message_with_vars(
             message=f"A field target to get was not found.",
-            vars_dict={"fieldPathKey": field_path_key, "fieldsSwitch": fields_switch}
+            vars_dict={"field_path_key": field_path_key, "fields_switch": fields_switch}
         ))
+
+def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> (BaseItem or List[BaseItem], bool):
+    matches: Optional[List[tuple]] = re.findall(pattern=MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION, string=field_path_key)
+    if len(matches) > 0:
+        for match in matches:
+            selected_string = ''.join([selector for selector in match])
+            attributes_selectors_string: str = match[1]
+            attributes_selector_list = attributes_selectors_string.replace(' ', '').split(',')
+
+            attributes_fields_objets: List[BaseItem] = list()
+            for attribute_selector in attributes_selector_list:
+                current_attribute_field_path = field_path_key.replace(selected_string, f'.{attribute_selector}')
+                attributes_fields_objets.append(_get_field_object_from_field_path(
+                    field_path_key=current_attribute_field_path, fields_switch=fields_switch
+                ))
+
+            num_attributes_fields = len(attributes_fields_objets)
+            if not num_attributes_fields > 0:
+                raise Exception(message_with_vars(
+                    message="Cannot use an attribute selector [ ] without specifying any attribute inside it.",
+                    vars_dict={'field_path_key': field_path_key, 'attributes_selectors_string': attributes_selectors_string}
+                ))
+            elif num_attributes_fields == 1:
+                return attributes_fields_objets[0], False
+            else:
+                return attributes_fields_objets, True
+
+    return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 
 def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[str], fields_switch: dict) -> Dict[str, BaseItem]:
     fields_objects_to_get = dict()
     for field_key in fields_paths:
-        fields_objects_to_get[field_key] = process_and_get_field_path_object_from_field_path(
+        field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
             field_path_key=field_key, fields_switch=fields_switch
         )
+        # todo: add support for multiple fields path's
+        fields_objects_to_get[field_key] = field_path_object
     return fields_objects_to_get
 
 
@@ -60,22 +93,34 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
                 ))
     return output_database_path_elements
 
-def process_and_make_single_rendered_database_path(field_path: str, fields_switch: dict, query_kwargs: dict) -> List[DatabasePathElement]:
-    field_path_object = process_and_get_field_path_object_from_field_path(
+def process_and_make_single_rendered_database_path(
+        field_path: str, fields_switch: dict, query_kwargs: dict
+) -> (List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool):
+
+    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
-    rendered_database_path_elements = make_rendered_database_path(
-        database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
-    )
-    return rendered_database_path_elements
+    if has_multiple_fields_path is not True:
+        rendered_database_path_elements = make_rendered_database_path(
+            database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
+        )
+        return rendered_database_path_elements, False
+    else:
+        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = dict()
+        for single_field_path_object in field_path_object:
+            fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
+                database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
+            )
+        return fields_rendered_database_path_elements, True
 
 def process_validate_data_and_make_single_rendered_database_path(
         field_path: str, fields_switch: dict, query_kwargs: dict, data_to_validate: Any
 ) -> Tuple[Optional[Any], bool, Optional[List[DatabasePathElement]]]:
 
-    field_path_object = process_and_get_field_path_object_from_field_path(
+    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
+    # todo: add support for multiple fields path
     field_path_object.populate(value=data_to_validate)
     validated_data, valid = field_path_object.validate_data()
     if valid is True:

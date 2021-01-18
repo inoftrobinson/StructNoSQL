@@ -350,9 +350,11 @@ class DynamoDbCoreAdapter:
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         return response
 
-    def initialize_all_elements_in_map_target(self, key_name: str, key_value: Any, target_path_elements: List[DatabasePathElement]) -> bool:
+    def initialize_all_elements_in_map_target(self, key_name: str, key_value: Any, target_path_elements: List[DatabasePathElement]) -> Optional[Response]:
         current_path_target = ""
         expression_attribute_names_dict: Dict[str, str] = dict()
+        last_response: Optional[Response] = None
+
         for i, path_element in enumerate(target_path_elements):
             if i > 0:
                 current_path_target += "."
@@ -372,10 +374,8 @@ class DynamoDbCoreAdapter:
                     ":item": path_element.get_default_value()
                 }
             }
-            response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
-            if response is None:
-                return False
-        return True
+            last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
+        return last_response
 
     def set_update_data_element_to_map(self, key_name: str, key_value: Any, value: Any,
                                        target_path_elements: List[DatabasePathElement]) -> Optional[Response]:
@@ -390,6 +390,10 @@ class DynamoDbCoreAdapter:
                 update_expression += "."
             else:
                 update_expression += " = :item"
+                path_element.custom_default_value = value
+                # We change the custom_default_value of the last path element to the value we need to insert, so that if the
+                # parameter path were not properly instantiated, we will use the value we want to set as our initialization
+                # value. Which free us from the need to initialize the object, and then do another request to populate the data.
 
         update_query_kwargs = {
             "TableName": self.table_name,
@@ -403,13 +407,12 @@ class DynamoDbCoreAdapter:
         }
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         if response is None:
-            # If the response is None, it means that one of the path of the
-            # target path has not been found and need to be initialized.
-            success: bool = self.initialize_all_elements_in_map_target(
-                key_name=key_name, key_value=key_value, target_path_elements=target_path_elements
-            )
-            if success is True:
-                response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+            # If the response is None, it means that one of the path of the target path has not been found and need to be initialized.
+            print(message_with_vars(
+                message="Set/update request failed. Trying to initialize and populate the required objects.",
+                vars_dict={'key_name': key_name, 'key_value': key_value, 'target_path_elements': target_path_elements}
+            ))
+            return self.initialize_all_elements_in_map_target(key_name=key_name, key_value=key_value, target_path_elements=target_path_elements)
         return response
 
     def _execute_update_query_with_initialization_if_missing(self, key_name: str, key_value: Any, update_query_kwargs: dict,
@@ -418,15 +421,18 @@ class DynamoDbCoreAdapter:
         if response is None:
             # If the response is None, it means that one of the path of the
             # target path has not been found and need to be initialized.
+            last_response: Optional[Response] = None
             for i_setter, current_setter in enumerate(setters):
-                success: bool = self.initialize_all_elements_in_map_target(
-                    key_name=key_name, key_value=key_value, target_path_elements=current_setter.target_path_elements
+                last_response = self.initialize_all_elements_in_map_target(
+                    key_name=key_name, key_value=key_value,
+                    target_path_elements=current_setter.target_path_elements
                 )
-                print(message_with_vars(
-                    message="Initialized a field after a set/update multiple data elements in map request had failed.",
-                    vars_dict={"fieldTargetPathElements": current_setter.target_path_elements}
-                ))
-            response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+                if last_response is None:
+                    print(message_with_vars(
+                        message="Initialized a field after a set/update multiple data elements in map request had failed.",
+                        vars_dict={"fieldTargetPathElements": current_setter.target_path_elements}
+                    ))
+            return last_response
         return response
 
     def set_update_multiple_data_elements_to_map(self, key_name: str, key_value: Any,

@@ -71,7 +71,7 @@ for item_key, item in shopping_cart_items.items():
 
 [delete_record](#delete_record)
 
-[get_single_field_item_from_single_item](#get_single_field_item_from_single_item)
+[get_one_field_item_from_single_record](#get_one_field_item_from_single_record)
 
 [get_one_field_value_from_single_record](#get_one_field_value_from_single_record)
 

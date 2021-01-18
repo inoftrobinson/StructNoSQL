@@ -93,7 +93,7 @@ class BaseTable:
         else:
             return False
 
-    def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
+    def get_one_field_item_from_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
             key_name=key_name, key_value=key_value,
             field_path_elements=process_and_make_single_rendered_database_path(

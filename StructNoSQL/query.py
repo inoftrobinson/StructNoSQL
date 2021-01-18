@@ -33,7 +33,7 @@ class Query:
         if self.target_database_path is not None:
             response = self._table.dynamodb_client.get_value_in_path_target(
                 key_name=self.key_name, key_value=self.key_value,
-                target_path_elements=self.target_database_path
+                field_path_elements=self.target_database_path
             )
             self._variable_validator.populate(value=response)
             self._variable_validator.validate_data()
@@ -51,7 +51,7 @@ class Query:
             if valid is True:
                 response = self._table.dynamodb_client.set_update_data_element_to_map(
                     key_name=self.key_name, key_value=self.key_value,
-                    target_path_elements=self.target_database_path, value=validated_data
+                    field_path_elements=self.target_database_path, value=validated_data
                 )
                 return response
         return None

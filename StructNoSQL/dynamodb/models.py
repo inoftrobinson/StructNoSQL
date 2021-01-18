@@ -18,31 +18,31 @@ class DatabasePathElement:
 
 @dataclass
 class FieldSetter:
-    target_path: str
+    field_path: str
     value_to_set: Any
     query_kwargs: Optional[dict] = None
 
 @dataclass
 class UnsafeFieldSetter:
     value_to_set: Any
-    safe_base_target_path: Optional[str] = None
+    safe_base_field_path: Optional[str] = None
     unsafe_path_continuation: Optional[List[DatabasePathElement]] = None
     query_kwargs: Optional[dict] = None
 
 
 @dataclass
 class FieldGetter:
-    target_path: str
+    field_path: str
     query_kwargs: Optional[dict] = None
 
 
 @dataclass
 class FieldRemover:
-    target_path: str
+    field_path: str
     query_kwargs: Optional[dict] = None
 
 
 @dataclass
 class DynamoDBMapObjectSetter:
-    target_path_elements: List[DatabasePathElement]
+    field_path_elements: List[DatabasePathElement]
     value_to_set: Any

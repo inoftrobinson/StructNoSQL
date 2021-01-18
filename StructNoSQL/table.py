@@ -93,20 +93,20 @@ class BaseTable:
         else:
             return False
 
-    def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
+    def get_single_field_item_from_single_item(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_item_in_path_target(
             key_name=key_name, key_value=key_value,
-            target_path_elements=process_and_make_single_rendered_database_path(
-                field_path=field_to_get, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+            field_path_elements=process_and_make_single_rendered_database_path(
+                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
             )
         )
         return response_data
 
-    def get_single_field_value_from_single_item(self, key_name: str, key_value: str, field_to_get: str, query_kwargs: Optional[dict] = None) -> Any:
+    def get_single_field_value_from_single_item(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_value_in_path_target(
             key_name=key_name, key_value=key_value,
-            target_path_elements=process_and_make_single_rendered_database_path(
-                field_path=field_to_get, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+            field_path_elements=process_and_make_single_rendered_database_path(
+                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
             )
         )
         return response_data
@@ -115,7 +115,7 @@ class BaseTable:
         getters_database_paths: Dict[str, List[DatabasePathElement]] = dict()
         for getter_key, getter_item in getters.items():
             getters_database_paths[getter_key] = process_and_make_single_rendered_database_path(
-                field_path=getter_item.target_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
+                field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
             )
         return getters_database_paths
 
@@ -133,15 +133,14 @@ class BaseTable:
         )
         return response_data
 
-    def query(self, key_name: str, key_value: str, fields_to_get: List[str], index_name: Optional[str] = None, limit: Optional[int] = None,
+    def query(self, key_name: str, key_value: str, fields_paths: List[str], index_name: Optional[str] = None, limit: Optional[int] = None,
               query_kwargs: Optional[dict] = None, filter_expression: Optional[Any] = None, **additional_kwargs) -> Optional[List[Any]]:
-        # rendered_fields_paths = make_rendered_fields_paths(fields_paths=fields_to_get, query_kwargs=query_kwargs)
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
-            fields_paths=fields_to_get, fields_switch=self.fields_switch
+            fields_paths=fields_paths, fields_switch=self.fields_switch
         )
         response = self.dynamodb_client.query_by_key(
             key_name=key_name, key_value=key_value,
-            fields_to_get=fields_to_get, index_name=index_name, query_limit=limit,
+            fields_paths_to_get=fields_paths, index_name=index_name, query_limit=limit,
             filter_expression=filter_expression, **additional_kwargs
         )
         if response is not None:
@@ -157,15 +156,15 @@ class BaseTable:
         else:
             return None
 
-    def set_update_one_field(self, key_name: str, key_value: str, target_field: str, value_to_set: Any,
+    def set_update_one_field(self, key_name: str, key_value: str, field_path: str, value_to_set: Any,
                              index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
-        validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
-            field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
+        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        if valid is True and target_path_elements is not None:
+        if valid is True and field_path_elements is not None:
             response = self.dynamodb_client.set_update_data_element_to_map(
                 key_name=key_name, key_value=key_value, value=validated_data,
-                target_path_elements=target_path_elements
+                field_path_elements=field_path_elements
             )
             return True if response is not None else False
         return False
@@ -174,33 +173,33 @@ class BaseTable:
         dynamodb_setters: List[DynamoDBMapObjectSetter] = list()
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
-                validated_data, valid, target_path_elements = process_validate_data_and_make_single_rendered_database_path(
-                    field_path=current_setter.target_path, fields_switch=self.fields_switch,
+                validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                    field_path=current_setter.field_path, fields_switch=self.fields_switch,
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
                 if valid is True:
                     dynamodb_setters.append(DynamoDBMapObjectSetter(
-                        target_path_elements=target_path_elements, value_to_set=validated_data
+                        field_path_elements=field_path_elements, value_to_set=validated_data
                     ))
             elif isinstance(current_setter, UnsafeFieldSetter):
-                safe_target_field = process_and_get_field_path_object_from_field_path(
-                    field_path_key=current_setter.safe_base_target_path, fields_switch=self.fields_switch
+                safe_field_path_object = process_and_get_field_path_object_from_field_path(
+                    field_path_key=current_setter.safe_base_field_path, fields_switch=self.fields_switch
                 )
                 if current_setter.unsafe_path_continuation is None:
-                    target_path_elements = safe_target_field.database_path
+                    field_path_elements = safe_field_path_object.database_path
                 else:
-                    target_path_elements = safe_target_field.database_path + current_setter.unsafe_path_continuation
+                    field_path_elements = safe_field_path_object.database_path + current_setter.unsafe_path_continuation
 
                 processed_value_to_set: Any = float_to_decimal_serializer(current_setter.value_to_set)
                 # Since the data is not validated, we pass it to the float_to_decimal_serializer
                 # function (which normally should be called by the data validation function)
 
-                rendered_target_path_elements = make_rendered_database_path(
-                    database_path_elements=target_path_elements,
+                rendered_field_path_elements = make_rendered_database_path(
+                    database_path_elements=field_path_elements,
                     query_kwargs=current_setter.query_kwargs
                 )
                 dynamodb_setters.append(DynamoDBMapObjectSetter(
-                    target_path_elements=rendered_target_path_elements,
+                    field_path_elements=rendered_field_path_elements,
                     value_to_set=processed_value_to_set
                 ))
 
@@ -209,12 +208,11 @@ class BaseTable:
         )
         return True if response is not None else False
 
-    def remove_single_item_at_path_target(self, key_name: str, key_value: str, target_field: str,
-                                          query_kwargs: Optional[dict] = None) -> bool:
+    def remove_single_item_at_path_target(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
             key_name=key_name, key_value=key_value,
             targets_path_elements=[process_and_make_single_rendered_database_path(
-                field_path=target_field, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
             )]
         )
         return True if response is not None else False
@@ -225,7 +223,7 @@ class BaseTable:
             for current_remover in removers:
                 removers_database_paths.append(
                     process_and_make_single_rendered_database_path(
-                        field_path=current_remover.target_path,
+                        field_path=current_remover.field_path,
                         fields_switch=self.fields_switch,
                         query_kwargs=current_remover.query_kwargs
                     )

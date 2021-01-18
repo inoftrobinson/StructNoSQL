@@ -48,7 +48,7 @@ class TestTableOperations(unittest.TestCase):
 
         success_update = self.users_table.set_update_one_field(
             key_name='accountId', key_value='staticId',
-            target_field='properties.{{propertyKey}}.childProperties.{{childPropertyKey0}}.childProperties.{{childPropertyKey1}}.name',
+            field_path='properties.{{propertyKey}}.childProperties.{{childPropertyKey0}}.childProperties.{{childPropertyKey1}}.name',
             value_to_set="theGreatCode", query_kwargs={
                 'propertyKey': 'staticPropertyKey',
                 'childPropertyKey0': 'staticChildPropertyKey0',

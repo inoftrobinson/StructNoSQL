@@ -22,21 +22,21 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
 
         set_success = self.users_table.set_update_one_field(
             key_name='accountId', key_value=TEST_ACCOUNT_ID,
-            target_field='nestedObject.{{nestedObjectId}}.value',
+            field_path='nestedObject.{{nestedObjectId}}.value',
             query_kwargs=query_kwargs, value_to_set=42
         )
         self.assertTrue(set_success)
 
         retrieved_value = self.users_table.get_single_field_value_from_single_item(
             key_name='accountId', key_value=TEST_ACCOUNT_ID,
-            field_to_get='nestedObject.{{nestedObjectId}}.value',
+            field_path='nestedObject.{{nestedObjectId}}.value',
             query_kwargs=query_kwargs
         )
         self.assertEqual(retrieved_value, 42)
 
         deletion_success = self.users_table.remove_single_item_at_path_target(
             key_name='accountId', key_value=TEST_ACCOUNT_ID,
-            target_field='nestedObject.{{nestedObjectId}}',
+            field_path='nestedObject.{{nestedObjectId}}',
             query_kwargs=query_kwargs
         )
         self.assertTrue(deletion_success)

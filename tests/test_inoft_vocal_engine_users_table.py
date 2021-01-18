@@ -14,7 +14,7 @@ class TestTableOperations(unittest.TestCase):
 
     def test_get_all_projects(self):
         response_items: Optional[List[dict]] = self.users_table.query(
-            key_name="accountId", key_value=TEST_ACCOUNT_ID, fields_to_get=["projects"]
+            key_name="accountId", key_value=TEST_ACCOUNT_ID, fields_paths=["projects"]
         )
         if response_items is not None:
             for item in response_items:
@@ -29,7 +29,7 @@ class TestTableOperations(unittest.TestCase):
     def test_get_name_of_one_project(self):
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="projects.{{projectId}}.projectName",
+            field_path="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
         self.assertIn("test", response_data)
@@ -37,7 +37,7 @@ class TestTableOperations(unittest.TestCase):
     def test_update_project_name(self):
         success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="projects.{{projectId}}.projectName",
+            field_path="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": TEST_PROJECT_ID},
             value_to_set="test2"
         )
@@ -45,7 +45,7 @@ class TestTableOperations(unittest.TestCase):
 
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="projects.{{projectId}}.projectName",
+            field_path="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
         self.assertEqual(response_data, "test2")
@@ -53,16 +53,17 @@ class TestTableOperations(unittest.TestCase):
     def test_update_entire_project_model(self):
         success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="projects.{{projectId}}", value_to_set={"projectName": "test3"},
+            field_path="projects.{{projectId}}", value_to_set={"projectName": "test3"},
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
+
         # todo: allow to set the item of a dict (currently, when doing a query on the projects object,
         #  we will perform an operation of the project map, and not on an individual project item).
         self.assertTrue(success)
 
         response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="projects.{{projectId}}.projectName",
+            field_path="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
         self.assertEqual(response_data, "test3")
@@ -70,7 +71,7 @@ class TestTableOperations(unittest.TestCase):
     def test_update_entire_project_model_with_missing_project_name(self):
         success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="projects.{{projectId}}", value_to_set={},
+            field_path="projects.{{projectId}}", value_to_set={},
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
         self.assertFalse(success)
@@ -78,7 +79,7 @@ class TestTableOperations(unittest.TestCase):
     def test_update_entire_project_model_with_invalid_data(self):
         success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="projects.{{projectId}}", value_to_set={"invalidProjectName": "test4"},
+            field_path="projects.{{projectId}}", value_to_set={"invalidProjectName": "test4"},
             query_kwargs={"projectId": TEST_PROJECT_ID}
         )
         self.assertFalse(success)
@@ -86,7 +87,7 @@ class TestTableOperations(unittest.TestCase):
         try:
             response_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
                 key_name="accountId", key_value=TEST_ACCOUNT_ID,
-                field_to_get="projects.{{projectId}}.invalidProjectName",
+                field_path="projects.{{projectId}}.invalidProjectName",
                 query_kwargs={"projectId": TEST_PROJECT_ID}
             )
             # If we do not get an error while trying to access an invalid field in the
@@ -98,19 +99,19 @@ class TestTableOperations(unittest.TestCase):
     def test_multi_types_field(self):
         success_str = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="multiTypes", value_to_set="yolo"
+            field_path="multiTypes", value_to_set="yolo"
         )
         self.assertTrue(success_str)
 
         success_none = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="multiTypes", value_to_set=None
+            field_path="multiTypes", value_to_set=None
         )
         self.assertTrue(success_none)
 
         success_bool = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="multiTypes", value_to_set=True
+            field_path="multiTypes", value_to_set=True
         )
         self.assertFalse(success_bool)
 
@@ -118,8 +119,8 @@ class TestTableOperations(unittest.TestCase):
         response_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             getters={
-                "theAccountId": FieldGetter(target_path="accountId"),
-                "theProjects": FieldGetter(target_path="projects")
+                "theAccountId": FieldGetter(field_path="accountId"),
+                "theProjects": FieldGetter(field_path="projects")
             }
         )
         self.assertIsNotNone(response_data)
@@ -129,8 +130,8 @@ class TestTableOperations(unittest.TestCase):
         response_data: Optional[dict] = self.users_table.get_multiple_fields_items_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             getters={
-                "theAccountId": FieldGetter(target_path="accountId"),
-                "theProjects": FieldGetter(target_path="projects")
+                "theAccountId": FieldGetter(field_path="accountId"),
+                "theProjects": FieldGetter(field_path="projects")
             }
         )
         self.assertIsNotNone(response_data)
@@ -140,9 +141,9 @@ class TestTableOperations(unittest.TestCase):
         response_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             getters={
-                "theAccountId": FieldGetter(target_path="accountId"),
+                "theAccountId": FieldGetter(field_path="accountId"),
                 "theProjectName": FieldGetter(
-                    target_path="projects.{{projectId}}.projectName",
+                    field_path="projects.{{projectId}}.projectName",
                     query_kwargs={"projectId": TEST_PROJECT_ID}
                 )
             }
@@ -155,8 +156,8 @@ class TestTableOperations(unittest.TestCase):
         success: bool = self.users_table.set_update_multiple_fields(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             setters=[
-                FieldSetter(target_path="number1", value_to_set=42),
-                FieldSetter(target_path="string1", value_to_set="Quarante-deux")
+                FieldSetter(field_path="number1", value_to_set=42),
+                FieldSetter(field_path="string1", value_to_set="Quarante-deux")
             ]
         )
         self.assertTrue(success)
@@ -165,9 +166,9 @@ class TestTableOperations(unittest.TestCase):
         success: bool = self.users_table.set_update_multiple_fields(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             setters=[
-                FieldSetter(target_path="number1", value_to_set=42),
+                FieldSetter(field_path="number1", value_to_set=42),
                 FieldSetter(
-                    target_path="projects.{{projectId}}.projectName",
+                    field_path="projects.{{projectId}}.projectName",
                     query_kwargs={"projectId": TEST_PROJECT_ID},
                     value_to_set="test5",
                 )
@@ -177,7 +178,7 @@ class TestTableOperations(unittest.TestCase):
 
         project_name_data: Optional[str] = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="projects.{{projectId}}.projectName",
+            field_path="projects.{{projectId}}.projectName",
             query_kwargs={"projectId": TEST_PROJECT_ID},
         )
         self.assertEqual(project_name_data, "test5")
@@ -187,31 +188,31 @@ class TestTableOperations(unittest.TestCase):
 
         set_float_value_success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="floatTest", value_to_set=source_float_value
+            field_path="floatTest", value_to_set=source_float_value
         )
         self.assertTrue(set_float_value_success)
 
         retrieved_float_value: Optional[float] = self.users_table.get_single_field_value_from_single_item(
-            key_name="accountId", key_value=TEST_ACCOUNT_ID, field_to_get="floatTest"
+            key_name="accountId", key_value=TEST_ACCOUNT_ID, field_path="floatTest"
         )
         self.assertEqual(retrieved_float_value, source_float_value)
 
     def test_remove_basic_item_from_path_target(self):
         success_field_set = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="fieldToRemove", value_to_set="yolo mon ami !"
+            field_path="fieldToRemove", value_to_set="yolo mon ami !"
         )
         self.assertTrue(success_field_set)
 
         success_field_remove = self.users_table.remove_single_item_at_path_target(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="fieldToRemove"
+            field_path="fieldToRemove"
         )
         self.assertTrue(success_field_remove)
 
         retrieved_field_data = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="fieldToRemove"
+            field_path="fieldToRemove"
         )
         self.assertIsNone(retrieved_field_data)
 
@@ -220,7 +221,7 @@ class TestTableOperations(unittest.TestCase):
 
         success_field_set = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="sophisticatedRemoval.{{id}}.nestedVariable",
+            field_path="sophisticatedRemoval.{{id}}.nestedVariable",
             query_kwargs=query_kwargs,
             value_to_set="Soooooo, does it works ? :)"
         )
@@ -228,14 +229,14 @@ class TestTableOperations(unittest.TestCase):
 
         success_field_remove = self.users_table.remove_single_item_at_path_target(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="sophisticatedRemoval.{{id}}.nestedVariable",
+            field_path="sophisticatedRemoval.{{id}}.nestedVariable",
             query_kwargs=query_kwargs
         )
         self.assertTrue(success_field_remove)
 
         retrieved_field_data = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="sophisticatedRemoval.{{id}}.nestedVariable",
+            field_path="sophisticatedRemoval.{{id}}.nestedVariable",
             query_kwargs=query_kwargs
         )
         self.assertIsNone(retrieved_field_data)
@@ -247,11 +248,11 @@ class TestTableOperations(unittest.TestCase):
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             setters=[
                 FieldSetter(
-                    target_path="fieldToRemove",
+                    field_path="fieldToRemove",
                     value_to_set="multipleBasicAndSophisticatedRemoval"
                 ),
                 FieldSetter(
-                    target_path="sophisticatedRemoval.{{id}}.nestedVariable",
+                    field_path="sophisticatedRemoval.{{id}}.nestedVariable",
                     query_kwargs=query_kwargs, value_to_set="nestedDude"
                 )
             ]
@@ -261,8 +262,8 @@ class TestTableOperations(unittest.TestCase):
         success_fields_remove = self.users_table.remove_multiple_items_at_path_targets(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
             removers=[
-                FieldRemover(target_path="fieldToRemove"),
-                FieldRemover(target_path="sophisticatedRemoval.{{id}}.nestedVariable", query_kwargs=query_kwargs)
+                FieldRemover(field_path="fieldToRemove"),
+                FieldRemover(field_path="sophisticatedRemoval.{{id}}.nestedVariable", query_kwargs=query_kwargs)
             ]
         )
         self.assertTrue(success_fields_remove)
@@ -282,15 +283,15 @@ class TestTableOperations(unittest.TestCase):
 
     def test_get_value_from_path_target_by_secondary_index(self):
         account_id: Optional[str] = self.users_table.get_single_field_value_from_single_item(
-            key_name="email", key_value=TEST_ACCOUNT_EMAIL, field_to_get="accountId"
+            key_name="email", key_value=TEST_ACCOUNT_EMAIL, field_path="accountId"
         )
         self.assertEqual(account_id, TEST_ACCOUNT_ID)
 
         account_data: Optional[dict] = self.users_table.get_multiple_fields_values_from_single_item(
             key_name="email", key_value=TEST_ACCOUNT_EMAIL,
             getters={
-                "accountId": FieldGetter(target_path="accountId"),
-                "username": FieldGetter(target_path="username")
+                "accountId": FieldGetter(field_path="accountId"),
+                "username": FieldGetter(field_path="username")
             }
         )
         self.assertEqual(account_data.get("accountId", None), TEST_ACCOUNT_ID)
@@ -301,33 +302,33 @@ class TestTableOperations(unittest.TestCase):
 
         set_update_success = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="testMapModel.sampleText", value_to_set=dummy_value
+            field_path="testMapModel.sampleText", value_to_set=dummy_value
         )
         self.assertEqual(set_update_success, True)
 
         retrieved_value = self.users_table.get_single_field_value_from_single_item(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            field_to_get="testMapModel.sampleText"
+            field_path="testMapModel.sampleText"
         )
         self.assertEqual(retrieved_value, dummy_value)
 
         remove_field_success = self.users_table.remove_single_item_at_path_target(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="testMapModel.sampleText"
+            field_path="testMapModel.sampleText"
         )
         self.assertEqual(remove_field_success, True)
 
     def test_set_dict_item_with_primitive_value(self):
         success_valid = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="testDictWithPrimitiveValue.{{key}}",
+            field_path="testDictWithPrimitiveValue.{{key}}",
             query_kwargs={"key": "one"}, value_to_set=True
         )
         self.assertTrue(success_valid)
 
         success_invalid = self.users_table.set_update_one_field(
             key_name="accountId", key_value=TEST_ACCOUNT_ID,
-            target_field="testDictWithPrimitiveValue.{{key}}",
+            field_path="testDictWithPrimitiveValue.{{key}}",
             query_kwargs={"key": "one"},
             value_to_set={"keyOfDictThatShouldNotBeHere": True}
         )

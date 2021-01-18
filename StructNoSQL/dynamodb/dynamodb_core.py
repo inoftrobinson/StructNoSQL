@@ -231,7 +231,7 @@ class DynamoDbCoreAdapter:
                 if e.__class__.__name__ != "ResourceInUseException":
                     raise Exception(f"Create table if not exists request failed: Exception of type {type(e).__name__} occurred {str(e)}")
 
-    def put_record(self, item_dict: dict) -> bool:
+    def put_one_record(self, item_dict: dict) -> bool:
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.put_item(Item=item_dict)

@@ -67,25 +67,25 @@ for item_key, item in shopping_cart_items.items():
 
 ### Operations :
 
-[put_record](#put_record)
+[put_one_record](#put_one_record)
 
 [delete_record](#delete_record)
 
 [get_single_field_item_from_single_item](#get_single_field_item_from_single_item)
 
-[get_single_field_value_from_single_item](#get_single_field_value_from_single_item)
+[get_one_field_value_from_single_record](#get_one_field_value_from_single_record)
 
-[get_multiple_fields_items_from_single_item](#get_multiple_fields_items_from_single_item)
+[get_multiple_fields_items_from_single_record](#get_multiple_fields_items_from_single_record)
 
-[get_multiple_fields_values_from_single_item](#get_multiple_fields_values_from_single_item)
+[get_multiple_fields_values_from_single_record](#get_multiple_fields_values_from_single_record)
 
-[set_update_one_field](#set_update_one_field)
+[set_update_one_field_value_in_single_record](#set_update_one_field_value_in_single_record)
 
-[set_update_multiple_fields](#set_update_multiple_fields)
+[set_update_multiple_fields_values_in_single_record](#set_update_multiple_fields_values_in_single_record)
 
-[remove_single_item_at_path_target](#remove_single_item_at_path_target)
+[remove_one_field_item_in_single_record](#remove_one_field_item_in_single_record)
 
-[remove_multiple_items_at_path_targets](#remove_multiple_items_at_path_targets)
+[remove_multiple_fields_items_in_single_record](#remove_multiple_fields_items_in_single_record)
 
 ### Operations constructor objects :
 

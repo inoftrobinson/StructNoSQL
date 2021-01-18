@@ -41,12 +41,12 @@ class TestTableOperations(unittest.TestCase):
         for field in self.users_table.fields_switch.keys():
             print(field)
 
-        """success_put = self.users_table.put_record({
+        """success_put = self.users_table.put_one_record({
             'accountId': 'staticId', 'properties': {}
         })
         self.assertTrue(success_put)"""
 
-        success_update = self.users_table.set_update_one_field(
+        success_update = self.users_table.set_update_one_field_value_in_single_record(
             key_name='accountId', key_value='staticId',
             field_path='properties.{{propertyKey}}.childProperties.{{childPropertyKey0}}.childProperties.{{childPropertyKey1}}.name',
             value_to_set="theGreatCode", query_kwargs={

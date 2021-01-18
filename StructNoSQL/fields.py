@@ -29,7 +29,7 @@ class MapModel(BaseDataModel):
 
 class TableDataModel(MapModel):
     # The TableDataModel inherit from MapModel, to allow easier validation of record data.
-    # For example, when the put_record function is used, and needs data validation.
+    # For example, when the put_one_record function is used, and needs data validation.
     pass
 
 

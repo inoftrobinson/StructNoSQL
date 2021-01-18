@@ -65,15 +65,15 @@ class BaseTable:
             self._model_virtual_map_field = MapField(name="", model=self._model)
             # The model_virtual_map_field is a MapField with no name, that use the table model, which easily
             # give us the ability to use the functions of the MapField object (for example, functions for
-            # data validation), with the data model of the table itself. For example, the put_record
+            # data validation), with the data model of the table itself. For example, the put_one_record
             # operation, needs to validate its data, based on the table data model, not a MapField.
         return self._model_virtual_map_field
 
-    def put_record(self, record_dict_data: dict) -> bool:
+    def put_one_record(self, record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
         if is_valid is True:
-            return self.dynamodb_client.put_record(item_dict=validated_data)
+            return self.dynamodb_client.put_one_record(item_dict=validated_data)
         else:
             return False
 
@@ -102,7 +102,7 @@ class BaseTable:
         )
         return response_data
 
-    def get_single_field_value_from_single_item(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
+    def get_one_field_value_from_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         response_data = self.dynamodb_client.get_value_in_path_target(
             key_name=key_name, key_value=key_value,
             field_path_elements=process_and_make_single_rendered_database_path(
@@ -119,14 +119,14 @@ class BaseTable:
             )
         return getters_database_paths
 
-    def get_multiple_fields_items_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
+    def get_multiple_fields_items_from_single_record(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_items_in_multiple_path_target(
             key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
         )
         return response_data
 
-    def get_multiple_fields_values_from_single_item(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
+    def get_multiple_fields_values_from_single_record(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
             key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
@@ -156,8 +156,8 @@ class BaseTable:
         else:
             return None
 
-    def set_update_one_field(self, key_name: str, key_value: str, field_path: str, value_to_set: Any,
-                             index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
+    def set_update_one_field_value_in_single_record(self, key_name: str, key_value: str, field_path: str, value_to_set: Any,
+                                                    index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
@@ -169,7 +169,7 @@ class BaseTable:
             return True if response is not None else False
         return False
 
-    def set_update_multiple_fields(self, key_name: str, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
+    def set_update_multiple_fields_values_in_single_record(self, key_name: str, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         dynamodb_setters: List[DynamoDBMapObjectSetter] = list()
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
@@ -208,7 +208,7 @@ class BaseTable:
         )
         return True if response is not None else False
 
-    def remove_single_item_at_path_target(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
+    def remove_one_field_item_in_single_record(self, key_name: str, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         response: Optional[Response] = self.dynamodb_client.remove_data_elements_from_map(
             key_name=key_name, key_value=key_value,
             targets_path_elements=[process_and_make_single_rendered_database_path(
@@ -217,7 +217,7 @@ class BaseTable:
         )
         return True if response is not None else False
 
-    def remove_multiple_items_at_path_targets(self, key_name: str, key_value: str, removers: List[FieldRemover]) -> bool:
+    def remove_multiple_fields_items_in_single_record(self, key_name: str, key_value: str, removers: List[FieldRemover]) -> bool:
         if len(removers) > 0:
             removers_database_paths: List[List[DatabasePathElement]] = list()
             for current_remover in removers:

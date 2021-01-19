@@ -429,7 +429,6 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                         current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                                     )
 
-
         except Exception as e:
             print(e)
 

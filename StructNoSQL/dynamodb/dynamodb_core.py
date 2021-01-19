@@ -1,3 +1,5 @@
+import re
+
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from boto3.exceptions import ResourceNotExistsError
@@ -265,7 +267,6 @@ class DynamoDbCoreAdapter:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
             if "Item" in response:
-                e = Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"])
                 return GetItemResponse(item=Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"]), success=True)
             else:
                 return GetItemResponse(item=None, success=False)
@@ -275,6 +276,8 @@ class DynamoDbCoreAdapter:
         except Exception as e:
             print(f"Failed to retrieve attributes from DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
+
+    def check_if_item_exist_by_primary_key(self, key_name: str, key_value: str, fields_paths_to_get: Optional[List[str]]) -> Optional[bool]:
 
     def _execute_update_query(self, query_kwargs_dict: dict) -> Optional[Response]:
         try:
@@ -349,7 +352,11 @@ class DynamoDbCoreAdapter:
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         return response
 
-    def initialize_all_elements_in_map_target(self, key_name: str, key_value: Any, field_path_elements: List[DatabasePathElement]) -> Optional[Response]:
+    def initialize_all_elements_in_map_target(
+            self, key_name: str, key_value: Any, field_path_elements: List[DatabasePathElement],
+            last_item_custom_overriding_init_value: Optional[Any] = None
+    ) -> Optional[Response]:
+
         current_path_target = ""
         expression_attribute_names_dict: Dict[str, str] = dict()
         last_response: Optional[Response] = None
@@ -357,6 +364,11 @@ class DynamoDbCoreAdapter:
         for i, path_element in enumerate(field_path_elements):
             if i > 0:
                 current_path_target += "."
+
+            if i + 1 >= len(field_path_elements) and last_item_custom_overriding_init_value is not None:
+                item_default_value = last_item_custom_overriding_init_value
+            else:
+                item_default_value = path_element.get_default_value()
 
             current_path_key = f"#pathKey{i}"
             current_path_target += current_path_key
@@ -370,7 +382,7 @@ class DynamoDbCoreAdapter:
                 "UpdateExpression": current_update_expression,
                 "ExpressionAttributeNames": expression_attribute_names_dict,
                 "ExpressionAttributeValues": {
-                    ":item": path_element.get_default_value()
+                    ":item": item_default_value
                 }
             }
             last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
@@ -381,6 +393,7 @@ class DynamoDbCoreAdapter:
         expression_attribute_names_dict = dict()
         update_expression = "SET "
 
+        last_item_custom_overriding_init_value = None
         for i, path_element in enumerate(field_path_elements):
             current_path_key = f"#pathKey{i}"
             update_expression += current_path_key
@@ -389,12 +402,7 @@ class DynamoDbCoreAdapter:
                 update_expression += "."
             else:
                 update_expression += " = :item"
-                path_element.custom_default_value = value
-                # We change the custom_default_value of the last path element to the value we need to insert, so that if the
-                # parameter path were not properly instantiated, we will use the value we want to set as our initialization
-                # value. Which free us from the need to initialize the object, and then do another request to populate the data.
-                # We also do not need to worry about keeping the custom_default_value across multiples database calls, because
-                # the DatabasePathElements are re-initialized on request.
+                last_item_custom_overriding_init_value = value
 
         update_query_kwargs = {
             "TableName": self.table_name,
@@ -413,7 +421,10 @@ class DynamoDbCoreAdapter:
                 message="Set/update request failed. Trying to initialize and populate the required objects.",
                 vars_dict={'key_name': key_name, 'key_value': key_value, 'field_path_elements': field_path_elements}
             ))
-            return self.initialize_all_elements_in_map_target(key_name=key_name, key_value=key_value, field_path_elements=field_path_elements)
+            return self.initialize_all_elements_in_map_target(
+                key_name=key_name, key_value=key_value, field_path_elements=field_path_elements,
+                last_item_custom_overriding_init_value=last_item_custom_overriding_init_value
+            )
         return response
 
     def _execute_update_query_with_initialization_if_missing(self, key_name: str, key_value: Any, update_query_kwargs: dict,
@@ -601,16 +612,26 @@ class DynamoDbCoreAdapter:
         target_field_path = self._database_path_elements_to_dynamodb_target_string(database_path_elements=field_path_elements)
         response_item = self._get_or_query_single_item(key_name=key_name, key_value=key_value, fields_paths_to_get=[target_field_path])
         if response_item is not None:
+            num_field_path_elements = len(field_path_elements)
             for i, path_element in enumerate(field_path_elements):
-                if i + 1 > num_keys_to_navigation_into or (not isinstance(response_item, dict)):
+                if i + 1 > num_keys_to_navigation_into:
                     break
+                elif i > 0 and field_path_elements[i - 1].default_type == list:
+                    response_item = response_item[0]
+                else:
+                    if not isinstance(response_item, dict):
+                        break
 
-                response_item = response_item.get(path_element.element_key, None)
-                if response_item is None:
-                    # If the response_item is None, it means that one key has not been found,
-                    # so we need to break the loop in order to try to call get on a None object,
-                    # and then we will return the response_item, so we will return None.
-                    break
+                    if path_element.default_type == set and response_item == {} and num_field_path_elements > i + 1:
+                        response_item = field_path_elements[i + 1].element_key
+                        break
+
+                    response_item = response_item.get(path_element.element_key, None)
+                    if response_item is None:
+                        # If the response_item is None, it means that one key has not been found,
+                        # so we need to break the loop in order to try to call get on a None object,
+                        # and then we will return the response_item, so we will return None.
+                        break
         return response_item
 
     def get_value_in_path_target(self, key_name: str, key_value: str, field_path_elements: List[DatabasePathElement]) -> Optional[any]:
@@ -691,8 +712,12 @@ class DynamoDbCoreAdapter:
         target_string = ""
         for i, path_element in enumerate(database_path_elements):
             if i > 0:
-                target_string += "."
-            target_string += path_element.element_key
+                if database_path_elements[i - 1].default_type in [list, set]:
+                    target_string += f'.[{path_element.element_key}]'
+                else:
+                    target_string += f'.{path_element.element_key}'
+            else:
+                target_string += path_element.element_key
         return target_string
 
     @staticmethod
@@ -716,15 +741,20 @@ class DynamoDbCoreAdapter:
         # (f"#f{i_field}_{i_path}") we add our path as the dict value, and then we build the condition
         # expression to use the ids of our attributes names.
         for i_field, field in enumerate(fields_paths_to_get):
-            field: str  # PyCharm did not recognized the field variable as a string ;)
             path_elements = field.split(".")
 
             for i_path, path in enumerate(path_elements):
-                current_field_path_expression_name = f"#f{i_field}_{i_path}"
-                expression_attribute_names[current_field_path_expression_name] = path
-                projection_expression += current_field_path_expression_name
-                if i_path + 1 < len(path_elements):
-                    projection_expression += "."
+                matches: Optional[List[tuple]] = re.findall(pattern=r'(\[)(.*)(\])', string=path)
+                if matches is not None and len(matches) > 0:
+                    first_match_groups = matches[0]
+                    index = first_match_groups[1]
+                    projection_expression += f"[{index}]"
+                else:
+                    if i_path > 0:
+                        projection_expression += "."
+                    current_field_path_expression_name = f"#f{i_field}_{i_path}"
+                    expression_attribute_names[current_field_path_expression_name] = path
+                    projection_expression += current_field_path_expression_name
 
             if i_field + 1 < len(fields_paths_to_get):
                 projection_expression += ", "

@@ -10,7 +10,7 @@ FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}']
 FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\})'
 
 
-def _validate_field_name(field_name: str) -> str:
+def _raise_if_field_name_is_invalid(field_name: str):
     match: Optional[List[tuple]] = re.findall(pattern=FIELD_NAME_RESTRICTED_CHARS_EXPRESSION, string=field_name)
     if match is not None and len(match) > 0:
         raise InvalidFieldNameException(message_with_vars(
@@ -20,7 +20,6 @@ def _validate_field_name(field_name: str) -> str:
                 'FIELD_NAME_RESTRICTED_CHARS_LIST': FIELD_NAME_RESTRICTED_CHARS_LIST
             }
         ))
-    return field_name
 
 
 class BaseDataModel:
@@ -85,9 +84,16 @@ class BaseItem:
                     self._default_field_type = dict
                     self._dict_key_expected_type = alias_args[0]
                     self._dict_items_excepted_type = alias_args[1]
-
+                elif alias_variable_name == "Set":
+                    self._field_type = set
+                    self._default_field_type = set
+                    self._dict_items_excepted_type = alias_args[0]
+                    # todo: rename the _dict_items_excepted_type variable
                 elif alias_variable_name == "List":
-                    raise Exception(f"List not yet implemented.")
+                    self._field_type = list
+                    self._default_field_type = list
+                    self._dict_items_excepted_type = alias_args[0]
+                    # todo: rename the _dict_items_excepted_type variable
 
     def validate_data(self) -> Tuple[Optional[Any], bool]:
         from StructNoSQL.validator import validate_data
@@ -173,7 +179,9 @@ class BaseField(BaseItem):
     def __init__(self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
                  custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32):
         super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
-        self._name = _validate_field_name(name)
+        self._name = name
+        if self._name is not None:
+            _raise_if_field_name_is_invalid(field_name=self._name)
         self._required = required
         self._key_name = None
 
@@ -186,8 +194,7 @@ class BaseField(BaseItem):
             raise Exception(f"Not modifiable not yet implemented")
 
         if key_name is not None:
-            insta = isinstance(field_type, (tuple, list))
-            if field_type is dict or type(field_type) is _GenericAlias:
+            if field_type in [dict, set] or type(field_type) is _GenericAlias:
                 self._key_name = key_name
             elif isinstance(field_type, (tuple, list)):
                 raise Exception(f"Multiple dictionaries are not yet supported.")
@@ -201,16 +208,16 @@ class BaseField(BaseItem):
                     self._key_name = key_name
                 else:
                     raise Exception(message_with_vars(
-                        "key_name cannot be set on a field that is a tuple or list that does not exclusivly contains dict or Dict items",
-                        vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
+                        message="key_name cannot be set on a field that is a tuple or list that does not exclusively contains dict or Dict items",
+                        vars_dict={'fieldName': name, 'fieldType': field_type, 'keyName': key_name}
                     ))
             else:
                 raise Exception(message_with_vars(
-                    "key_name cannot be set on a field that is not of type dict or Dict",
-                    vars_dict={"fieldName": name, "fieldType": field_type, "keyName": key_name}
+                    message="key_name cannot be set on a field that is not of type dict, Dict, set or Set",
+                    vars_dict={'fieldName': name, 'fieldType': field_type, 'keyName': key_name}
                 ))
         else:
-            if field_type == dict or type(field_type) == _GenericAlias:
+            if field_type in [dict, set] or type(field_type) == _GenericAlias:
                 self._key_name = f"{name}Key"
 
     def populate(self, value: any):

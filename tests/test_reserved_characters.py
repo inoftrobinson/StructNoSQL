@@ -9,7 +9,7 @@ class TestReservedChars(unittest.TestCase):
         def init_table():
             class TableModel:
                 accountId = BaseField(name='accountId', field_type=str, required=True)
-                restrictedRightBracket = BaseField(name='restrictedRightBracket_[e', field_type=str, required=False)
+                restrictedRightBracket = BaseField(name='restricted_[e', field_type=str, required=False)
             users_table = UsersTable(data_model=TableModel())
         self.assertRaises(InvalidFieldNameException, init_table)
 
@@ -17,7 +17,7 @@ class TestReservedChars(unittest.TestCase):
         def init_table():
             class TableModel:
                 accountId = BaseField(name='accountId', field_type=str, required=True)
-                restrictedLeftBracket = BaseField(name='restrictedLeftBracket_]e', field_type=str, required=False)
+                restrictedLeftBracket = BaseField(name='restricted_]e', field_type=str, required=False)
             users_table = UsersTable(data_model=TableModel())
         self.assertRaises(InvalidFieldNameException, init_table)
 
@@ -25,7 +25,7 @@ class TestReservedChars(unittest.TestCase):
         def init_table():
             class TableModel:
                 accountId = BaseField(name='accountId', field_type=str, required=True)
-                restrictedRightBracket = BaseField(name='restrictedRightBracket_{e', field_type=str, required=False)
+                restrictedRightBracket = BaseField(name='restricted_{e', field_type=str, required=False)
             users_table = UsersTable(data_model=TableModel())
         self.assertRaises(InvalidFieldNameException, init_table)
 
@@ -33,7 +33,7 @@ class TestReservedChars(unittest.TestCase):
         def init_table():
             class TableModel:
                 accountId = BaseField(name='accountId', field_type=str, required=True)
-                restrictedLeftBracket = BaseField(name='restrictedLeftBracket_}e', field_type=str, required=False)
+                restrictedLeftBracket = BaseField(name='restricted_}e', field_type=str, required=False)
             users_table = UsersTable(data_model=TableModel())
         self.assertRaises(InvalidFieldNameException, init_table)
 

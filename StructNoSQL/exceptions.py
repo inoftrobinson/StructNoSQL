@@ -5,3 +5,6 @@ class DataValidationException(Exception):
 class FieldTargetNotFoundException(Exception):
     pass
 
+class InvalidFieldNameException(Exception):
+    pass
+

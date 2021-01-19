@@ -1,9 +1,26 @@
+import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
-
-from StructNoSQL.dummy_object import DummyObject
 from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.exceptions import InvalidFieldNameException
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
+
+
+FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}']
+FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\})'
+
+
+def _validate_field_name(field_name: str) -> str:
+    match: Optional[List[tuple]] = re.findall(pattern=FIELD_NAME_RESTRICTED_CHARS_EXPRESSION, string=field_name)
+    if match is not None and len(match) > 0:
+        raise InvalidFieldNameException(message_with_vars(
+            message="A field name was using one or multiple restricted chars",
+            vars_dict={
+                'fieldName': field_name, 'restrictedCharsMatch': match,
+                'FIELD_NAME_RESTRICTED_CHARS_LIST': FIELD_NAME_RESTRICTED_CHARS_LIST
+            }
+        ))
+    return field_name
 
 
 class BaseDataModel:
@@ -156,7 +173,7 @@ class BaseField(BaseItem):
     def __init__(self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
                  custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32):
         super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
-        self._name = name
+        self._name = _validate_field_name(name)
         self._required = required
         self._key_name = None
 

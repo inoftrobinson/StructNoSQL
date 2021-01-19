@@ -20,7 +20,7 @@ def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) 
 
 def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> (BaseItem or List[BaseItem], bool):
     matches: Optional[List[tuple]] = re.findall(pattern=MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION, string=field_path_key)
-    if len(matches) > 0:
+    if matches is not None and len(matches) > 0:
         for match in matches:
             selected_string = ''.join([selector for selector in match])
             attributes_selectors_string: str = match[1]

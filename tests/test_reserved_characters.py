@@ -1,7 +1,7 @@
 import unittest
-from StructNoSQL import BaseField, MapModel
+from StructNoSQL import BaseField
 from StructNoSQL.exceptions import InvalidFieldNameException
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, UsersTableModel
+from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
 
 class TestReservedChars(unittest.TestCase):

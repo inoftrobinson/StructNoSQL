@@ -207,7 +207,6 @@ class DynamoDbCoreAdapter:
                              f"The dynamodb client has been initialized without specifying the region.")
 
         self._create_table_if_not_exists()
-        print(f"Initialization of {self} completed successfully !")
 
     def _create_table_if_not_exists(self) -> None:
         """
@@ -278,6 +277,7 @@ class DynamoDbCoreAdapter:
             return None
 
     def check_if_item_exist_by_primary_key(self, key_name: str, key_value: str, fields_paths_to_get: Optional[List[str]]) -> Optional[bool]:
+        raise Exception("Not implemented")  # todo: implement
 
     def _execute_update_query(self, query_kwargs_dict: dict) -> Optional[Response]:
         try:

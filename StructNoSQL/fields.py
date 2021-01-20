@@ -1,7 +1,7 @@
 import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.exceptions import InvalidFieldNameException
+from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 
@@ -52,8 +52,8 @@ class TableDataModel(MapModel):
 class BaseItem:
     _table = None
     _database_path: Optional[List[DatabasePathElement]] = None
-    _dict_key_expected_type: Optional[type] = None
-    _dict_items_excepted_type: Optional[type or MapModel] = None
+    _key_expected_type: Optional[type] = None
+    _items_excepted_type: Optional[type or MapModel] = None
     # We set the _database_path as static, so that the assign_internal_mapping_from_class can setup the path only once,
     # only by having access to the inheritor class type, not even the instance. Yet, when set the _database_path
     # statically, the value is not attributed to the BaseField class (which would cause to have multiple classes override
@@ -82,18 +82,29 @@ class BaseItem:
                 if alias_variable_name == "Dict":
                     self._field_type = dict
                     self._default_field_type = dict
-                    self._dict_key_expected_type = alias_args[0]
-                    self._dict_items_excepted_type = alias_args[1]
+                    self._key_expected_type = alias_args[0]
+                    self._items_excepted_type = alias_args[1]
                 elif alias_variable_name == "Set":
                     self._field_type = set
                     self._default_field_type = set
-                    self._dict_items_excepted_type = alias_args[0]
-                    # todo: rename the _dict_items_excepted_type variable
+                    self._items_excepted_type = alias_args[0]
+                    # todo: rename the _items_excepted_type variable
                 elif alias_variable_name == "List":
                     self._field_type = list
                     self._default_field_type = list
-                    self._dict_items_excepted_type = alias_args[0]
-                    # todo: rename the _dict_items_excepted_type variable
+                    self._items_excepted_type = alias_args[0]
+                    # todo: rename the _items_excepted_type variable
+
+        elif self._field_type == dict:
+            # Handle an untyped dict
+            self._items_excepted_type = Any
+            self._key_expected_type = Any
+        elif self._field_type == list:
+            # Handle an untyped list
+            self._items_excepted_type = Any
+        elif self._field_type == set:
+            # Raise on an untyped set
+            raise UsageOfUntypedSetException()
 
     def validate_data(self) -> Tuple[Optional[Any], bool]:
         from StructNoSQL.validator import validate_data
@@ -159,12 +170,12 @@ class BaseItem:
         return self._default_field_type
 
     @property
-    def dict_key_expected_type(self) -> Optional[type]:
-        return self._dict_key_expected_type
+    def key_expected_type(self) -> Optional[type]:
+        return self._key_expected_type
 
     @property
-    def dict_items_excepted_type(self) -> Optional[type or MapModel]:
-        return self._dict_items_excepted_type
+    def items_excepted_type(self) -> Optional[type or MapModel]:
+        return self._items_excepted_type
 
     @property
     def database_path(self) -> Optional[List[DatabasePathElement]]:
@@ -173,6 +184,17 @@ class BaseItem:
     @property
     def table(self):
         return self._table
+
+    @staticmethod
+    def instantiate_default_value_type(value_type: type) -> Optional[Any]:
+        if value_type == Any:
+            return None
+        else:
+            try:
+                return value_type()
+            except Exception as e:
+                print(e)
+                return None
 
 
 class BaseField(BaseItem):
@@ -194,7 +216,7 @@ class BaseField(BaseItem):
             raise Exception(f"Not modifiable not yet implemented")
 
         if key_name is not None:
-            if field_type in [dict, set] or type(field_type) is _GenericAlias:
+            if field_type in [dict, set, list] or type(field_type) is _GenericAlias:
                 self._key_name = key_name
             elif isinstance(field_type, (tuple, list)):
                 raise Exception(f"Multiple dictionaries are not yet supported.")
@@ -213,7 +235,7 @@ class BaseField(BaseItem):
                     ))
             else:
                 raise Exception(message_with_vars(
-                    message="key_name cannot be set on a field that is not of type dict, Dict, set or Set",
+                    message="key_name cannot be set on a field that is not of type dict, Dict, list, List, set or Set",
                     vars_dict={'fieldName': name, 'fieldType': field_type, 'keyName': key_name}
                 ))
         else:
@@ -226,15 +248,15 @@ class BaseField(BaseItem):
     @property
     def dict_item(self):
         """ :return: BaseField """
-        if self._field_type == dict and self.dict_items_excepted_type is not None:
-            map_item = MapItem(parent_field=self, field_type=self.dict_items_excepted_type, model_type=self.dict_items_excepted_type)
+        if self._field_type == dict and self.items_excepted_type is not None:
+            map_item = MapItem(parent_field=self, field_type=self.items_excepted_type, model_type=self.items_excepted_type)
             return map_item
         else:
             raise Exception(message_with_vars(
                 message="Tried to access dict item of a field that was not of type dict, "
                         "Dict or did not properly received the expected type of the dict items.",
                 vars_dict={"fieldName": self.field_name, "fieldType": self.field_type,
-                           "dictItemsExceptedType": self.dict_items_excepted_type}
+                           "dictItemsExceptedType": self.items_excepted_type}
             ))
 
     def post(self, value: any):
@@ -266,12 +288,12 @@ class MapItem(BaseField):
     _default_primitive_type = dict
 
     def __init__(self, parent_field: BaseField, model_type: type, field_type: type):
-        super().__init__(name=None, field_type=field_type, custom_default_value=field_type())
+        super().__init__(name=None, field_type=field_type, custom_default_value=BaseItem.instantiate_default_value_type(field_type))
         self.map_model = model_type
 
         from StructNoSQL.table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
         element_key = make_dict_key_var_name(parent_field.key_name)
-        default_type = try_to_get_primitive_default_type_of_item(parent_field.dict_items_excepted_type)
+        default_type = try_to_get_primitive_default_type_of_item(parent_field.items_excepted_type)
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)
         self._database_path = [*parent_field.database_path, database_path_element]
         self._table = parent_field.table

@@ -371,12 +371,12 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 field_is_valid = table.fields_switch.set(key=current_field_path, item=copy(variable_item))
                 if field_is_valid is True:
-                    if variable_item.dict_items_excepted_type is not None:
+                    if variable_item.items_excepted_type is not None:
                         from StructNoSQL import ActiveSelf
-                        if variable_item.dict_items_excepted_type is ActiveSelf:
-                            variable_item._dict_items_excepted_type = class_type
+                        if variable_item.items_excepted_type is ActiveSelf:
+                            variable_item._items_excepted_type = class_type
 
-                        item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.dict_items_excepted_type)
+                        item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.items_excepted_type)
                         item_key_name = make_dict_key_var_name(key_name=variable_item.key_name)
 
                         if "{i}" in variable_item.key_name:
@@ -391,7 +391,7 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                     map_item = MapItem(
                                         parent_field=nested_variable_item,
                                         field_type=nested_variable_item.default_field_type,
-                                        model_type=nested_variable_item.dict_items_excepted_type
+                                        model_type=nested_variable_item.items_excepted_type
                                     )
                                     current_nested_field_path += f".{variable_item.field_name}"
                                     current_nested_field_path += ".{{" + item_rendered_key_name + "}}"
@@ -403,9 +403,9 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                                     ))
                                     field_is_valid = table.fields_switch.set(key=current_nested_field_path, item=map_item)
                                     if field_is_valid is True:
-                                        if variable_item.dict_items_excepted_type not in PRIMITIVE_TYPES:
+                                        if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
                                             output_mapping[item_key_name] = assign_internal_mapping_from_class(
-                                                table=table, class_type=variable_item.dict_items_excepted_type,
+                                                table=table, class_type=variable_item.items_excepted_type,
                                                 nested_field_path=current_nested_field_path,
                                                 current_path_elements=[*current_nested_database_path], is_nested=True
                                             )
@@ -418,17 +418,16 @@ def assign_internal_mapping_from_class(table: BaseTable, class_instance: Optiona
                             current_field_path += ".{{" + variable_item.key_name + "}}"
                             map_item = MapItem(
                                 parent_field=variable_item, field_type=item_default_type,
-                                model_type=variable_item.dict_items_excepted_type
+                                model_type=variable_item.items_excepted_type
                             )
                             field_is_valid = table.fields_switch.set(current_field_path, map_item)
                             if field_is_valid is True:
-                                if variable_item.dict_items_excepted_type not in PRIMITIVE_TYPES:
+                                if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
                                     new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
                                     output_mapping[item_key_name] = assign_internal_mapping_from_class(
-                                        table=table, class_type=variable_item.dict_items_excepted_type, nested_field_path=current_field_path,
+                                        table=table, class_type=variable_item.items_excepted_type, nested_field_path=current_field_path,
                                         current_path_elements=[*variable_item.database_path, new_database_dict_item_path_element]
                                     )
-
 
         except Exception as e:
             print(e)

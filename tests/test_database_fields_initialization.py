@@ -2,10 +2,11 @@ import unittest
 from typing import Optional, Dict
 
 from StructNoSQL import BaseField, MapModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, UsersTableModel
+from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
 
-class TableModel(UsersTableModel):
+class TableModel:
+    accountId = BaseField(name='accountId', field_type=str, required=True)
     class NestedObjectItem(MapModel):
         value = BaseField(name='value', field_type=int, required=False)
     nestedObject = BaseField(name='nestedObject', field_type=Dict[str, NestedObjectItem], key_name='nestedObjectId', required=False)

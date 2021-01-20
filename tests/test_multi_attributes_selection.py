@@ -4,7 +4,7 @@ from typing import Optional, Dict
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, UsersTableModel
+from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
 
 class TableModel:
@@ -54,7 +54,6 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
             query_kwargs=query_kwargs
         )
         self.assertTrue(deletion_success)
-
 
 
 if __name__ == '__main__':

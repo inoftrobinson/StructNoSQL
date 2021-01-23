@@ -106,7 +106,7 @@ class BaseTable:
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
             response_data = self.dynamodb_client.get_items_in_multiple_path_target(
-                key_name=key_name, key_value=key_value, targets_paths_elements=field_path_elements
+                key_name=key_name, key_value=key_value, fields_paths_elements=field_path_elements
             )
             return response_data
 
@@ -123,7 +123,7 @@ class BaseTable:
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
             response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-                key_name=key_name, key_value=key_value, targets_paths_elements=field_path_elements
+                key_name=key_name, key_value=key_value, fields_paths_elements=field_path_elements
             )
             return response_data
 
@@ -142,14 +142,14 @@ class BaseTable:
     def get_multiple_fields_items_from_single_record(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_items_in_multiple_path_target(
-            key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
+            key_name=key_name, key_value=key_value, fields_paths_elements=getters_database_paths
         )
         return response_data
 
     def get_multiple_fields_values_from_single_record(self, key_name: str, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         getters_database_paths = self._getters_to_database_paths(getters=getters)
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-            key_name=key_name, key_value=key_value, targets_paths_elements=getters_database_paths
+            key_name=key_name, key_value=key_value, fields_paths_elements=getters_database_paths
         )
         return response_data
 
@@ -158,9 +158,17 @@ class BaseTable:
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_paths, fields_switch=self.fields_switch
         )
+        query_field_path_elements: List[List[DatabasePathElement]] = list()
+        for field_path in fields_paths:
+            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+            )
+            query_field_path_elements.append(field_path_elements)
+
         response = self.dynamodb_client.query_by_key(
             key_name=key_name, key_value=key_value,
-            fields_paths_to_get=fields_paths, index_name=index_name, query_limit=limit,
+            fields_paths_elements=query_field_path_elements,
+            index_name=index_name, query_limit=limit,
             filter_expression=filter_expression, **additional_kwargs
         )
         if response is not None:
@@ -172,6 +180,7 @@ class BaseTable:
                             if matching_field_path_object.database_path is not None:
                                 matching_field_path_object.populate(value=current_item_value)
                                 current_item[current_item_key], valid = matching_field_path_object.validate_data()
+                                # todo: remove this non centralized response validation system
             return response.items
         else:
             return None

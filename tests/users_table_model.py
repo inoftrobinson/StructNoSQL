@@ -17,6 +17,7 @@ class UsersTableModel(TableDataModel):
     floatTest = BaseField(name="floatTest", field_type=float, required=False)
 
     fieldToRemove = BaseField(name="fieldToRemove", field_type=str, required=False)
+    fieldToDelete = BaseField(name="fieldToDelete", field_type=str, required=False)
     class SophisticatedRemovalModel(MapModel):
         nestedVariable = BaseField(name="nestedVariable", field_type=str, required=False)
     sophisticatedRemoval = BaseField(name="sophisticatedRemoval", field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)

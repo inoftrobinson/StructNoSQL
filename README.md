@@ -31,7 +31,7 @@ class UsersTable(BaseTable):
 
 
 users_table = UsersTable()
-shopping_cart_items = users_table.model.shoppingCartItems.query(key_name="userId", key_value="42").first_value()
+shopping_cart_items = users_table.model.shoppingCartItems.query(index_name="userId", key_value="42").first_value()
 # Will return in the form of a dict, the shopping cart items that passed the validation tests.
 for item_key, item in shopping_cart_items.items():
     print(item.itemId)
@@ -67,25 +67,23 @@ for item_key, item in shopping_cart_items.items():
 
 ### Operations :
 
-[put_one_record](#put_one_record)
+[put_record](#put_record)
 
 [delete_record](#delete_record)
 
 [get_one_field_item_from_single_record](#get_one_field_item_from_single_record)
 
-[get_one_field_value_from_single_record](#get_one_field_value_from_single_record)
+[get_field](#get_field)
 
-[get_multiple_fields_items_from_single_record](#get_multiple_fields_items_from_single_record)
+[get_multiple_fields](#get_multiple_fields)
 
-[get_multiple_fields_values_from_single_record](#get_multiple_fields_values_from_single_record)
+[update_field](#update_field)
 
-[set_update_one_field_value_in_single_record](#set_update_one_field_value_in_single_record)
+[update_multiple_fields](#update_multiple_fields)
 
-[set_update_multiple_fields_values_in_single_record](#set_update_multiple_fields_values_in_single_record)
+[remove_field](#remove_field)
 
-[remove_one_field_item_in_single_record](#remove_one_field_item_in_single_record)
-
-[remove_multiple_fields_items_in_single_record](#remove_multiple_fields_items_in_single_record)
+[remove_multiple_fields](#remove_multiple_fields)
 
 ### Operations constructor objects :
 
@@ -132,7 +130,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
           accountId = BaseField(name="accountId", field_type=str)
           class ProjectModel(MapModel):
               projectName = BaseField(name="projectName", field_type=str)
-          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
+          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], index_name="projectId")
           activePromoCode = BaseField(name="activePromoCode", field_type=[str, NoneType])
       ```
  - `required`: If a required field is missing from any data (both when setting/updating data, and when retrieving it), 
@@ -194,7 +192,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
       class AccountsTableModel(TableDataModel):
           class ProjectModel(MapModel):
               projectName = BaseField(name="projectName", field_type=str)
-          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
+          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], index_name="projectId")
       ```
  
  ### Various infos about the inner-working of StructNoSQL

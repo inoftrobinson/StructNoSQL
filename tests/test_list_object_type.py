@@ -24,28 +24,28 @@ class TestListObjectType(unittest.TestCase):
         random_list_values.append(42)
         # Add a value of different type, that is valid to the untypedList
 
-        set_success = self.users_table.set_update_one_field_value_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        set_success = self.users_table.update_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.untypedList', value_to_set=random_list_values
         )
         self.assertTrue(set_success)
 
-        retrieved_list_item: Optional[str or int] = self.users_table.get_one_field_value_from_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        retrieved_list_item: Optional[str or int] = self.users_table.get_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.untypedList.{{listIndex}}',
             query_kwargs={'listIndex': 2}
         )
         self.assertEqual(retrieved_list_item, single_valid_list_item)
 
-        retrieved_entire_list: Optional[list] = self.users_table.get_one_field_value_from_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        retrieved_entire_list: Optional[list] = self.users_table.get_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.untypedList',
             query_kwargs={'listIndex': 2}
         )
         self.assertEqual(retrieved_entire_list, random_list_values)
 
-        deletion_success = self.users_table.remove_one_field_item_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        deletion_success = self.users_table.delete_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.untypedList'
         )
         self.assertTrue(deletion_success)
@@ -57,27 +57,27 @@ class TestListObjectType(unittest.TestCase):
         random_list_values.append(42)
         # Add invalid value to the random_list_values
 
-        set_success = self.users_table.set_update_one_field_value_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        set_success = self.users_table.update_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.typedList', value_to_set=random_list_values
         )
         self.assertTrue(set_success)
 
         query_kwargs = {'listIndex': 2}
-        retrieved_list_item: Optional[dict] = self.users_table.get_one_field_value_from_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        retrieved_list_item: Optional[dict] = self.users_table.get_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.typedList.{{listIndex}}', query_kwargs=query_kwargs
         )
         self.assertEqual(retrieved_list_item, single_valid_list_item)
 
-        retrieved_entire_list: Optional[list] = self.users_table.get_one_field_value_from_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        retrieved_entire_list: Optional[list] = self.users_table.get_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.typedList', query_kwargs=query_kwargs
         )
         self.assertEqual(valid_random_list_values, retrieved_entire_list)
 
-        deletion_success = self.users_table.remove_one_field_item_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        deletion_success = self.users_table.delete_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='container.typedList', query_kwargs=query_kwargs
         )
         self.assertTrue(deletion_success)

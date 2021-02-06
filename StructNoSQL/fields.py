@@ -45,7 +45,7 @@ class MapModel(BaseDataModel):
 
 class TableDataModel(MapModel):
     # The TableDataModel inherit from MapModel, to allow easier validation of record data.
-    # For example, when the put_one_record function is used, and needs data validation.
+    # For example, when the put_record function is used, and needs data validation.
     pass
 
 
@@ -120,7 +120,7 @@ class BaseItem:
         # self.validate_data()
         # print("Finished data validation.")
 
-    def query(self, key_name: str, key_value: str, fields_paths_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
+    def query(self, key_value: str, fields_paths_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
         """for path_element in self._database_path:
             if "$key$:" in path_element.element_key:
                 variable_name = path_element.element_key.replace("$key$:", "")
@@ -142,7 +142,7 @@ class BaseItem:
         self._query = Query(
             variable_validator=self, table=self._table,
             target_database_path=self._database_path,
-            key_name=key_name, key_value=key_value, index_name=index_name
+            index_name=index_name, key_value=key_value,
         )
         return self._query
 
@@ -280,7 +280,7 @@ class BaseField(BaseItem):
         return self._max_nested
 
     def copy(self):
-        # return BaseField(name=self._name, field_type=self._field_type, required=self._required, custom_default_value=self._custom_default_value, key_name=self._key_name, max_nested_depth=self._max_nested)
+        # return BaseField(name=self._name, field_type=self._field_type, required=self._required, custom_default_value=self._custom_default_value, index_name=self._key_name, max_nested_depth=self._max_nested)
         from copy import copy
         return copy(self)
 

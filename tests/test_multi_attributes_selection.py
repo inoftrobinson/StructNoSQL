@@ -33,23 +33,23 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
         }
         query_kwargs = {'itemKey': randomized_item_key}
 
-        set_success = self.users_table.set_update_one_field_value_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        set_success = self.users_table.update_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}',
             query_kwargs=query_kwargs, value_to_set=randomized_item
         )
         self.assertTrue(set_success)
 
-        retrieved_values: dict = self.users_table.get_one_field_value_from_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        retrieved_values: dict = self.users_table.get_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}.[name, value]',
             query_kwargs=query_kwargs
         )
         self.assertEqual(retrieved_values.get('name'), random_name)
         self.assertEqual(retrieved_values.get('value'), random_value)
 
-        deletion_success = self.users_table.remove_one_field_item_in_single_record(
-            key_name='accountId', key_value=TEST_ACCOUNT_ID,
+        deletion_success = self.users_table.delete_field(
+            index_name='accountId', key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}',
             query_kwargs=query_kwargs
         )

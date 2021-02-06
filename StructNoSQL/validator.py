@@ -50,7 +50,7 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
 
     if value_type == dict:
         value: dict
-        # todo: fix a bug, where for some reasons, when calling the get_one_field_value_from_single_record function, if what
+        # todo: fix a bug, where for some reasons, when calling the get_field function, if what
         #  we get is a dict that has only key and one item, instead of returning the dict, we will return the value in the dict
         item_keys_to_pop: List[str] = list()
         if item_type_to_return_to is not None:

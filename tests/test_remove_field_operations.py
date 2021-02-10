@@ -64,13 +64,13 @@ class TestRemoveFieldOperations(unittest.TestCase):
             field_path="sophisticatedFieldToRemove.{{id}}.firstNestedValue",
             key_value=TEST_ACCOUNT_ID, query_kwargs=query_kwargs,
         )
-        self.assertEqual(first_message, removed_first_message)
+        self.assertEqual(removed_first_message, first_message)
 
         removed_second_message = self.users_table.remove_field(
             field_path="sophisticatedFieldToRemove.{{id}}.secondNestedValue",
             key_value=TEST_ACCOUNT_ID, query_kwargs=query_kwargs
         )
-        self.assertEqual(second_message, removed_second_message)
+        self.assertEqual(removed_second_message, second_message)
 
         set_data()
         # Since we removed the individuals items, before we can retrieve

@@ -355,7 +355,7 @@ class DynamoDbCoreAdapter:
             'ExpressionAttributeNames': expression_attribute_names_dict,
         }
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
-        if response is not None and response.attributes is not None:
+        if response.attributes is not None:
             response.attributes = Utils.dynamodb_to_python_higher_level(response.attributes)
         return response
 

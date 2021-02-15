@@ -667,8 +667,8 @@ class DynamoDbCoreAdapter:
 
     def get_data_from_multiple_fields_in_path_target(
             self, key_value: str, fields_paths_elements: Dict[str, List[DatabasePathElement]],
-            num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None
-    ) -> Optional[Any]:
+            num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None, metadata: bool = False
+    ) -> Optional[Dict[str, Any]]:
 
         response_item = self._get_or_query_single_item(
             index_name=index_name, key_value=key_value,
@@ -704,22 +704,36 @@ class DynamoDbCoreAdapter:
                                 # and then we will return the response_item, so we will return None.
                                 break
 
-                        output_dict[path_elements_key] = current_navigated_response_item
+                        if metadata is not True:
+                            output_dict[path_elements_key] = current_navigated_response_item
+                        else:
+                            output_dict[path_elements_key] = {
+                                'value': current_navigated_response_item,
+                                'field_path_elements': path_elements_item
+                            }
             return output_dict
         return None
 
-    def get_values_in_multiple_path_target(self, index_name: str, key_value: str, fields_paths_elements: Dict[str, List[DatabasePathElement]]):
+    def get_values_in_multiple_path_target(
+            self, index_name: str, key_value: str,
+            fields_paths_elements: Dict[str, List[DatabasePathElement]],
+            metadata: bool = False
+    ):
         return self.get_data_from_multiple_fields_in_path_target(
             index_name=index_name, key_value=key_value,
             fields_paths_elements=fields_paths_elements,
-            num_keys_to_stop_at_before_reaching_end_of_item=0
+            num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=metadata
         )
 
-    def get_items_in_multiple_path_target(self, index_name: str, key_value: str, fields_paths_elements: Dict[str, List[DatabasePathElement]]):
+    def get_items_in_multiple_path_target(
+            self, index_name: str, key_value: str,
+            fields_paths_elements: Dict[str, List[DatabasePathElement]],
+            metadata: bool = False
+    ):
         return self.get_data_from_multiple_fields_in_path_target(
             index_name=index_name, key_value=key_value,
             fields_paths_elements=fields_paths_elements,
-            num_keys_to_stop_at_before_reaching_end_of_item=1
+            num_keys_to_stop_at_before_reaching_end_of_item=1, metadata=metadata
         )
 
     @staticmethod

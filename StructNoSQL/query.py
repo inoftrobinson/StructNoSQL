@@ -9,7 +9,7 @@ class Query:
             self, table, variable_validator: Any, key_value: str, index_name: Optional[str] = None,
             target_database_path: Optional[List[DatabasePathElement]] = None,
     ):
-        from StructNoSQL.table import BaseTable
+        from StructNoSQL.tables import BaseTable
         from StructNoSQL.fields import BaseField
         self._table: BaseTable = table
         self._variable_validator: BaseField = variable_validator

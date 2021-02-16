@@ -8,8 +8,8 @@ from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, TEST
 
 
 class TestTableOperations(unittest.TestCase):
-    def __init__(self, methodName: str):
-        super().__init__(methodName=methodName)
+    def __init__(self, method_name: str):
+        super().__init__(methodName=method_name)
         self.users_table = UsersTable()
 
     # todo: deprecate

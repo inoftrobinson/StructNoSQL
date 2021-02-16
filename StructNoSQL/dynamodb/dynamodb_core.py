@@ -365,21 +365,23 @@ class DynamoDbCoreAdapter:
     ) -> Optional[Response]:
 
         current_path_target = ""
+        current_path_element: Optional[DatabasePathElement] = None
+        current_item_default_value: Any = None
         expression_attribute_names_dict: Dict[str, str] = dict()
         last_response: Optional[Response] = None
 
-        for i, path_element in enumerate(field_path_elements):
+        for i, current_path_element in enumerate(field_path_elements):
             if i > 0:
                 current_path_target += "."
 
             if i + 1 >= len(field_path_elements) and last_item_custom_overriding_init_value is not None:
-                item_default_value = last_item_custom_overriding_init_value
+                current_item_default_value = last_item_custom_overriding_init_value
             else:
-                item_default_value = path_element.get_default_value()
+                current_item_default_value = current_path_element.get_default_value()
 
             current_path_key = f"#pathKey{i}"
             current_path_target += current_path_key
-            expression_attribute_names_dict[current_path_key] = path_element.element_key
+            expression_attribute_names_dict[current_path_key] = current_path_element.element_key
 
             current_update_expression = f"SET {current_path_target} = if_not_exists({current_path_target}, :item)"
             current_set_potentially_missing_object_query_kwargs = {
@@ -389,18 +391,35 @@ class DynamoDbCoreAdapter:
                 "UpdateExpression": current_update_expression,
                 "ExpressionAttributeNames": expression_attribute_names_dict,
                 "ExpressionAttributeValues": {
-                    ":item": item_default_value
+                    ":item": current_item_default_value
                 }
             }
             last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
+
+        if current_path_element is not None:
+            # todo: make an unit test, where if we perform the below code in each path element, normally, we should
+            #  override and delete a dictionary that contains multiple items when initializing it, because if the dict
+            #  already exist, and has already values inside, it will not equal our default value which is an empty dict.
+            #  So, this why updating the field it it already exist make sense only on the last path element, cause its
+            #  the element we really want to change and override if existing.
+            field_existing_attribute_in_database = last_response.attributes.get(current_path_element.element_key)
+            if field_existing_attribute_in_database != current_item_default_value:
+                # It is possible for the field to already exist, and yet, to not have
+                response = self._set_update_data_element_to_map_without_default_initialization(
+                    index_name=index_name, key_value=key_value,
+                    field_path_elements=field_path_elements,
+                    value=last_item_custom_overriding_init_value
+                )
+                print(response)
         return last_response
 
-    def set_update_data_element_to_map(self, index_name: str, key_value: Any, value: Any,
-                                       field_path_elements: List[DatabasePathElement]) -> Optional[Response]:
+    def _set_update_data_element_to_map_without_default_initialization(
+            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+    ) -> Optional[Response]:
+
         expression_attribute_names_dict = dict()
         update_expression = "SET "
 
-        last_item_custom_overriding_init_value = None
         for i, path_element in enumerate(field_path_elements):
             current_path_key = f"#pathKey{i}"
             update_expression += current_path_key
@@ -409,7 +428,6 @@ class DynamoDbCoreAdapter:
                 update_expression += "."
             else:
                 update_expression += " = :item"
-                last_item_custom_overriding_init_value = value
 
         update_query_kwargs = {
             "TableName": self.table_name,
@@ -421,7 +439,15 @@ class DynamoDbCoreAdapter:
                 ":item": value
             }
         }
-        response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+        return self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+
+    def set_update_data_element_to_map(
+            self, index_name: str, key_value: Any, value: Any, field_path_elements: List[DatabasePathElement]
+    ) -> Optional[Response]:
+
+        response = self._set_update_data_element_to_map_without_default_initialization(
+            index_name=index_name, key_value=key_value, value=value, field_path_elements=field_path_elements
+        )
         if response is None:
             # If the response is None, it means that one of the path of the target path has not been found and need to be initialized.
             print(message_with_vars(
@@ -429,8 +455,9 @@ class DynamoDbCoreAdapter:
                 vars_dict={'index_name': index_name, 'key_value': key_value, 'field_path_elements': field_path_elements}
             ))
             return self.initialize_all_elements_in_map_target(
-                index_name=index_name, key_value=key_value, field_path_elements=field_path_elements,
-                last_item_custom_overriding_init_value=last_item_custom_overriding_init_value
+                index_name=index_name, key_value=key_value,
+                field_path_elements=field_path_elements,
+                last_item_custom_overriding_init_value=value
             )
         return response
 
@@ -442,9 +469,11 @@ class DynamoDbCoreAdapter:
             # target path has not been found and need to be initialized.
             last_response: Optional[Response] = None
             for i_setter, current_setter in enumerate(setters):
+                # todo: group fields initialization in single request
                 last_response = self.initialize_all_elements_in_map_target(
                     index_name=index_name, key_value=key_value,
-                    field_path_elements=current_setter.field_path_elements
+                    field_path_elements=current_setter.field_path_elements,
+                    last_item_custom_overriding_init_value=current_setter.value_to_set
                 )
                 if last_response is None:
                     print(message_with_vars(

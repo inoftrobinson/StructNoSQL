@@ -1,15 +1,11 @@
-from typing import Optional, List, Dict, Any, Set, Tuple
-from copy import copy
-
+from typing import Optional, List, Dict, Any, Tuple
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
-from StructNoSQL.fields import BaseField, MapField, MapItem, TableDataModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables import BaseTable
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
     process_and_get_field_path_object_from_field_path, make_rendered_database_path
-from StructNoSQL.utils.types import PRIMITIVE_TYPES
 from StructNoSQL.utils.decimals import float_to_decimal_serializer
 
 
@@ -244,6 +240,25 @@ class CachingTable(BaseTable):
         if item_joined_field_path in pending_remove_operations:
             pending_remove_operations.pop(item_joined_field_path)
 
+    def _cache_add_delete_operation(self, index_cached_data: dict, pending_remove_operations: dict, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        )
+        if field_path_elements is not None:
+            if has_multiple_fields_path is not True:
+                field_path_elements: List[DatabasePathElement]
+                item_joined_field_path = join_field_path_elements(field_path_elements)
+                index_cached_data[item_joined_field_path] = None
+                pending_remove_operations[item_joined_field_path] = field_path_elements
+            else:
+                field_path_elements: List[List[DatabasePathElement]]
+                for item_field_path_elements in field_path_elements:
+                    item_joined_field_path = join_field_path_elements(item_field_path_elements)
+                    index_cached_data[item_joined_field_path] = None
+                    pending_remove_operations[item_joined_field_path] = item_field_path_elements
+            return True
+        return False
+
     def _base_removal(
             self, retrieve_removed_elements: bool, key_value: str, field_path: str,
             query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
@@ -307,31 +322,20 @@ class CachingTable(BaseTable):
         return None
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+        pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+        return self._cache_add_delete_operation(
+            index_cached_data=index_cached_data,
+            pending_remove_operations=pending_remove_operations,
+            field_path=field_path, query_kwargs=query_kwargs
         )
-        if field_path_elements is not None:
-            index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-            if has_multiple_fields_path is not True:
-                field_path_elements: List[DatabasePathElement]
-                item_joined_field_path = join_field_path_elements(field_path_elements)
-                index_cached_data[item_joined_field_path] = None
-                pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
-                pending_remove_operations[item_joined_field_path] = field_path_elements
-            else:
-                field_path_elements: List[List[DatabasePathElement]]
-                for item_field_path_elements in field_path_elements:
-                    item_joined_field_path = join_field_path_elements(item_field_path_elements)
-                    index_cached_data[item_joined_field_path] = None
-                    pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
-                    pending_remove_operations[item_joined_field_path] = item_field_path_elements
-            return True
-        return False
 
     def _base_multi_removal(
             self, retrieve_removed_elements: bool, key_value: str,
             removers: List[FieldRemover], index_name: Optional[str] = None
     ) -> Optional[Response]:
+
+        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
 
         removers_database_paths: List[List[DatabasePathElement]] = list()
         for current_remover in removers:
@@ -341,10 +345,18 @@ class CachingTable(BaseTable):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
                 removers_database_paths.append(field_path_elements)
+                self._cache_remove_field(
+                    index_cached_data=index_cached_data, index_name=index_name,
+                    key_value=key_value, field_path_elements=field_path_elements
+                )
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                for field_paths_elements_item in field_path_elements.values():
-                    removers_database_paths.append(field_paths_elements_item)
+                for item_field_paths_elements in field_path_elements.values():
+                    removers_database_paths.append(item_field_paths_elements)
+                    self._cache_remove_field(
+                        index_cached_data=index_cached_data, index_name=index_name,
+                        key_value=key_value, field_path_elements=item_field_paths_elements
+                    )
 
         return self.dynamodb_client.remove_data_elements_from_map(
             index_name=index_name or self.primary_index_name,
@@ -365,13 +377,14 @@ class CachingTable(BaseTable):
             return None
 
     def delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
-        if len(removers) > 0:
-            response: Optional[Response] = self._base_multi_removal(
-                retrieve_removed_elements=False, key_value=key_value,
-                removers=removers, index_name=index_name
+        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+        pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+
+        for current_remover in removers:
+            self._cache_add_delete_operation(
+                index_cached_data=index_cached_data,
+                pending_remove_operations=pending_remove_operations,
+                field_path=current_remover.field_path,
+                query_kwargs=current_remover.query_kwargs
             )
-            return True if response is not None else False
-        else:
-            # If no remover has been specified, we do not run the database operation, yet we still
-            # return True, since technically, what needed to be performed (nothing) was performed.
-            return True
+        return True

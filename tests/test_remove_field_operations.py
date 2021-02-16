@@ -41,8 +41,8 @@ class TestRemoveFieldOperations(unittest.TestCase):
     def test_remove_sophisticated_item_from_path_target(self):
         query_kwargs = {'id': 'sampleId'}
 
-        first_message = "Soooooo, does it works ? :)"
-        second_message = "Yes, setting a second field setter is inefficient, everything could be done by setting the map itself."
+        first_message = f"one_{uuid4()}"
+        second_message = f"two_{uuid4()}"
 
         def set_data():
             success_field_set = self.users_table.update_multiple_fields(
@@ -81,6 +81,33 @@ class TestRemoveFieldOperations(unittest.TestCase):
         )
         self.assertEqual(removed_entire_item, {'firstNestedValue': first_message, 'secondNestedValue': second_message})
         # Python does not care about the dict ordering when doing a dict comparison
+
+    def test_remove_multiple_fields(self):
+        random_id = str(uuid4())
+        random_value_one = f"one_{uuid4()}"
+        random_value_two = f"two_{uuid4()}"
+
+        update_success = self.users_table.update_multiple_fields(key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='fieldToRemove', value_to_set=random_value_one),
+            FieldSetter(
+                field_path='sophisticatedFieldToRemove.{{id}}.firstNestedValue',
+                query_kwargs={'id': random_id}, value_to_set=random_value_two
+            )
+        ])
+        self.assertTrue(update_success)
+
+        get_response_data = self.users_table.get_multiple_fields(key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='fieldToRemove'),
+            'two': FieldGetter(field_path='sophisticatedFieldToRemove.{{id}}.firstNestedValue', query_kwargs={'id': random_id})
+        })
+        self.assertEqual(get_response_data.get('one', None), random_value_one)
+        self.assertEqual(get_response_data.get('two', None), random_value_two)
+
+        remove_response_data = self.users_table.remove_multiple_fields(key_value=TEST_ACCOUNT_ID, removers={
+            'one': FieldRemover(field_path='fieldToRemove'),
+            'two': FieldRemover(field_path='sophisticatedFieldToRemove.{{id}}.firstNestedValue', query_kwargs={'id': random_id})
+        })
+        print(remove_response_data)
 
 
 if __name__ == '__main__':

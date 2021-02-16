@@ -84,7 +84,8 @@ class TestAllCachingTable(unittest.TestCase):
         self.assertTrue(update_commit_success)
 
         removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
-        self.assertEqual(removed_value, random_field_value)
+        self.assertTrue(removed_value['fromCache'])
+        self.assertEqual(removed_value['value'], random_field_value)
 
         retrieved_expected_empty_value_from_cache = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
         self.assertTrue(retrieved_expected_empty_value_from_cache['fromCache'])

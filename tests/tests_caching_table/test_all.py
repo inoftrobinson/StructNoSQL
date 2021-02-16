@@ -154,13 +154,12 @@ class TestAllCachingTable(unittest.TestCase):
         retrieved_data_two = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove2')
         self.assertEqual(retrieved_data_two['value'], random_field_value_two)
 
-        response_data = self.users_table.remove_multiple_fields(
-            key_value=TEST_ACCOUNT_ID, removers=[
-                FieldRemover(field_path='fieldToRemove'),
-                FieldRemover(field_path='fieldToRemove2')
-            ]
-        )
-        self.assertTrue(response_data)
+        response_data = self.users_table.remove_multiple_fields(key_value=TEST_ACCOUNT_ID, removers={
+            'one': FieldRemover(field_path='fieldToRemove'),
+            'two': FieldRemover(field_path='fieldToRemove2')
+        })
+        self.assertEqual(response_data.get('one', None), random_field_value_one)
+        self.assertEqual(response_data.get('two', None), random_field_value_two)
 
         retrieved_expected_empty_value_one_from_cache = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
         self.assertTrue(retrieved_expected_empty_value_one_from_cache['fromCache'])

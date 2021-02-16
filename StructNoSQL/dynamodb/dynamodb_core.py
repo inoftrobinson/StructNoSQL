@@ -397,20 +397,21 @@ class DynamoDbCoreAdapter:
             last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
 
         if current_path_element is not None:
-            # todo: make an unit test, where if we perform the below code in each path element, normally, we should
-            #  override and delete a dictionary that contains multiple items when initializing it, because if the dict
-            #  already exist, and has already values inside, it will not equal our default value which is an empty dict.
-            #  So, this why updating the field it it already exist make sense only on the last path element, cause its
-            #  the element we really want to change and override if existing.
+            # If the last item attribute value in the database does (retrieved thanks to the "UPDATED_NEW" ReturnValues),
+            # do not equal its default_value (which is either the field type default value, or the
+            # last_item_custom_overriding_init_value parameter), we want to initialize again the item, because this means
+            # that the attribute existed, so the SET update expression with if_not_exists did not performed, and we do
+            # not currently have the value we want in the database. We perform this operation only for the last path
+            # element in the request, to avoid overriding and scratching list or dictionary that are expected to exist.
             field_existing_attribute_in_database = last_response.attributes.get(current_path_element.element_key)
             if field_existing_attribute_in_database != current_item_default_value:
                 # It is possible for the field to already exist, and yet, to not have
-                response = self._set_update_data_element_to_map_without_default_initialization(
+                initialization_response = self._set_update_data_element_to_map_without_default_initialization(
                     index_name=index_name, key_value=key_value,
                     field_path_elements=field_path_elements,
                     value=last_item_custom_overriding_init_value
                 )
-                print(response)
+                return initialization_response
         return last_response
 
     def _set_update_data_element_to_map_without_default_initialization(

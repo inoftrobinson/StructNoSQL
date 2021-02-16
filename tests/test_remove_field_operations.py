@@ -13,6 +13,7 @@ class TableModel(TableDataModel):
     class ContainerModel(MapModel):
         firstNestedValue = BaseField(name='firstNestedValue', field_type=str, required=False)
         secondNestedValue = BaseField(name='secondNestedValue', field_type=str, required=False)
+        thirdNestedValue = BaseField(name='thirdNestedValue', field_type=str, required=False)
     sophisticatedFieldToRemove = BaseField(name='sophisticatedFieldToRemove', field_type=Dict[str, ContainerModel], key_name='id', required=False)
 
 class TestRemoveFieldOperations(unittest.TestCase):
@@ -108,6 +109,48 @@ class TestRemoveFieldOperations(unittest.TestCase):
             'two': FieldRemover(field_path='sophisticatedFieldToRemove.{{id}}.firstNestedValue', query_kwargs={'id': random_id})
         })
         print(remove_response_data)
+
+    def test_remove_multiple_fields_with_multi_selectors(self):
+        """
+        Removing multiple fields with a multi selector in single field_path in a remove_multiple_fields operation is
+        awkward, because a single key per field_path can be assigned. Which means that the multiple fields retrieved
+        with the multi selector must be send back in the same dictionary, like if it was a get_field with multi selectors.
+        """
+
+        random_id = str(uuid4())
+        field_one_random = f"field_one_{uuid4()}"
+        field_two_random = f"field_two_{uuid4()}"
+        field_three_random = f"field_three_{uuid4()}"
+
+        update_success = self.users_table.update_field(
+            key_value=TEST_ACCOUNT_ID, field_path='sophisticatedFieldToRemove.{{id}}',
+            query_kwargs={'id': random_id}, value_to_set={
+                'firstNestedValue': field_one_random,
+                'secondNestedValue': field_two_random,
+                'thirdNestedValue': field_three_random
+            }
+        )
+        self.assertTrue(update_success)
+
+        get_response_data = self.users_table.get_field(
+            key_value=TEST_ACCOUNT_ID, query_kwargs={'id': random_id},
+            field_path='sophisticatedFieldToRemove.{{id}}.[firstNestedValue, secondNestedValue, thirdNestedValue]'
+        )
+        self.assertEqual(get_response_data.get('firstNestedValue', None), field_one_random)
+        self.assertEqual(get_response_data.get('secondNestedValue', None), field_two_random)
+        self.assertEqual(get_response_data.get('thirdNestedValue', None), field_three_random)
+
+        remove_response_data = self.users_table.remove_multiple_fields(key_value=TEST_ACCOUNT_ID, removers={
+            'one': FieldRemover(field_path='sophisticatedFieldToRemove.{{id}}.[firstNestedValue, secondNestedValue]', query_kwargs={'id': random_id})
+        })
+        self.assertEqual(remove_response_data.get('one', {}).get('firstNestedValue', None), field_one_random)
+        self.assertEqual(remove_response_data.get('one', {}).get('secondNestedValue', None), field_two_random)
+
+        retrieved_third_value = self.users_table.get_field(
+            key_value=TEST_ACCOUNT_ID, query_kwargs={'id': random_id},
+            field_path='sophisticatedFieldToRemove.{{id}}.thirdNestedValue'
+        )
+        self.assertEqual(retrieved_third_value, field_three_random)
 
 
 if __name__ == '__main__':

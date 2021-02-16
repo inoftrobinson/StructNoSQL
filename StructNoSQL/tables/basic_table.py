@@ -219,56 +219,75 @@ class BasicTable(BaseTable):
         )
         return True if response is not None else False
 
-    def _base_multi_removal(
-            self, retrieve_removed_elements: bool, key_value: str,
-            removers: Dict[str, FieldRemover], index_name: Optional[str] = None
-    ) -> Optional[Response]:
-
-        removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
-        for remover_key, remover_item in removers.items():
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                field_path=remover_item.field_path, fields_switch=self.fields_switch, query_kwargs=remover_item.query_kwargs
-            )
-            if has_multiple_fields_path is not True:
-                field_path_elements: List[DatabasePathElement]
-                removers_field_paths_elements[remover_key] = field_path_elements
-            else:
-                field_path_elements: Dict[str, List[DatabasePathElement]]
-                raise Exception("not supported")
-                # removers_database_paths.append(*field_path_elements.values())
-
-        response = self.dynamodb_client.remove_data_elements_from_map(
-            index_name=index_name or self.primary_index_name,
-            key_value=key_value, targets_path_elements=list(removers_field_paths_elements.values()),
-            retrieve_removed_elements=retrieve_removed_elements
-        )
-
-        output_data: Dict[str, Any] = dict()
-        for item_key, item_field_path_elements in removers_field_paths_elements.items():
-            removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                data=response.attributes, field_path_elements=item_field_path_elements,
-                num_keys_to_navigation_into=len(item_field_path_elements)
-            )
-            output_data[item_key] = removed_item_data
-        return output_data
-
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Any]:
-        if len(removers) > 0:
-            response: Optional[Response] = self._base_multi_removal(
-                retrieve_removed_elements=True, key_value=key_value,
-                removers=removers, index_name=index_name
-            )
-            return response.items if response is not None and response.items is not None else None
-        else:
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        if not len(removers) > 0:
             # If no remover has been specified, we do not run the database
             # operation, and since no value has been removed, we return None.
             return None
+        else:
+            removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
+            grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
+
+            removers_database_paths: List[List[DatabasePathElement]] = list()
+            for remover_key, remover_item in removers.items():
+                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                    field_path=remover_item.field_path, fields_switch=self.fields_switch,
+                    query_kwargs=remover_item.query_kwargs
+                )
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    removers_field_paths_elements[remover_key] = field_path_elements
+                    removers_database_paths.append(field_path_elements)
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    grouped_removers_field_paths_elements[remover_key] = field_path_elements
+                    removers_database_paths.extend(field_path_elements.values())
+
+            response = self.dynamodb_client.remove_data_elements_from_map(
+                index_name=index_name or self.primary_index_name, key_value=key_value,
+                targets_path_elements=removers_database_paths,
+                retrieve_removed_elements=True
+            )
+            if response is None:
+                return None
+            else:
+                output_data: Dict[str, Any] = dict()
+                for item_key, item_field_path_elements in removers_field_paths_elements.items():
+                    removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                        data=response.attributes, field_path_elements=item_field_path_elements,
+                        num_keys_to_navigation_into=len(item_field_path_elements)
+                    )
+                    output_data[item_key] = removed_item_data
+
+                for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
+                    container_data: Dict[str, Any] = dict()
+                    for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
+                        container_data[child_item_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                            data=response.attributes, field_path_elements=child_item_field_path_elements,
+                            num_keys_to_navigation_into=len(child_item_field_path_elements)
+                        )
+                    output_data[container_key] = container_data
+                return output_data
 
     def delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
         if len(removers) > 0:
-            response: Optional[Response] = self._base_multi_removal(
-                retrieve_removed_elements=False, key_value=key_value,
-                removers=removers, index_name=index_name
+            removers_database_paths: List[List[DatabasePathElement]] = list()
+            for current_remover in removers:
+                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                    field_path=current_remover.field_path, fields_switch=self.fields_switch,
+                    query_kwargs=current_remover.query_kwargs
+                )
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    removers_database_paths.append(field_path_elements)
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    removers_database_paths.append(*field_path_elements.values())
+
+            response = self.dynamodb_client.remove_data_elements_from_map(
+                index_name=index_name or self.primary_index_name,
+                key_value=key_value, targets_path_elements=removers_database_paths,
+                retrieve_removed_elements=False
             )
             return True if response is not None else False
         else:

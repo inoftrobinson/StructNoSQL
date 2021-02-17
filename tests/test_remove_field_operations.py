@@ -134,14 +134,14 @@ class TestRemoveFieldOperations(unittest.TestCase):
 
         get_response_data = self.users_table.get_field(
             key_value=TEST_ACCOUNT_ID, query_kwargs={'id': random_id},
-            field_path='sophisticatedFieldToRemove.{{id}}.[firstNestedValue, secondNestedValue, thirdNestedValue]'
+            field_path='sophisticatedFieldToRemove.{{id}}.(firstNestedValue, secondNestedValue, thirdNestedValue)'
         )
         self.assertEqual(get_response_data.get('firstNestedValue', None), field_one_random)
         self.assertEqual(get_response_data.get('secondNestedValue', None), field_two_random)
         self.assertEqual(get_response_data.get('thirdNestedValue', None), field_three_random)
 
         remove_response_data = self.users_table.remove_multiple_fields(key_value=TEST_ACCOUNT_ID, removers={
-            'one': FieldRemover(field_path='sophisticatedFieldToRemove.{{id}}.[firstNestedValue, secondNestedValue]', query_kwargs={'id': random_id})
+            'one': FieldRemover(field_path='sophisticatedFieldToRemove.{{id}}.(firstNestedValue, secondNestedValue)', query_kwargs={'id': random_id})
         })
         self.assertEqual(remove_response_data.get('one', {}).get('firstNestedValue', None), field_one_random)
         self.assertEqual(remove_response_data.get('one', {}).get('secondNestedValue', None), field_two_random)

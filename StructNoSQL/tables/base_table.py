@@ -73,18 +73,6 @@ class BaseTable:
             # operation, needs to validate its data, based on the table data model, not a MapField.
         return self._model_virtual_map_field
 
-    def _getters_to_database_paths(self, getters: Dict[str, FieldGetter]) -> Dict[str, List[DatabasePathElement] or Dict[str, List[DatabasePathElement]]]:
-        getters_database_paths: Dict[str, List[DatabasePathElement]] = dict()
-        for getter_key, getter_item in getters.items():
-            getter_field_path_elements, getter_has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
-            )
-            getter_field_path_elements: List[DatabasePathElement]
-            getters_database_paths[getter_key] = getter_field_path_elements
-            # No matter if getter_has_multiple_fields_path is True, we still add the getters_database_paths the same way. We will perform
-            # different logic later on, depending on if we have a Dict[str, List[DatabasePathElement]] or simple a List[DatabasePathElement]
-        return getters_database_paths
-
     @property
     def internal_mapping(self) -> dict:
         return self._internal_mapping

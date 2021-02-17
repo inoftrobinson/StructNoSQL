@@ -615,7 +615,7 @@ class DynamoDbCoreAdapter:
             print("More than one item has been found. Returning first item.")
             return response.items[0]
 
-    def _get_or_query_single_item(self, index_name: str, key_value: str, fields_paths_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
+    def get_or_query_single_item(self, index_name: str, key_value: str, fields_paths_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
         if self.primary_index.hash_key_name == index_name:
             response_item: Optional[dict] = self.get_item_by_primary_key(
                 index_name=index_name, key_value=key_value, fields_paths_elements=fields_paths_elements
@@ -675,7 +675,7 @@ class DynamoDbCoreAdapter:
             num_keys_to_navigation_into: int
     ) -> Optional[any]:
 
-        response_item = self._get_or_query_single_item(
+        response_item = self.get_or_query_single_item(
             index_name=index_name, key_value=key_value,
             fields_paths_elements=[field_path_elements]
         )
@@ -703,7 +703,7 @@ class DynamoDbCoreAdapter:
             num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None, metadata: bool = False
     ) -> Optional[Dict[str, Any]]:
 
-        response_item = self._get_or_query_single_item(
+        response_item = self.get_or_query_single_item(
             index_name=index_name, key_value=key_value,
             fields_paths_elements=list(fields_paths_elements.values())
         )

@@ -5,7 +5,7 @@ from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
 
-MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(.\()(.*)(\))'
+MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(\()(.*)(\))'
 
 
 def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:
@@ -28,7 +28,12 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
 
             attributes_fields_objets: List[BaseItem] = list()
             for attribute_selector in attributes_selector_list:
-                current_attribute_field_path = field_path_key.replace(selected_string, f'.{attribute_selector}')
+                current_attribute_field_path = field_path_key.replace(selected_string, attribute_selector)
+                """if len(current_attribute_field_path) > 0 and current_attribute_field_path[0] == ".":
+                    # If the start of the field path is a multi selector, the replace will unfortunately add an
+                    # invalid point, which we will remove if we see that the first char of the field path is a point.
+                    current_attribute_field_path = current_attribute_field_path[1:]"""
+
                 attributes_fields_objets.append(_get_field_object_from_field_path(
                     field_path_key=current_attribute_field_path, fields_switch=fields_switch
                 ))

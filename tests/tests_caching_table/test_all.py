@@ -2,7 +2,7 @@ import random
 import unittest
 from typing import List
 from uuid import uuid4
-from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, MapField
+from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, MapField, FieldSetter, FieldGetter
 from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_ID
 
 
@@ -11,6 +11,7 @@ from tests.tests_caching_table.caching_users_table import CachingUsersTable, TES
 class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
     simpleValue = BaseField(name='simpleValue', field_type=int, required=False)
+    simpleValue2 = BaseField(name='simpleValue2', field_type=int, required=False)
     fieldToDelete = BaseField(name='fieldToDelete', field_type=int, required=False)
     fieldToDelete2 = BaseField(name='fieldToDelete2', field_type=int, required=False)
     fieldToRemove = BaseField(name='fieldToRemove', field_type=int, required=False)
@@ -27,7 +28,7 @@ class TestAllCachingTable(unittest.TestCase):
         self.users_table = CachingUsersTable(data_model=TableModel)
         self.users_table.debug = True
 
-    def test_debug_simple_get_field(self):
+    def test_simple_get_field(self):
         self.reset_table()
 
         first_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
@@ -36,7 +37,7 @@ class TestAllCachingTable(unittest.TestCase):
         second_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
         self.assertEqual(second_response_data['fromCache'], True)
 
-    def test_debug_simple_set_then_get_field_from_cache(self):
+    def test_set_then_get_field_from_cache(self):
         self.reset_table()
         random_field_value = random.randint(0, 100)
 
@@ -45,6 +46,65 @@ class TestAllCachingTable(unittest.TestCase):
 
         retrieve_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
         self.assertEqual(retrieve_response_data['fromCache'], True)
+        
+    def test_set_then_get_multiple_fields(self):
+        self.reset_table()
+        random_field_one_value = random.randint(0, 99)
+        random_field_two_value = random.randint(100, 199)
+
+        update_success = self.users_table.update_multiple_fields(key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='simpleValue', value_to_set=random_field_one_value),
+            FieldSetter(field_path='simpleValue2', value_to_set=random_field_two_value)
+        ])
+        self.assertTrue(update_success)
+
+        retrieve_response_data = self.users_table.get_multiple_fields(key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='simpleValue'),
+            'two': FieldGetter(field_path='simpleValue2')
+        })
+        self.assertIsNone(retrieve_response_data['fromCache'])
+        self.assertEqual(retrieve_response_data['value'].get('one', None), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(retrieve_response_data['value'].get('two', None), {'value': random_field_two_value, 'fromCache': True})
+
+    def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self):
+        self.reset_table()
+        random_field_one_value = random.randint(0, 99)
+        random_field_two_value = random.randint(100, 199)
+
+        update_success = self.users_table.update_multiple_fields(key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='simpleValue', value_to_set=random_field_one_value),
+            FieldSetter(field_path='simpleValue2', value_to_set=random_field_two_value)
+        ])
+        self.assertTrue(update_success)
+
+        self.users_table.commit_operations()
+        self.reset_table()
+
+        # Caching the simpleValue field
+        first_retrieved_first_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
+        self.assertFalse(first_retrieved_first_value['fromCache'])
+        self.assertEqual(first_retrieved_first_value['value'], random_field_one_value)
+
+        # With get_field function and multi selector
+        get_field_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(simpleValue, simpleValue2)')
+        self.assertIsNone(get_field_response_data['fromCache'])
+        self.assertEqual(get_field_response_data['value'].get('simpleValue', None), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(get_field_response_data['value'].get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': False})
+
+        self.reset_table()
+        # Caching the simpleValue field
+        second_retrieved_first_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
+        self.assertFalse(second_retrieved_first_value['fromCache'])
+        self.assertEqual(second_retrieved_first_value['value'], random_field_one_value)
+
+        # With get_multiple_fields function
+        get_multiple_fields_response_data = self.users_table.get_multiple_fields(key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='simpleValue'),
+            'two': FieldGetter(field_path='simpleValue2')
+        })
+        self.assertIsNone(get_multiple_fields_response_data['fromCache'])
+        self.assertEqual(get_multiple_fields_response_data['value'].get('one', None), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(get_multiple_fields_response_data['value'].get('two', None), {'value': random_field_two_value, 'fromCache': False})
 
     def test_debug_simple_set_commit_then_get_field_from_database(self):
         self.reset_table()
@@ -59,6 +119,22 @@ class TestAllCachingTable(unittest.TestCase):
         retrieve_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
         self.assertEqual(retrieve_response_data['value'], random_field_value)
         self.assertEqual(retrieve_response_data['fromCache'], False)
+
+    def test_update_multiple_fields(self):
+        self.reset_table()
+        random_field_one_value = random.randint(0, 99)
+        random_field_two_value = random.randint(100, 199)
+
+        update_success = self.users_table.update_multiple_fields(key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='simpleValue', value_to_set=random_field_one_value),
+            FieldSetter(field_path='simpleValue2', value_to_set=random_field_two_value)
+        ])
+        self.assertTrue(update_success)
+
+        retrieved_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(simpleValue, simpleValue2)')
+        self.assertIsNone(retrieved_data['fromCache'])
+        self.assertEqual(retrieved_data['value'].get('simpleValue', None), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(retrieved_data['value'].get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': True})
 
     def test_set_delete_field(self):
         self.reset_table()

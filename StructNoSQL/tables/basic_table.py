@@ -68,12 +68,47 @@ class BasicTable(BaseTable):
             return response_data
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
-        getters_database_paths = self._getters_to_database_paths(getters=getters)
-        response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
+        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
+
+        getters_database_paths: List[List[DatabasePathElement]] = list()
+        for getter_key, getter_item in getters.items():
+            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
+            )
+            if has_multiple_fields_path is not True:
+                getter_field_path_elements: List[DatabasePathElement]
+                single_getters_database_paths_elements[getter_key] = field_path_elements
+                getters_database_paths.append(field_path_elements)
+            else:
+                getter_field_path_elements: Dict[str, List[DatabasePathElement]]
+                grouped_getters_database_paths_elements[getter_key] = field_path_elements
+                getters_database_paths.extend(field_path_elements.values())
+
+        response_data = self.dynamodb_client.get_or_query_single_item(
             index_name=index_name or self.primary_index_name,
             key_value=key_value, fields_paths_elements=getters_database_paths,
         )
-        return response_data
+        if response_data is None:
+            return None
+        else:
+            output_data: Dict[str, Any] = dict()
+            for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
+                retrieved_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                    data=response_data, field_path_elements=item_field_path_elements,
+                    num_keys_to_navigation_into=len(item_field_path_elements)
+                )
+                output_data[item_key] = retrieved_item_data
+
+            for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
+                container_data: Dict[str, Any] = dict()
+                for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
+                    container_data[child_item_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                        data=response_data, field_path_elements=child_item_field_path_elements,
+                        num_keys_to_navigation_into=len(child_item_field_path_elements)
+                    )
+                output_data[container_key] = container_data
+            return output_data
 
     # todo: deprecated
     """
@@ -111,8 +146,7 @@ class BasicTable(BaseTable):
             return None
     """
 
-    def update_field(self, key_value: str, field_path: str, value_to_set: Any,
-                     query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
+    def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )

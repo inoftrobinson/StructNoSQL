@@ -5,7 +5,7 @@ from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
 
-MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(.\[)(.*)(\])'
+MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(.\()(.*)(\))'
 
 
 def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:

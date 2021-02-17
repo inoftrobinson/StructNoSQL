@@ -6,8 +6,8 @@ from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 
 
-FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '|']
-FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\}|\|)'
+FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')' '|']
+FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\}|\(|\)|\|)'
 
 
 def _raise_if_field_name_is_invalid(field_name: str):

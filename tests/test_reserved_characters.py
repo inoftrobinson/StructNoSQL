@@ -37,6 +37,22 @@ class TestReservedChars(unittest.TestCase):
             users_table = UsersTable(data_model=TableModel())
         self.assertRaises(InvalidFieldNameException, init_table)
 
+    def test_left_parenthesis_char(self):
+        def init_table():
+            class TableModel:
+                accountId = BaseField(name='accountId', field_type=str, required=True)
+                restrictedRightBracket = BaseField(name='restricted_(e', field_type=str, required=False)
+            users_table = UsersTable(data_model=TableModel())
+        self.assertRaises(InvalidFieldNameException, init_table)
+
+    def test_right_parenthesis_char(self):
+        def init_table():
+            class TableModel:
+                accountId = BaseField(name='accountId', field_type=str, required=True)
+                restrictedLeftBracket = BaseField(name='restricted_)e', field_type=str, required=False)
+            users_table = UsersTable(data_model=TableModel())
+        self.assertRaises(InvalidFieldNameException, init_table)
+
     def test_separator_char(self):
         def init_table():
             class TableModel:

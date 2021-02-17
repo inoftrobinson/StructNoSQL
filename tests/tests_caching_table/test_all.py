@@ -1,9 +1,12 @@
 import random
 import unittest
-
-from StructNoSQL import TableDataModel, BaseField, FieldRemover
+from typing import List
+from uuid import uuid4
+from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, MapField
 from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_ID
 
+
+# todo: add an unit test that make sure that what matter with the field are the field names, not their variable names
 
 class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
@@ -12,6 +15,12 @@ class TableModel(TableDataModel):
     fieldToDelete2 = BaseField(name='fieldToDelete2', field_type=int, required=False)
     fieldToRemove = BaseField(name='fieldToRemove', field_type=int, required=False)
     fieldToRemove2 = BaseField(name='fieldToRemove2', field_type=int, required=False)
+    class ContainerToRemoveModel(MapModel):
+        fieldOne = BaseField(name='fieldOne', field_type=str, required=False)
+        fieldTwo = BaseField(name='fieldTwo', field_type=str, required=False)
+        fieldThree = BaseField(name='fieldThree', field_type=str, required=False)
+    containerToRemove = MapField(name='containerToRemove', model=ContainerToRemoveModel)
+    containersListToRemove = BaseField(name='containersListToRemove', field_type=List[ContainerToRemoveModel], key_name='listIndex')
 
 class TestAllCachingTable(unittest.TestCase):
     def reset_table(self):
@@ -91,10 +100,99 @@ class TestAllCachingTable(unittest.TestCase):
         self.assertTrue(retrieved_expected_empty_value_from_cache['fromCache'])
         self.assertIsNone(retrieved_expected_empty_value_from_cache['value'])
 
+        self.users_table.commit_operations()
         self.reset_table()
+
         retrieved_expected_empty_value_from_database = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
         self.assertFalse(retrieved_expected_empty_value_from_database['fromCache'])
         self.assertIsNone(retrieved_expected_empty_value_from_database['value'])
+
+    def test_dict_data_unpacking(self):
+        """
+        Data unpacking handle the scenario where an object would be put in the cache (like a dictionary, that has been
+        updated as an object, instead of doing it field per field), and then later on, we try to access from the cache
+        one field of packed data. We want to be handle to retrieve data that was packed in bigger object, which means
+        that we cannot use a simple flatten indexation of the inserted/updated data to then later access it in the cache.
+        """
+        self.reset_table()
+        random_field_one_value = f"field_one_{uuid4()}"
+        random_field_two_value = f"field_two_{uuid4()}"
+
+        update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove', value_to_set={
+            'fieldOne': random_field_one_value, 'fieldTwo': random_field_two_value
+        })
+        self.assertTrue(update_success)
+        update_commit_success = self.users_table.commit_operations()
+        self.assertTrue(update_commit_success)
+
+        retrieved_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldTwo)')
+        self.assertIsNone(retrieved_value['fromCache'])
+        self.assertEqual(retrieved_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(retrieved_value['value'].get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
+
+        removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldTwo)')
+        self.assertIsNone(removed_value['fromCache'])
+        self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(removed_value['value'].get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
+
+    def test_list_data_unpacking(self):
+        """
+        Data unpacking handle the scenario where an object would be put in the cache (like a dictionary, that has been
+        updated as an object, instead of doing it field per field), and then later on, we try to access from the cache
+        one field of packed data. We want to be handle to retrieve data that was packed in bigger object, which means
+        that we cannot use a simple flatten indexation of the inserted/updated data to then later access it in the cache.
+        """
+        self.reset_table()
+        random_field_one_value = f"field_one_{uuid4()}"
+        random_field_two_value = f"field_two_{uuid4()}"
+
+        update_success = self.users_table.update_field(
+            key_value=TEST_ACCOUNT_ID, field_path='containersListToRemove.{{listIndex}}', query_kwargs={'listIndex': 0},
+            value_to_set={'fieldOne': random_field_one_value, 'fieldTwo': random_field_two_value}
+        )
+        self.assertTrue(update_success)
+        update_commit_success = self.users_table.commit_operations()
+        self.assertTrue(update_commit_success)
+
+        retrieved_value = self.users_table.get_field(
+            key_value=TEST_ACCOUNT_ID, query_kwargs={'listIndex': 0},
+            field_path='containerToRemove.{{listIndex}}.[fieldOne, fieldTwo]'
+        )
+        self.assertIsNone(retrieved_value['fromCache'])
+        self.assertEqual(retrieved_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(retrieved_value['value'].get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
+
+        removed_value = self.users_table.remove_field(
+            key_value=TEST_ACCOUNT_ID, query_kwargs={'listIndex': 0},
+            field_path='containerToRemove.{{listIndex}}.[fieldOne, fieldTwo]'
+        )
+        self.assertIsNone(removed_value['fromCache'])
+        self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(removed_value['value'].get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
+
+    def test_set_remove_multi_selector_field_and_field_unpacking(self):
+        self.reset_table()
+        random_field_one_value = f"field_one_{uuid4()}"
+        random_field_two_value = f"field_two_{uuid4()}"
+        random_field_three_value = f"field_three_{uuid4()}"
+
+        update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove', value_to_set={
+            'fieldOne': random_field_one_value, 'fieldTwo': random_field_two_value, 'fieldThree': random_field_three_value
+        })
+        self.assertTrue(update_success)
+        update_commit_success = self.users_table.commit_operations()
+        self.assertTrue(update_commit_success)
+
+        removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
+        self.assertIsNone(removed_value['fromCache'])
+        self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
+        self.assertEqual(removed_value['value'].get('fieldThree', {}), {'value': random_field_three_value, 'fromCache': True})
+
+        self.reset_table()
+        removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
+        self.assertIsNone(removed_value['fromCache'])
+        self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': False})
+        self.assertEqual(removed_value['value'].get('fieldThree', {}), {'value': random_field_three_value, 'fromCache': False})
 
     def test_set_delete_multiple_fields(self):
         self.reset_table()

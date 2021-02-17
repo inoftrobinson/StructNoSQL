@@ -371,6 +371,7 @@ class DynamoDbCoreAdapter:
         last_response: Optional[Response] = None
 
         for i, current_path_element in enumerate(field_path_elements):
+            is_last_path_element = i >= (len(field_path_elements) - 1)
             if i > 0:
                 current_path_target += "."
 
@@ -387,7 +388,9 @@ class DynamoDbCoreAdapter:
             current_set_potentially_missing_object_query_kwargs = {
                 "TableName": self.table_name,
                 "Key": {index_name: key_value},
-                "ReturnValues": "UPDATED_NEW",
+                "ReturnValues": "UPDATED_NEW" if is_last_path_element else "NONE",
+                # We do not need to waste retrieving the UPDATED_NEW value when we know we we
+                # will it only for the last path element (we use right after the loop ended)
                 "UpdateExpression": current_update_expression,
                 "ExpressionAttributeNames": expression_attribute_names_dict,
                 "ExpressionAttributeValues": {

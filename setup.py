@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="StructNoSQL",
-    version="1.1.2",
+    version="1.2",
     packages=["StructNoSQL", "StructNoSQL.dynamodb", "StructNoSQL.utils"],
     include_package_data=True,
     install_requires=["pydantic", "boto3"],

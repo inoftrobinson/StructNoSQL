@@ -13,7 +13,11 @@ class DatabasePathElement:
             return self.custom_default_value
         if self.default_type is Any:
             return None
-        return self.default_type()
+        try:
+            return self.default_type()
+        except Exception as e:
+            # todo: fix this horrible temporary fix
+            return dict()
 
 
 @dataclass

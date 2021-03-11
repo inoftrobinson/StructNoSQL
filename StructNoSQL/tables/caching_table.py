@@ -85,10 +85,14 @@ class CachingTable(BaseTable):
     def _cache_put_data(index_cached_data: dict, field_path_elements: List[DatabasePathElement], data: Any):
         if len(field_path_elements) > 0:
             navigated_cached_data = index_cached_data
-            # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
-            # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
             for path_element in field_path_elements[:-1]:
-                navigated_cached_data = navigated_cached_data[f'{path_element.element_key}'] if f'{path_element.element_key}' in navigated_cached_data else {}
+                stringed_element_key = f'{path_element.element_key}'
+                # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
+                # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
+
+                if stringed_element_key not in navigated_cached_data:
+                    navigated_cached_data[stringed_element_key] = dict()
+                navigated_cached_data = navigated_cached_data[stringed_element_key]
 
             last_field_path_element = field_path_elements[-1]
             navigated_cached_data[f'{last_field_path_element.element_key}'] = data
@@ -99,8 +103,10 @@ class CachingTable(BaseTable):
         if len(field_path_elements) > 0:
             navigated_cached_data = index_cached_data
             for path_element in field_path_elements[:-1]:
-                navigated_cached_data = navigated_cached_data[path_element.element_key] \
-                    if path_element.element_key in navigated_cached_data else path_element.get_default_value()
+                stringed_element_key = f'{path_element.element_key}'
+                # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
+                # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
+                navigated_cached_data = navigated_cached_data[stringed_element_key] if stringed_element_key in navigated_cached_data else path_element.get_default_value()
 
             last_field_path_element = field_path_elements[-1]
             if last_field_path_element.element_key in navigated_cached_data:
@@ -211,8 +217,7 @@ class CachingTable(BaseTable):
                 )
                 if found_item_value_in_cache is True:
                     # We do not use a .get('key', None), because None can be a valid value for a field
-                    response_items_values[item_key] = field_item_value_from_cache if self.debug is not True else \
-                        {'value': field_item_value_from_cache, 'fromCache': True}
+                    response_items_values[item_key] = field_item_value_from_cache if self.debug is not True else {'value': field_item_value_from_cache, 'fromCache': True}
                     keys_fields_already_cached_to_pop.append(item_key)
 
             for key_to_pop in keys_fields_already_cached_to_pop:

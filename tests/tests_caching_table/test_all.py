@@ -232,7 +232,7 @@ class TestAllCachingTable(unittest.TestCase):
 
         retrieved_value = self.users_table.get_field(
             key_value=TEST_ACCOUNT_ID, query_kwargs={'listIndex': 0},
-            field_path='containerToRemove.{{listIndex}}.(fieldOne, fieldTwo)'
+            field_path='containersListToRemove.{{listIndex}}.(fieldOne, fieldTwo)'
         )
         self.assertIsNone(retrieved_value['fromCache'])
         self.assertEqual(retrieved_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
@@ -240,7 +240,7 @@ class TestAllCachingTable(unittest.TestCase):
 
         removed_value = self.users_table.remove_field(
             key_value=TEST_ACCOUNT_ID, query_kwargs={'listIndex': 0},
-            field_path='containerToRemove.{{listIndex}}.(fieldOne, fieldTwo)'
+            field_path='containersListToRemove.{{listIndex}}.(fieldOne, fieldTwo)'
         )
         self.assertIsNone(removed_value['fromCache'])
         self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})

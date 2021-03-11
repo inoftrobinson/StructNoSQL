@@ -17,6 +17,7 @@ class DatabasePathElement:
             return self.default_type()
         except Exception as e:
             # todo: fix this horrible temporary fix
+            raise Exception("imminent death")
             return dict()
 
 

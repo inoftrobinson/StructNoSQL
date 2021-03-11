@@ -73,7 +73,7 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
         else:
             variable_name = path_element.element_key.replace("$key$:", "")
             if query_kwargs is not None:
-                matching_kwarg = query_kwargs.get(variable_name, None)
+                matching_kwarg: Optional[Any] = query_kwargs.get(variable_name, None)
                 if matching_kwarg is not None:
                     # If the key of the path_element needs to be modified, we do not modify the existing path element,
                     # but we create a new instance of path element. Since the database_path_elements variable is retrieved

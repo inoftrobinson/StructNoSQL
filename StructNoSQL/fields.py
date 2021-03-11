@@ -4,7 +4,7 @@ from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
-
+from StructNoSQL.utils.types import ACCEPTABLE_KEY_TYPES
 
 FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')' '|']
 FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\}|\(|\)|\|)'
@@ -43,10 +43,25 @@ class MapModel(BaseDataModel):
     def dict(self) -> dict:
         return self.childrens_map if self.childrens_map is not None else self.kwargs
 
+
 class TableDataModel(MapModel):
     # The TableDataModel inherit from MapModel, to allow easier validation of record data.
     # For example, when the put_record function is used, and needs data validation.
     pass
+
+
+def _alias_to_model(alias: _GenericAlias):
+    alias_variable_name: Optional[str] = alias.__dict__.get('_name', None)
+    if alias_variable_name is not None:
+        alias_args: Optional[Tuple] = alias.__dict__.get('__args__', None)
+        if alias_args is not None:
+            if alias_variable_name == "Dict":
+                return DictModel(key_type=alias_args[0], item_type=alias_args[1])
+            elif alias_variable_name == "Set":
+                raise Exception("not yet implemented")
+            elif alias_variable_name == "List":
+                raise Exception("not yet implemented")
+    return None
 
 
 class BaseItem:
@@ -75,24 +90,37 @@ class BaseItem:
                 self._default_field_type = self._field_type[0]
 
         elif isinstance(self._field_type, _GenericAlias):
-            alias_variable_name: Optional[str] = self._field_type.__dict__.get("_name", None)
+            alias_variable_name: Optional[str] = self._field_type.__dict__.get('_name', None)
             if alias_variable_name is not None:
-                alias_args: Optional[Tuple] = self._field_type.__dict__.get("__args__", None)
+                alias_args: Optional[Tuple] = self._field_type.__dict__.get('__args__', None)
 
                 if alias_variable_name == "Dict":
                     self._field_type = dict
                     self._default_field_type = dict
                     self._key_expected_type = alias_args[0]
+                    if self._key_expected_type not in ACCEPTABLE_KEY_TYPES:
+                        raise Exception(message_with_vars(
+                            message="Key in a Dict field was not found in the acceptable key types",
+                            vars_dict={'_key_expected_type': self._key_expected_type, 'ACCEPTABLE_KEY_TYPES': ACCEPTABLE_KEY_TYPES}
+                        ))
+
                     self._items_excepted_type = alias_args[1]
+                    if isinstance(self._items_excepted_type, _GenericAlias):
+                        self._items_excepted_type = _alias_to_model(alias=self._items_excepted_type)
+
                 elif alias_variable_name == "Set":
                     self._field_type = set
                     self._default_field_type = set
                     self._items_excepted_type = alias_args[0]
+                    if isinstance(self._items_excepted_type, _GenericAlias):
+                        self._items_excepted_type = _alias_to_model(alias=self._items_excepted_type)
                     # todo: rename the _items_excepted_type variable
                 elif alias_variable_name == "List":
                     self._field_type = list
                     self._default_field_type = list
                     self._items_excepted_type = alias_args[0]
+                    if isinstance(self._items_excepted_type, _GenericAlias):
+                        self._items_excepted_type = _alias_to_model(alias=self._items_excepted_type)
                     # todo: rename the _items_excepted_type variable
 
         elif self._field_type == dict:
@@ -297,6 +325,20 @@ class MapItem(BaseField):
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)
         self._database_path = [*parent_field.database_path, database_path_element]
         self._table = parent_field.table
+
+class DictModel(BaseItem):
+    _default_primitive_type = dict
+
+    def __init__(self, key_type: Any, item_type: Any, key_name: Optional[str] = None):
+        super().__init__()
+        self.key_type = key_type
+        self.item_type = item_type
+        self.key_name = key_name
+        self._database_path = None
+
+    @property
+    def database_path(self):
+        return self._database_path
 
 
 class MapField(BaseField):

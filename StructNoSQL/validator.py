@@ -144,7 +144,7 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                                 else:
                                     print(message_with_vars(
                                         message=f"No map validator was found in a item of a dict. Item will be removed from data.",
-                                        vars_dict={"itemKey": element_item_key, "itemValue": item}
+                                        vars_dict={"itemKey": key, "itemValue": item}
                                     ))
                             for element_item_key_to_pop in element_item_keys_to_pop:
                                 item.pop(element_item_key_to_pop)

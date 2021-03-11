@@ -125,7 +125,7 @@ class Processor:
                 """if variable_item.required is True:
                     required_fields.append(variable_item)"""
 
-                # current_field_path += f"{variable_item.key_name}" if len(current_field_path) == 0 else f".{variable_item.key_name}"
+                current_field_path += ("" if len(current_field_path) == 0 else ".") + "{{" + variable_item.key_name + "}}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
 
             if isinstance(variable_item, MapField):
@@ -237,16 +237,22 @@ class Processor:
                             )
                             field_is_valid = self.table.fields_switch.set(current_field_path, map_item)
                             if field_is_valid is True:
-                                if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
+                                items_excepted_type = variable_item.items_excepted_type
+                                if items_excepted_type not in PRIMITIVE_TYPES:
                                     new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
                                     current_path_elements = [*variable_item.database_path, new_database_dict_item_path_element]
 
-                                    if isinstance(variable_item.items_excepted_type, DictModel):
-                                        child_current_field_path = f"{current_field_path}." + "{{" + variable_item.key_name + "Child}}"
+                                    if isinstance(items_excepted_type, DictModel):
+                                        if items_excepted_type.key_name is None:
+                                            # If the key_name of a DictModel is not defined (for example, when a nested typed Dict is converted
+                                            # to a DictModel) we set its key to the key of its parent plus the child keyword. So, a parent key
+                                            # of itemKey will give itemKeyChild, and a parent of itemKeyChild will give itemKeyChildChild.
+                                            items_excepted_type.key_name = f"{variable_item.key_name}Child"
+
                                         self.process_item(
                                             class_type=None,
                                             variable_item=variable_item.items_excepted_type,
-                                            current_field_path=child_current_field_path,
+                                            current_field_path=current_field_path,
                                             current_path_elements=current_path_elements
                                         )
 

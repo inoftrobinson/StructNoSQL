@@ -56,7 +56,7 @@ def _alias_to_model(alias: _GenericAlias):
         alias_args: Optional[Tuple] = alias.__dict__.get('__args__', None)
         if alias_args is not None:
             if alias_variable_name == "Dict":
-                return DictModel(key_type=alias_args[0], item_type=alias_args[1], key_name="child1")
+                return DictModel(key_type=alias_args[0], item_type=alias_args[1])
             elif alias_variable_name == "Set":
                 raise Exception("not yet implemented")
             elif alias_variable_name == "List":
@@ -327,7 +327,9 @@ class MapItem(BaseField):
         self._table = parent_field.table
 
 class DictModel(BaseItem):
-    def __init__(self, key_type: Any, item_type: Any, key_name: str):
+    _default_primitive_type = dict
+
+    def __init__(self, key_type: Any, item_type: Any, key_name: Optional[str] = None):
         super().__init__()
         self.key_type = key_type
         self.item_type = item_type

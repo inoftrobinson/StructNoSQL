@@ -515,18 +515,18 @@ class DynamoDbCoreAdapter:
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
 
-                if i_path + 1 < len(current_setter.field_path_elements):
-                    if isinstance(current_path_element.element_key, str):
-                        if i_path > 0:
-                            current_setter_update_expression += "."
-                        current_setter_update_expression += current_path_key
-                        current_setter_attribute_names[current_path_key] = current_path_element.element_key
-                    elif isinstance(current_path_element.element_key, int):
-                        # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
-                        # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
-                        # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
-                        current_setter_update_expression += f"[{current_path_element.element_key}]"
-                else:
+                if isinstance(current_path_element.element_key, str):
+                    if i_path > 0:
+                        current_setter_update_expression += "."
+                    current_setter_update_expression += current_path_key
+                    current_setter_attribute_names[current_path_key] = current_path_element.element_key
+                elif isinstance(current_path_element.element_key, int):
+                    # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
+                    # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
+                    # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
+                    current_setter_update_expression += f"[{current_path_element.element_key}]"
+
+                if i_path >= (len(current_setter.field_path_elements) - 1):
                     current_setter_update_expression += f" = :item{i_setter}"
                     current_setter_attribute_values[f":item{i_setter}"] = current_setter.value_to_set
 

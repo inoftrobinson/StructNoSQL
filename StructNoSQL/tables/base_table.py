@@ -102,9 +102,12 @@ def try_to_get_primitive_default_type_of_item(item_type: Any):
 class Processor:
     def __init__(self, table: BaseTable):
         self.table = table
-        self.required_fields = list()
 
-    def process_item(self, variable_item: Any, current_field_path: str, current_path_elements: Optional[List[DatabasePathElement]] = None, is_nested: bool = False):
+    def process_item(
+            self, class_type: Optional[type], variable_item: Any, current_field_path: str,
+            current_path_elements: Optional[List[DatabasePathElement]] = None, is_nested: bool = False
+    ) -> list:
+        required_fields = list()
         if current_path_elements is None:
             current_path_elements = list()
 
@@ -137,7 +140,7 @@ class Processor:
                 variable_item._table = self.table
 
                 if variable_item.required is True:
-                    self.required_fields.append(variable_item)
+                    required_fields.append(variable_item)
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
@@ -159,7 +162,7 @@ class Processor:
                 variable_item._table = self.table
 
                 if variable_item.required is True:
-                    self.required_fields.append(variable_item)
+                    required_fields.append(variable_item)
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
@@ -167,6 +170,11 @@ class Processor:
                     if variable_item.items_excepted_type is not None:
                         from StructNoSQL import ActiveSelf
                         if variable_item.items_excepted_type is ActiveSelf:
+                            if class_type is None:
+                                raise Exception(message_with_vars(
+                                    message="Cannot use the ActiveSelf attribute as the items_excepted_type when the class type is None",
+                                    vars_dict={'field_name': variable_item.field_name}
+                                ))
                             variable_item._items_excepted_type = class_type
 
                         item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.items_excepted_type)
@@ -174,40 +182,52 @@ class Processor:
 
                         if "{i}" in variable_item.key_name:
                             if is_nested is not True:
-                                current_nested_field_path = "" if nested_field_path is None else f"{nested_field_path}"
+                                current_nested_field_path = "" if current_field_path is None else current_field_path
                                 current_nested_database_path = [*variable_item.database_path]
                                 for i in range(variable_item.max_nested):
-                                    nested_variable_item = variable_item.copy()
-                                    nested_variable_item._database_path = [*current_nested_database_path]
-                                    item_rendered_key_name = nested_variable_item.key_name.replace("{i}", f"{i}")
+                                    if len(current_nested_database_path) > 32:
+                                        print(message_with_vars(
+                                            message="Imposed a max nested database depth on field missing or with a too high nested depth limit.",
+                                            vars_dict={
+                                                'current_field_path': current_field_path,
+                                                'field_name': variable_item.field_name,
+                                                'imposedMaxNestedDepth': i
+                                            }
+                                        ))
+                                        break
+                                    else:
+                                        nested_variable_item = variable_item.copy()
+                                        nested_variable_item._database_path = [*current_nested_database_path]
+                                        item_rendered_key_name = nested_variable_item.key_name.replace("{i}", f"{i}")
 
-                                    map_item = MapItem(
-                                        parent_field=nested_variable_item,
-                                        field_type=nested_variable_item.default_field_type,
-                                        model_type=nested_variable_item.items_excepted_type
-                                    )
-                                    current_nested_field_path += f".{variable_item.field_name}"
-                                    current_nested_field_path += ".{{" + item_rendered_key_name + "}}"
+                                        map_item = MapItem(
+                                            parent_field=nested_variable_item,
+                                            field_type=nested_variable_item.default_field_type,
+                                            model_type=nested_variable_item.items_excepted_type
+                                        )
+                                        if i > 0:
+                                            current_nested_field_path += f".{variable_item.field_name}"
+                                        current_nested_field_path += ".{{" + item_rendered_key_name + "}}"
 
-                                    current_nested_database_path.append(DatabasePathElement(
-                                        element_key=make_dict_key_var_name(item_rendered_key_name),
-                                        default_type=nested_variable_item.default_field_type,
-                                        custom_default_value=nested_variable_item.custom_default_value
-                                    ))
-                                    field_is_valid = self.table.fields_switch.set(key=current_nested_field_path, item=map_item)
-                                    if field_is_valid is True:
-                                        if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
-                                            self.assign_internal_mapping_from_class(
-                                                class_type=variable_item.items_excepted_type,
-                                                nested_field_path=current_nested_field_path,
-                                                current_path_elements=[*current_nested_database_path],
-                                                is_nested=True
-                                            )
-                                    current_nested_database_path.append(DatabasePathElement(
-                                        element_key=nested_variable_item.field_name,
-                                        default_type=nested_variable_item.default_field_type,
-                                        custom_default_value=nested_variable_item.custom_default_value
-                                    ))
+                                        current_nested_database_path.append(DatabasePathElement(
+                                            element_key=make_dict_key_var_name(item_rendered_key_name),
+                                            default_type=nested_variable_item.default_field_type,
+                                            custom_default_value=nested_variable_item.custom_default_value
+                                        ))
+                                        field_is_valid = self.table.fields_switch.set(key=current_nested_field_path, item=map_item)
+                                        if field_is_valid is True:
+                                            if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
+                                                self.assign_internal_mapping_from_class(
+                                                    class_type=variable_item.items_excepted_type,
+                                                    nested_field_path=current_nested_field_path,
+                                                    current_path_elements=[*current_nested_database_path],
+                                                    is_nested=True
+                                                )
+                                        current_nested_database_path.append(DatabasePathElement(
+                                            element_key=nested_variable_item.field_name,
+                                            default_type=nested_variable_item.default_field_type,
+                                            custom_default_value=nested_variable_item.custom_default_value
+                                        ))
                         else:
                             current_field_path += ".{{" + variable_item.key_name + "}}"
 
@@ -224,18 +244,22 @@ class Processor:
                                     if isinstance(variable_item.items_excepted_type, DictModel):
                                         child_current_field_path = f"{current_field_path}." + "{{" + variable_item.key_name + "Child}}"
                                         self.process_item(
+                                            class_type=None,
                                             variable_item=variable_item.items_excepted_type,
                                             current_field_path=child_current_field_path,
                                             current_path_elements=current_path_elements
                                         )
 
                                     self.assign_internal_mapping_from_class(
-                                        class_type=variable_item.items_excepted_type, nested_field_path=current_field_path,
+                                        class_type=variable_item.items_excepted_type,
+                                        nested_field_path=current_field_path,
                                         current_path_elements=current_path_elements
                                     )
 
         except Exception as e:
             print(e)
+
+        return required_fields
 
     def assign_internal_mapping_from_class(
         self, class_instance: Optional[Any] = None, class_type: Optional[Any] = None,
@@ -260,7 +284,7 @@ class Processor:
             pass
 
         class_variables = class_type.__dict__
-        required_fields = list()
+
         setup_function: Optional[callable] = class_variables.get('__setup__', None)
         if setup_function is not None:
             custom_setup_class_variables: dict = class_type.__setup__()
@@ -275,13 +299,16 @@ class Processor:
                         custom_setup_class_variables[key] = item
                 class_variables = custom_setup_class_variables
 
-        for variable_key, variable_item in class_variables.items():
-            current_field_path = "" if nested_field_path is None else f"{nested_field_path}"
-            self.process_item(
+        required_fields: List[BaseField] = list()
+        for variable_item in class_variables.values():
+            current_field_path = "" if nested_field_path is None else nested_field_path
+            required_fields.extend(self.process_item(
+                class_type=class_type,
                 variable_item=variable_item,
                 current_field_path=current_field_path,
-                current_path_elements=current_path_elements
-            )
+                current_path_elements=current_path_elements,
+                is_nested=is_nested
+            ))
 
         setattr(class_type, "required_fields", required_fields)
         # We need to set the attribute, because when we go the required_fields with the get_attr

@@ -372,8 +372,6 @@ class DynamoDbCoreAdapter:
 
         for i, current_path_element in enumerate(field_path_elements):
             is_last_path_element = i >= (len(field_path_elements) - 1)
-            if i > 0:
-                current_path_target += "."
 
             if i + 1 >= len(field_path_elements) and last_item_custom_overriding_init_value is not None:
                 current_item_default_value = last_item_custom_overriding_init_value
@@ -381,8 +379,16 @@ class DynamoDbCoreAdapter:
                 current_item_default_value = current_path_element.get_default_value()
 
             current_path_key = f"#pathKey{i}"
-            current_path_target += current_path_key
-            expression_attribute_names_dict[current_path_key] = current_path_element.element_key
+            if isinstance(current_path_element.element_key, str):
+                if i > 0:
+                    current_path_target += "."
+                current_path_target += current_path_key
+                expression_attribute_names_dict[current_path_key] = current_path_element.element_key
+            elif isinstance(current_path_element.element_key, int):
+                # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
+                # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
+                # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
+                current_path_target += f"[{current_path_element.element_key}]"
 
             current_update_expression = f"SET {current_path_target} = if_not_exists({current_path_target}, :item)"
             current_set_potentially_missing_object_query_kwargs = {
@@ -499,21 +505,27 @@ class DynamoDbCoreAdapter:
             "ReturnValues": "UPDATED_NEW"
         }
         update_expression = "SET "
-        expression_attribute_names_dict = dict()
-        expression_attribute_values_dict = dict()
+        expression_attribute_names_dict, expression_attribute_values_dict = dict(), dict()
 
         from sys import getsizeof
         consumed_setters: List[DynamoDBMapObjectSetter] = list()
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
-            current_setter_attribute_names = dict()
-            current_setter_attribute_values = dict()
+            current_setter_attribute_names, current_setter_attribute_values = dict(), dict()
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
-                current_setter_update_expression += current_path_key
-                current_setter_attribute_names[current_path_key] = current_path_element.element_key
+
                 if i_path + 1 < len(current_setter.field_path_elements):
-                    current_setter_update_expression += "."
+                    if isinstance(current_path_element.element_key, str):
+                        if i_path > 0:
+                            current_setter_update_expression += "."
+                        current_setter_update_expression += current_path_key
+                        current_setter_attribute_names[current_path_key] = current_path_element.element_key
+                    elif isinstance(current_path_element.element_key, int):
+                        # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
+                        # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
+                        # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
+                        current_setter_update_expression += f"[{current_path_element.element_key}]"
                 else:
                     current_setter_update_expression += f" = :item{i_setter}"
                     current_setter_attribute_values[f":item{i_setter}"] = current_setter.value_to_set

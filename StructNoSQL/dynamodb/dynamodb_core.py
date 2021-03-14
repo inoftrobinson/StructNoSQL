@@ -1,4 +1,5 @@
 import re
+from sys import getsizeof
 
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -330,22 +331,35 @@ class DynamoDbCoreAdapter:
             self, index_name: str, key_value: Any,
             targets_path_elements: List[List[DatabasePathElement]],
             retrieve_removed_elements: bool = False
-    ) -> Optional[Response]:
+    ) -> Optional[Dict[str, Any]]:
 
+        consumed_targets_path_elements: List[List[DatabasePathElement]] = list()
         expression_attribute_names_dict = dict()
         update_expression = "REMOVE "
 
-        num_targets = len(targets_path_elements)
         for i_target, target in enumerate(targets_path_elements):
             current_target_num_path_elements = len(target)
+            current_setter_attribute_names = dict()
+            current_remover_update_expression = ""
+
             for i_path_element, path_element in enumerate(target):
                 current_path_key = f"#target{i_target}_pathKey{i_path_element}"
-                update_expression += current_path_key
-                expression_attribute_names_dict[current_path_key] = path_element.element_key
+                current_remover_update_expression += current_path_key
+                current_setter_attribute_names[current_path_key] = path_element.element_key
                 if i_path_element + 1 < current_target_num_path_elements:
-                    update_expression += "."
-            if i_target + 1 < num_targets:
-                update_expression += ", "
+                    current_remover_update_expression += "."
+
+            complete_update_expression_bytes_size = getsizeof(update_expression)
+            current_setter_update_expression_bytes_size = getsizeof(current_remover_update_expression)
+            update_expression_bytes_size_if_setter_is_added = complete_update_expression_bytes_size + current_setter_update_expression_bytes_size
+            if update_expression_bytes_size_if_setter_is_added < EXPRESSION_MAX_BYTES_SIZE:
+                if i_target > 0:
+                    update_expression += ", "
+                expression_attribute_names_dict = {**expression_attribute_names_dict, **current_setter_attribute_names}
+                update_expression += current_remover_update_expression
+                consumed_targets_path_elements.append(target)
+            else:
+                break
 
         update_query_kwargs = {
             'TableName': self.table_name,
@@ -355,9 +369,26 @@ class DynamoDbCoreAdapter:
             'ExpressionAttributeNames': expression_attribute_names_dict,
         }
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
-        if response is not None and response.attributes is not None:
-            response.attributes = Utils.dynamodb_to_python_higher_level(response.attributes)
-        return response
+        if response is None:
+            return None
+
+        # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
+        # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
+        # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
+        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else dict()
+        if len(targets_path_elements) == len(consumed_targets_path_elements):
+            return output_response_attributes
+        else:
+            for current_target_path_elements in consumed_targets_path_elements:
+                targets_path_elements.remove(current_target_path_elements)
+
+            request_continuation_response_attributes = self.remove_data_elements_from_map(
+                index_name=index_name, key_value=key_value,
+                targets_path_elements=targets_path_elements,
+                retrieve_removed_elements=retrieve_removed_elements
+            )
+            combined_output_response_attributes = {**(output_response_attributes or dict()), **(request_continuation_response_attributes or dict())}
+            return combined_output_response_attributes
 
     def initialize_all_elements_in_map_target(
             self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement],
@@ -405,7 +436,7 @@ class DynamoDbCoreAdapter:
             }
             last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
 
-        if current_path_element is not None:
+        if current_path_element is not None and last_response is not None:
             # If the last item attribute value in the database does (retrieved thanks to the "UPDATED_NEW" ReturnValues),
             # do not equal its default_value (which is either the field type default value, or the
             # last_item_custom_overriding_init_value parameter), we want to initialize again the item, because this means
@@ -507,7 +538,6 @@ class DynamoDbCoreAdapter:
         update_expression = "SET "
         expression_attribute_names_dict, expression_attribute_values_dict = dict(), dict()
 
-        from sys import getsizeof
         consumed_setters: List[DynamoDBMapObjectSetter] = list()
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""

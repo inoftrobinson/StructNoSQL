@@ -47,7 +47,19 @@ class MapModel(BaseDataModel):
 class TableDataModel(MapModel):
     # The TableDataModel inherit from MapModel, to allow easier validation of record data.
     # For example, when the put_record function is used, and needs data validation.
-    pass
+    def class_add_field(self, field_key: str, field_item: Any):
+        setattr(self.__class__, field_key, field_item)
+
+    def class_from_fields(self, fields: Dict[str, Any]):
+        for key, item in fields.items():
+            self.class_add_field(field_key=key, field_item=item)
+
+    def instance_add_field(self, field_key: str, field_item: Any):
+        self.__dict__[field_key] = field_item
+
+    def instance_from_fields(self, fields: Dict[str, Any]):
+        for key, item in fields.items():
+            self.instance_add_field(field_key=key, field_item=item)
 
 
 def _alias_to_model(alias: _GenericAlias):

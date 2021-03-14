@@ -203,7 +203,7 @@ class BasicTable(BaseTable):
     def _base_removal(
             self, retrieve_removed_elements: bool, key_value: str, field_path: str,
             query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
-    ) -> Tuple[Optional[Response], List[List[DatabasePathElement]]]:
+    ) -> Tuple[Optional[Dict[str, Any]], List[List[DatabasePathElement]]]:
 
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
@@ -219,17 +219,17 @@ class BasicTable(BaseTable):
         ), target_path_elements
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Optional[Any]:
-        response, all_fields_items_path_elements = self._base_removal(
+        response_attributes, all_fields_items_path_elements = self._base_removal(
             retrieve_removed_elements=True, key_value=key_value,
             field_path=field_path, query_kwargs=query_kwargs, index_name=index_name
         )
-        if response is not None and response.attributes is not None:
+        if response_attributes is not None:
             if not len(all_fields_items_path_elements) > 0:
                 return None
             elif len(all_fields_items_path_elements) == 1:
                 field_path_elements = all_fields_items_path_elements[0]
                 removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                    data=response.attributes, field_path_elements=field_path_elements,
+                    data=response_attributes, field_path_elements=field_path_elements,
                     num_keys_to_navigation_into=len(field_path_elements)
                 )
                 return removed_item_data
@@ -247,11 +247,11 @@ class BasicTable(BaseTable):
         return None
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
-        response, _ = self._base_removal(
+        response_attributes, _ = self._base_removal(
             retrieve_removed_elements=False, key_value=key_value,
             field_path=field_path, query_kwargs=query_kwargs, index_name=index_name
         )
-        return True if response is not None else False
+        return True if response_attributes is not None else False
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         if not len(removers) > 0:
@@ -277,18 +277,18 @@ class BasicTable(BaseTable):
                     grouped_removers_field_paths_elements[remover_key] = field_path_elements
                     removers_database_paths.extend(field_path_elements.values())
 
-            response = self.dynamodb_client.remove_data_elements_from_map(
+            response_attributes = self.dynamodb_client.remove_data_elements_from_map(
                 index_name=index_name or self.primary_index_name, key_value=key_value,
                 targets_path_elements=removers_database_paths,
                 retrieve_removed_elements=True
             )
-            if response is None:
+            if response_attributes is None:
                 return None
             else:
                 output_data: Dict[str, Any] = dict()
                 for item_key, item_field_path_elements in removers_field_paths_elements.items():
                     removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                        data=response.attributes, field_path_elements=item_field_path_elements,
+                        data=response_attributes, field_path_elements=item_field_path_elements,
                         num_keys_to_navigation_into=len(item_field_path_elements)
                     )
                     output_data[item_key] = removed_item_data
@@ -297,7 +297,7 @@ class BasicTable(BaseTable):
                     container_data: Dict[str, Any] = dict()
                     for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                         container_data[child_item_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                            data=response.attributes, field_path_elements=child_item_field_path_elements,
+                            data=response_attributes, field_path_elements=child_item_field_path_elements,
                             num_keys_to_navigation_into=len(child_item_field_path_elements)
                         )
                     output_data[container_key] = container_data

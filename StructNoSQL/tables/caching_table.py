@@ -420,14 +420,14 @@ class CachingTable(BaseTable):
                     index_cached_data=index_cached_data, index_name=index_name,
                     key_value=key_value, field_path_elements=field_path_elements
                 )
-                response = self.dynamodb_client.remove_data_elements_from_map(
+                response_attributes = self.dynamodb_client.remove_data_elements_from_map(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, targets_path_elements=target_path_elements,
                     retrieve_removed_elements=True
                 )
-                if response is not None and response.attributes is not None:
+                if response_attributes is not None:
                     removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                        data=response.attributes, field_path_elements=field_path_elements,
+                        data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
                     return removed_item_data if self.debug is not True else {'value': removed_item_data, 'fromCache': False}
@@ -462,15 +462,15 @@ class CachingTable(BaseTable):
                     )
 
             if len(target_path_elements) > 0:
-                response = self.dynamodb_client.remove_data_elements_from_map(
+                response_attributes = self.dynamodb_client.remove_data_elements_from_map(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, targets_path_elements=target_path_elements,
                     retrieve_removed_elements=True
                 )
-                if response is not None and response.attributes is not None:
+                if response_attributes is not None:
                     for key, child_item_field_path_elements in field_path_elements.items():
                         removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                            data=response.attributes, field_path_elements=child_item_field_path_elements,
+                            data=response_attributes, field_path_elements=child_item_field_path_elements,
                             num_keys_to_navigation_into=len(child_item_field_path_elements)
                         )
                         container_output_data[key] = removed_item_data if self.debug is not True else {'value': removed_item_data, 'fromCache': False}
@@ -524,18 +524,18 @@ class CachingTable(BaseTable):
                             key_value=key_value, field_path_elements=item_field_path_elements_values
                         )
 
-            response = self.dynamodb_client.remove_data_elements_from_map(
+            response_attributes = self.dynamodb_client.remove_data_elements_from_map(
                 index_name=index_name or self.primary_index_name, key_value=key_value,
                 targets_path_elements=removers_database_paths,
                 retrieve_removed_elements=True
             )
-            if response is None:
+            if response_attributes is None:
                 return None
             else:
                 output_data: Dict[str, Any] = dict()
                 for item_key, item_field_path_elements in removers_field_paths_elements.items():
                     removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                        data=response.attributes, field_path_elements=item_field_path_elements,
+                        data=response_attributes, field_path_elements=item_field_path_elements,
                         num_keys_to_navigation_into=len(item_field_path_elements)
                     )
                     output_data[item_key] = removed_item_data
@@ -544,7 +544,7 @@ class CachingTable(BaseTable):
                     container_data: Dict[str, Any] = dict()
                     for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                         container_data[child_item_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                            data=response.attributes, field_path_elements=child_item_field_path_elements,
+                            data=response_attributes, field_path_elements=child_item_field_path_elements,
                             num_keys_to_navigation_into=len(child_item_field_path_elements)
                         )
                     output_data[container_key] = container_data

@@ -151,7 +151,7 @@ class BasicTable(BaseTable):
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
         if valid is True and field_path_elements is not None:
-            response = self.dynamodb_client.set_update_data_element_to_map(
+            response = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, value=validated_data,
                 field_path_elements=field_path_elements
@@ -172,7 +172,9 @@ class BasicTable(BaseTable):
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     ))
             elif isinstance(current_setter, UnsafeFieldSetter):
-                safe_field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
+                raise Exception(f"UnsafeFieldSetter not supported in basic_table")
+
+                """safe_field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
                     field_path_key=current_setter.safe_base_field_path, fields_switch=self.fields_switch
                 )
                 # todo: add support for multiple fields path
@@ -192,7 +194,7 @@ class BasicTable(BaseTable):
                 dynamodb_setters.append(DynamoDBMapObjectSetter(
                     field_path_elements=rendered_field_path_elements,
                     value_to_set=processed_value_to_set
-                ))
+                ))"""
 
         response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
             index_name=index_name or self.primary_index_name,
@@ -240,7 +242,7 @@ class BasicTable(BaseTable):
                     # field_path_elements if the field_path expression is selecting multiple fields.
                     last_path_element = field_path_elements[len(field_path_elements) - 1]
                     removed_items_values[last_path_element.element_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
-                        data=response.attributes, field_path_elements=field_path_elements,
+                        data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
                 return removed_items_values

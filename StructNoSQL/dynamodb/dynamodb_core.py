@@ -1,18 +1,22 @@
 import re
 from sys import getsizeof
 
+from concurrent.futures.thread import ThreadPoolExecutor
+from asyncio import Future
+
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from boto3.exceptions import ResourceNotExistsError
 from boto3.session import Session
-from typing import List, Optional, Type, Any, Dict
+from typing import List, Optional, Type, Any, Dict, Tuple
 
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, validate_arguments
 from pydantic.dataclasses import dataclass
 
 from StructNoSQL.dynamodb.dynamodb_utils import Utils
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter
+from StructNoSQL.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter, MapItemInitializer, \
+    MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.safe_dict import SafeDict
 from StructNoSQL.utils.static_logger import logger
@@ -26,6 +30,7 @@ class GetItemResponse(BaseModel):
     item: Optional[dict]
     success: bool
 
+
 class Response:
     def __init__(self, response_dict: dict):
         response_safedict = SafeDict(response_dict)
@@ -35,6 +40,7 @@ class Response:
         self.scanned_count = response_safedict.get("ScannedCount").to_int(default=None)
         self.last_evaluated_key = response_safedict.get("LastEvaluatedKey").to_dict(default=None)
         self.has_reached_end = False if self.last_evaluated_key is not None else True
+
 
 class Index(BaseModel):
     hash_key_name: str
@@ -46,6 +52,7 @@ class Index(BaseModel):
 
 class PrimaryIndex(Index):
     pass
+
 
 class GlobalSecondaryIndex(Index):
     # todo: add pydantic to this class
@@ -218,13 +225,15 @@ class DynamoDbCoreAdapter:
         """
         if self.create_table:
             create_table_query_kwargs = CreateTableQueryKwargs(table_name=self.table_name, billing_mode=self.billing_mode)
-
-            create_table_query_kwargs.add_hash_key(key_name=self.primary_index.hash_key_name,
-                                                   key_python_variable_type=self.primary_index.hash_key_variable_python_type)
-
+            create_table_query_kwargs.add_hash_key(
+                key_name=self.primary_index.hash_key_name,
+                key_python_variable_type=self.primary_index.hash_key_variable_python_type
+            )
             if self.primary_index.sort_key_name is not None and self.primary_index.sort_key_variable_python_type is not None:
-                create_table_query_kwargs.add_hash_key(key_name=self.primary_index.sort_key_name,
-                                                       key_python_variable_type=self.primary_index.sort_key_variable_python_type)
+                create_table_query_kwargs.add_hash_key(
+                    key_name=self.primary_index.sort_key_name,
+                    key_python_variable_type=self.primary_index.sort_key_variable_python_type
+                )
 
             if self.global_secondary_indexes is not None:
                 create_table_query_kwargs.add_all_global_secondary_indexes(global_secondary_indexes=self.global_secondary_indexes)
@@ -269,12 +278,12 @@ class DynamoDbCoreAdapter:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
             if "Item" in response:
-                return GetItemResponse(item=Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"]), success=True)
+                processed_item = Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"])
+                return GetItemResponse(item=processed_item, success=True)
             else:
                 return GetItemResponse(item=None, success=False)
         except ResourceNotExistsError:
-            raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process"
-                            "of being created. Failed to get attributes from DynamoDb table.")
+            raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process of being created. Failed to get attributes from DynamoDb table.")
         except Exception as e:
             print(f"Failed to retrieve attributes from DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
@@ -288,8 +297,7 @@ class DynamoDbCoreAdapter:
             response = table.update_item(**query_kwargs_dict)
             return Response(response)
         except ResourceNotExistsError:
-            raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process"
-                            "of being created. Failed to get attributes from DynamoDb table.")
+            raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process of being created. Failed to get attributes from DynamoDb table.")
         except ClientError as e:
             print(f"{e} - No element has been found for the update query : {query_kwargs_dict}")
             return None
@@ -297,7 +305,8 @@ class DynamoDbCoreAdapter:
             print(f"Failed to update attributes in DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
 
-    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
+    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str,
+                                  element_values: List[dict]) -> Optional[Response]:
         kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},
@@ -375,7 +384,8 @@ class DynamoDbCoreAdapter:
         # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
         # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
         # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
-        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else dict()
+        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(
+            response.attributes) if response.attributes is not None else dict()
         if len(targets_path_elements) == len(consumed_targets_path_elements):
             return output_response_attributes
         else:
@@ -387,76 +397,76 @@ class DynamoDbCoreAdapter:
                 targets_path_elements=targets_path_elements,
                 retrieve_removed_elements=retrieve_removed_elements
             )
-            combined_output_response_attributes = {**(output_response_attributes or dict()), **(request_continuation_response_attributes or dict())}
+            combined_output_response_attributes = {
+                **(output_response_attributes or dict()),
+                **(request_continuation_response_attributes or dict())
+            }
             return combined_output_response_attributes
 
-    def initialize_all_elements_in_map_target(
-            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement],
-            last_item_custom_overriding_init_value: Optional[Any] = None
+    @staticmethod
+    def _prepare_map_initialization(
+            i: int, current_path_element: DatabasePathElement, overriding_init_value: Any,
+            previous_element_item_initializer: Optional[MapItemInitializer] = None
+    ) -> MapItemInitializer:
+
+        current_path_target = previous_element_item_initializer.path_target if previous_element_item_initializer is not None else ""
+        expression_attribute_names = {**previous_element_item_initializer.expression_attribute_names} if previous_element_item_initializer is not None else dict()
+
+        current_path_key = f"#pathKey{i}"
+        if isinstance(current_path_element.element_key, str):
+            if i > 0:
+                current_path_target += "."
+            current_path_target += current_path_key
+            expression_attribute_names[current_path_key] = current_path_element.element_key
+        elif isinstance(current_path_element.element_key, int):
+            # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
+            # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
+            # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
+            current_path_target += f"[{current_path_element.element_key}]"
+
+        item_default_value = overriding_init_value or current_path_element.get_default_value()
+        return MapItemInitializer(
+            path_target=current_path_target, last_item_element_key=current_path_element.element_key,
+            item_default_value=item_default_value, expression_attribute_names=expression_attribute_names
+        )
+
+    def initialize_element_in_map_target(
+            self, index_name: str, key_value: Any, initializer: MapItemInitializer, is_last_path_element: bool = False
     ) -> Optional[Response]:
 
-        current_path_target = ""
-        current_path_element: Optional[DatabasePathElement] = None
-        current_item_default_value: Any = None
-        expression_attribute_names_dict: Dict[str, str] = dict()
-        last_response: Optional[Response] = None
-
-        for i, current_path_element in enumerate(field_path_elements):
-            is_last_path_element = i >= (len(field_path_elements) - 1)
-
-            if i + 1 >= len(field_path_elements) and last_item_custom_overriding_init_value is not None:
-                current_item_default_value = last_item_custom_overriding_init_value
-            else:
-                current_item_default_value = current_path_element.get_default_value()
-
-            current_path_key = f"#pathKey{i}"
-            if isinstance(current_path_element.element_key, str):
-                if i > 0:
-                    current_path_target += "."
-                current_path_target += current_path_key
-                expression_attribute_names_dict[current_path_key] = current_path_element.element_key
-            elif isinstance(current_path_element.element_key, int):
-                # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
-                # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
-                # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
-                current_path_target += f"[{current_path_element.element_key}]"
-
-            current_update_expression = f"SET {current_path_target} = if_not_exists({current_path_target}, :item)"
-            current_set_potentially_missing_object_query_kwargs = {
-                "TableName": self.table_name,
-                "Key": {index_name: key_value},
-                "ReturnValues": "UPDATED_NEW" if is_last_path_element else "NONE",
-                # We do not need to waste retrieving the UPDATED_NEW value when we know we we
-                # will it only for the last path element (we use right after the loop ended)
-                "UpdateExpression": current_update_expression,
-                "ExpressionAttributeNames": expression_attribute_names_dict,
-                "ExpressionAttributeValues": {
-                    ":item": current_item_default_value
-                }
-            }
-            last_response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
-
-        if current_path_element is not None and last_response is not None:
+        base_query_kwargs = {
+            'TableName': self.table_name,
+            'Key': {index_name: key_value},
+            'ExpressionAttributeNames': initializer.expression_attribute_names,
+            'ExpressionAttributeValues': {
+                ':item': initializer.item_default_value
+            },
+            'ReturnValues': 'UPDATED_NEW' if is_last_path_element else 'NONE'
+            # We do not need to waste retrieving the UPDATED_NEW value when we know we we
+            # will it only for the last path element (we use right after the loop ended)
+        }
+        current_update_expression = f"SET {initializer.path_target} = if_not_exists({initializer.path_target}, :item)"
+        current_set_potentially_missing_object_query_kwargs = {**base_query_kwargs, 'UpdateExpression': current_update_expression}
+        response = self._execute_update_query(query_kwargs_dict=current_set_potentially_missing_object_query_kwargs)
+        if is_last_path_element is True:
             # If the last item attribute value in the database does (retrieved thanks to the "UPDATED_NEW" ReturnValues),
             # do not equal its default_value (which is either the field type default value, or the
             # last_item_custom_overriding_init_value parameter), we want to initialize again the item, because this means
             # that the attribute existed, so the SET update expression with if_not_exists did not performed, and we do
             # not currently have the value we want in the database. We perform this operation only for the last path
             # element in the request, to avoid overriding and scratching list or dictionary that are expected to exist.
-            field_existing_attribute_in_database = last_response.attributes.get(current_path_element.element_key)
-            if field_existing_attribute_in_database != current_item_default_value:
+            field_existing_attribute_in_database = response.attributes.get(initializer.last_item_element_key)
+            if field_existing_attribute_in_database != initializer.item_default_value:
                 # It is possible for the field to already exist, and yet, to not have
-                initialization_response = self._set_update_data_element_to_map_without_default_initialization(
-                    index_name=index_name, key_value=key_value,
-                    field_path_elements=field_path_elements,
-                    value=last_item_custom_overriding_init_value
-                )
-                return initialization_response
-        return last_response
+                current_update_expression = f"SET {initializer.path_target} = :item"
+                current_override_existing_object_value_query_kwargs = {**base_query_kwargs, 'UpdateExpression': current_update_expression}
+                override_object_value_response = self._execute_update_query(query_kwargs_dict=current_override_existing_object_value_query_kwargs)
+                return override_object_value_response
+        return response
 
-    def _set_update_data_element_to_map_without_default_initialization(
+    def _construct_update_data_element_to_map_query_kwargs(
             self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
-    ) -> Optional[Response]:
+    ) -> dict:
 
         expression_attribute_names_dict = dict()
         update_expression = "SET "
@@ -480,51 +490,115 @@ class DynamoDbCoreAdapter:
                 ":item": value
             }
         }
+        return update_query_kwargs
+
+    def set_update_data_element_to_map_with_default_initialization(
+            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+    ) -> Optional[Response]:
+        update_query_kwargs = self._construct_update_data_element_to_map_query_kwargs(
+            index_name=index_name, key_value=key_value, field_path_elements=field_path_elements, value=value
+        )
+        return self._execute_update_query_with_initialization_if_missing(
+            index_name=index_name, key_value=key_value, update_query_kwargs=update_query_kwargs,
+            setters=[DynamoDBMapObjectSetter(field_path_elements=field_path_elements, value_to_set=value)]
+        )
+
+    def set_update_data_element_to_map_without_default_initialization(
+            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+    ) -> Optional[Response]:
+        update_query_kwargs = self._construct_update_data_element_to_map_query_kwargs(
+            index_name=index_name, key_value=key_value, field_path_elements=field_path_elements, value=value
+        )
         return self._execute_update_query(query_kwargs_dict=update_query_kwargs)
 
-    def set_update_data_element_to_map(
-            self, index_name: str, key_value: Any, value: Any, field_path_elements: List[DatabasePathElement]
+    @staticmethod
+    def _setters_to_tidied_initializers(setters: List[DynamoDBMapObjectSetter]) -> Dict[str, MapItemInitializerContainer]:
+        root_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
+        all_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
+
+        for setter in setters:
+            current_map_initializer: Optional[MapItemInitializer] = None
+            last_map_initializer_container: Optional[MapItemInitializerContainer] = None
+
+            for i_path, path_element in enumerate(setter.field_path_elements):
+                existing_container: Optional[MapItemInitializerContainer] = all_initializers_containers.get(path_element.element_key, None)
+                if existing_container is None:
+                    overriding_init_value: Optional[Any] = setter.value_to_set if i_path + 1 >= len(setter.field_path_elements) else None
+                    current_map_initializer = DynamoDbCoreAdapter._prepare_map_initialization(
+                        i=i_path, current_path_element=path_element, overriding_init_value=overriding_init_value,
+                        previous_element_item_initializer=current_map_initializer
+                    )
+                    current_map_initializer_container = MapItemInitializerContainer(item=current_map_initializer, nexts_in_line=dict())
+                    if last_map_initializer_container is None:
+                        root_initializers_containers[path_element.element_key] = current_map_initializer_container
+                    else:
+                        last_map_initializer_container.nexts_in_line[path_element.element_key] = current_map_initializer_container
+                    last_map_initializer_container = current_map_initializer_container
+                else:
+                    last_map_initializer_container = existing_container
+                    logger.info(message_with_vars(
+                        message="Successfully tidied duplicate DatabasePathElement initializer",
+                        vars_dict={
+                            'trimmedPathElementKey': path_element.element_key,
+                            'trimmedSetterValueToSet': setter.value_to_set,
+                            'existingContainerItemPathTarget': existing_container.item.path_target,
+                            'existingContainerItemDefaultValue': existing_container.item.item_default_value
+                        }
+                    ))
+        return root_initializers_containers
+
+    def _initializer_task_executor(self, index_name: str, key_value: str, initializer_container: MapItemInitializerContainer) -> Optional[Response]:
+        # todo: group fields initialization in single request
+        is_last_path_element = not len(initializer_container.nexts_in_line) > 0
+        initialization_response = self.initialize_element_in_map_target(
+            index_name=index_name, key_value=key_value,
+            initializer=initializer_container.item,
+            is_last_path_element=is_last_path_element
+        )
+        if initialization_response is None:
+            logger.error(message_with_vars(
+                message="Initialized a field after a set/update multiple data elements in map request had failed.",
+                vars_dict={'initializer_container': initializer_container}
+            ))
+
+        if len(initializer_container.nexts_in_line) > 0:
+            results = self._run_initializers_in_executors(
+                index_name=index_name, key_value=key_value,
+                initializers=initializer_container.nexts_in_line
+            )
+        return initialization_response
+
+    def _run_initializers_in_executors(self, index_name: str, key_value: str, initializers: Dict[str, MapItemInitializerContainer]) -> Optional[List[Optional[Response]]]:
+        initializers_values = initializers.values()
+        num_initializers = len(initializers_values)
+        with ThreadPoolExecutor(max_workers=num_initializers) as executor:
+            results: List[Optional[Response]] = [executor.submit(
+                self._initializer_task_executor, index_name, key_value, item
+            ).result() for i, item in enumerate(initializers_values)]
+        return results
+
+    def _execute_update_query_with_initialization_if_missing(
+            self, index_name: str, key_value: Any, update_query_kwargs: dict, setters: List[DynamoDBMapObjectSetter]
     ) -> Optional[Response]:
 
-        response = self._set_update_data_element_to_map_without_default_initialization(
-            index_name=index_name, key_value=key_value, value=value, field_path_elements=field_path_elements
-        )
-        if response is None:
-            # If the response is None, it means that one of the path of the target path has not been found and need to be initialized.
-            print(message_with_vars(
-                message="Set/update request failed. Trying to initialize and populate the required objects.",
-                vars_dict={'index_name': index_name, 'key_value': key_value, 'field_path_elements': field_path_elements}
-            ))
-            return self.initialize_all_elements_in_map_target(
-                index_name=index_name, key_value=key_value,
-                field_path_elements=field_path_elements,
-                last_item_custom_overriding_init_value=value
-            )
-        return response
-
-    def _execute_update_query_with_initialization_if_missing(self, index_name: str, key_value: Any, update_query_kwargs: dict,
-                                                             setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
         if response is None:
-            # If the response is None, it means that one of the path of the
-            # target path has not been found and need to be initialized.
-            last_response: Optional[Response] = None
-            for i_setter, current_setter in enumerate(setters):
-                # todo: group fields initialization in single request
-                last_response = self.initialize_all_elements_in_map_target(
-                    index_name=index_name, key_value=key_value,
-                    field_path_elements=current_setter.field_path_elements,
-                    last_item_custom_overriding_init_value=current_setter.value_to_set
-                )
-                if last_response is None:
-                    print(message_with_vars(
-                        message="Initialized a field after a set/update multiple data elements in map request had failed.",
-                        vars_dict={"fieldTargetPathElements": current_setter.field_path_elements}
-                    ))
+            # If the response is None, it means that one of the path of the target path has not been found and need to be initialized.
+            database_paths_initializers = self._setters_to_tidied_initializers(setters=setters)
+            results = self._run_initializers_in_executors(
+                index_name=index_name, key_value=key_value,
+                initializers=database_paths_initializers
+            )
+            last_response = results[-1]
+            # This function can only be triggered if there is at least one item in setters List, so we do not need to worry about accessing
+            # the last element in result List without checking if the len of the setters or of the results is superior to zero.
             return last_response
         return response
 
-    def set_update_multiple_data_elements_to_map(self, index_name: str, key_value: Any, setters: List[DynamoDBMapObjectSetter]) -> Optional[Response]:
+    def set_update_multiple_data_elements_to_map(
+            self, index_name: str, key_value: Any, setters: List[DynamoDBMapObjectSetter]
+    ) -> Optional[Response]:
+
         if not len(setters) > 0:
             # If we tried to run the query with no object setter,
             # she will crash when executed. So we return None.
@@ -607,7 +681,8 @@ class DynamoDbCoreAdapter:
             return self.set_update_multiple_data_elements_to_map(index_name=index_name, key_value=key_value, setters=setters)
 
     def query_by_key(
-            self, index_name: str, key_value: Any, fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
+            self, index_name: str, key_value: Any,
+            fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
             filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
     ) -> Response:
         if fields_paths_elements is not None:
@@ -638,8 +713,11 @@ class DynamoDbCoreAdapter:
             raise Exception(f"Failed to retrieve attributes from DynamoDb table."
                             f"Exception of type {type(e).__name__} occurred: {str(e)}")
 
-    def query_single_item_by_key(self, index_name: str, key_value: Any, fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
-                                 filter_expression: Optional[Any] = None) -> Optional[dict]:
+    def query_single_item_by_key(
+            self, index_name: str, key_value: Any,
+            fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
+            filter_expression: Optional[Any] = None
+    ) -> Optional[dict]:
         # Yes, a query request is heavier than a get request that we could do with the _get_item_by_primary_key function.
         # Yet, in a get request, we cannot specify an index_name to query on. So, the _query_single_item_by_key should be
         # used when we want to get an item based on another index that the primary one. Otherwise, use _get_item_by_primary_key
@@ -685,32 +763,6 @@ class DynamoDbCoreAdapter:
                 else:
                     return None
 
-    def navigate_into_data_with_field_path_elements(
-            self, data: Any, field_path_elements: List[DatabasePathElement], num_keys_to_navigation_into: int
-    ) -> Optional[Any]:
-        if data is not None:
-            num_field_path_elements = len(field_path_elements)
-            for i, path_element in enumerate(field_path_elements):
-                if i + 1 > num_keys_to_navigation_into:
-                    break
-                elif i > 0 and field_path_elements[i - 1].default_type == list:
-                    data = data[0]
-                else:
-                    if not isinstance(data, dict):
-                        break
-
-                    if path_element.default_type == set and data == {} and num_field_path_elements > i + 1:
-                        data = field_path_elements[i + 1].element_key
-                        break
-
-                    data = data.get(path_element.element_key, None)
-                    if data is None:
-                        # If the response_item is None, it means that one key has not been found,
-                        # so we need to break the loop in order to try to call get on a None object,
-                        # and then we will return the response_item, so we will return None.
-                        break
-        return data
-
     def get_data_in_path_target(
             self, index_name: str, key_value: str,
             field_path_elements: List[DatabasePathElement],
@@ -742,7 +794,8 @@ class DynamoDbCoreAdapter:
 
     def get_data_from_multiple_fields_in_path_target(
             self, key_value: str, fields_paths_elements: Dict[str, List[DatabasePathElement]],
-            num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None, metadata: bool = False
+            num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None,
+            metadata: bool = False
     ) -> Optional[Dict[str, Any]]:
 
         response_item = self.get_or_query_single_item(
@@ -858,3 +911,28 @@ class DynamoDbCoreAdapter:
             output_kwargs["ProjectionExpression"] = projection_expression
 
         return output_kwargs
+
+    @staticmethod
+    def navigate_into_data_with_field_path_elements(data: Any, field_path_elements: List[DatabasePathElement], num_keys_to_navigation_into: int) -> Optional[Any]:
+        if data is not None:
+            num_field_path_elements = len(field_path_elements)
+            for i, path_element in enumerate(field_path_elements):
+                if i + 1 > num_keys_to_navigation_into:
+                    break
+                elif i > 0 and field_path_elements[i - 1].default_type == list:
+                    data = data[0]
+                else:
+                    if not isinstance(data, dict):
+                        break
+
+                    if path_element.default_type == set and data == {} and num_field_path_elements > i + 1:
+                        data = field_path_elements[i + 1].element_key
+                        break
+
+                    data = data.get(path_element.element_key, None)
+                    if data is None:
+                        # If the response_item is None, it means that one key has not been found,
+                        # so we need to break the loop in order to try to call get on a None object,
+                        # and then we will return the response_item, so we will return None.
+                        break
+        return data

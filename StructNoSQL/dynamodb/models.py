@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 
 
 @dataclass
@@ -46,3 +46,16 @@ class FieldRemover:
 class DynamoDBMapObjectSetter:
     field_path_elements: List[DatabasePathElement]
     value_to_set: Any
+
+
+@dataclass
+class MapItemInitializer:
+    path_target: str
+    last_item_element_key: str
+    item_default_value: Any
+    expression_attribute_names: Dict[str, str]
+
+@dataclass
+class MapItemInitializerContainer:
+    item: MapItemInitializer
+    nexts_in_line: Dict[str, Any]

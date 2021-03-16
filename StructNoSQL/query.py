@@ -48,7 +48,7 @@ class Query:
             self._variable_validator.populate(value=value)
             validated_data, valid = self._variable_validator.validate_data()
             if valid is True:
-                response = self._table.dynamodb_client.set_update_data_element_to_map(
+                response = self._table.dynamodb_client.set_update_data_element_to_map_with_default_initilization(
                     index_name=self.index_name, key_value=self.key_value,
                     field_path_elements=self.target_database_path, value=validated_data
                 )

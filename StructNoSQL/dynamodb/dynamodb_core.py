@@ -384,8 +384,7 @@ class DynamoDbCoreAdapter:
         # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
         # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
         # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
-        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(
-            response.attributes) if response.attributes is not None else dict()
+        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else dict()
         if len(targets_path_elements) == len(consumed_targets_path_elements):
             return output_response_attributes
         else:
@@ -404,25 +403,54 @@ class DynamoDbCoreAdapter:
             return combined_output_response_attributes
 
     @staticmethod
-    def _prepare_map_initialization(
-            i: int, current_path_element: DatabasePathElement, overriding_init_value: Any,
-            previous_element_item_initializer: Optional[MapItemInitializer] = None
-    ) -> MapItemInitializer:
+    def _add_database_path_element_to_string_expression(
+            base_string: Optional[str], database_path_element: DatabasePathElement, path_key: str
+    ) -> Tuple[str, Dict[str, str]]:
 
-        current_path_target = previous_element_item_initializer.path_target if previous_element_item_initializer is not None else ""
-        expression_attribute_names = {**previous_element_item_initializer.expression_attribute_names} if previous_element_item_initializer is not None else dict()
+        output_string: str = base_string or str()
+        output_expression_attribute_names: Dict[str, str] = dict()
 
-        current_path_key = f"#pathKey{i}"
-        if isinstance(current_path_element.element_key, str):
-            if i > 0:
-                current_path_target += "."
-            current_path_target += current_path_key
-            expression_attribute_names[current_path_key] = current_path_element.element_key
-        elif isinstance(current_path_element.element_key, int):
+        if isinstance(database_path_element.element_key, str):
+            if len(output_string) > 0:
+                output_string += "."
+            output_string += path_key
+            output_expression_attribute_names[path_key] = database_path_element.element_key
+        elif isinstance(database_path_element.element_key, int):
             # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
             # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
             # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
-            current_path_target += f"[{current_path_element.element_key}]"
+            output_string += f"[{database_path_element.element_key}]"
+
+        return output_string, output_expression_attribute_names
+
+    @staticmethod
+    def _add_database_path_element_to_string_path(base_string: Optional[str], database_path_element: DatabasePathElement) -> str:
+        output_string: str = base_string or str()
+        if isinstance(database_path_element.element_key, str):
+            if len(output_string) > 0:
+                output_string += "."
+            output_string += database_path_element.element_key
+        elif isinstance(database_path_element.element_key, int):
+            # See comment on similar block code in function _add_database_path_element_to_string_expression
+            output_string += f"[{database_path_element.element_key}]"
+        return output_string
+
+    @staticmethod
+    def _prepare_map_initialization(
+            i: int, current_path_element: DatabasePathElement, overriding_init_value: Any,
+            previous_element_initializer_container: Optional[MapItemInitializerContainer] = None
+    ) -> MapItemInitializer:
+
+        current_path_key = f"#pathKey{i}"
+        current_path_target = str() if previous_element_initializer_container is None else previous_element_initializer_container.item.path_target
+
+        current_path_target, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
+            base_string=current_path_target, database_path_element=current_path_element, path_key=current_path_key
+        )
+        expression_attribute_names = (
+            {**previous_element_initializer_container.item.expression_attribute_names, **new_expression_attribute_names}
+            if previous_element_initializer_container is not None else new_expression_attribute_names
+        )
 
         item_default_value = overriding_init_value or current_path_element.get_default_value()
         return MapItemInitializer(
@@ -517,21 +545,30 @@ class DynamoDbCoreAdapter:
         all_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
 
         for setter in setters:
-            current_map_initializer: Optional[MapItemInitializer] = None
+            current_absolute_target_path = str()
             last_map_initializer_container: Optional[MapItemInitializerContainer] = None
 
             for i_path, path_element in enumerate(setter.field_path_elements):
-                existing_container: Optional[MapItemInitializerContainer] = all_initializers_containers.get(path_element.element_key, None)
+                current_absolute_target_path = DynamoDbCoreAdapter._add_database_path_element_to_string_path(
+                    base_string=current_absolute_target_path, database_path_element=path_element
+                )
+                existing_container: Optional[MapItemInitializerContainer] = all_initializers_containers.get(current_absolute_target_path, None)
                 if existing_container is None:
                     overriding_init_value: Optional[Any] = setter.value_to_set if i_path + 1 >= len(setter.field_path_elements) else None
                     current_map_initializer = DynamoDbCoreAdapter._prepare_map_initialization(
                         i=i_path, current_path_element=path_element, overriding_init_value=overriding_init_value,
-                        previous_element_item_initializer=current_map_initializer
+                        previous_element_initializer_container=last_map_initializer_container
                     )
                     current_map_initializer_container = MapItemInitializerContainer(item=current_map_initializer, nexts_in_line=dict())
+                    all_initializers_containers[path_element.element_key] = current_map_initializer_container
+
                     if last_map_initializer_container is None:
+                        # If the last_map_initializer_container is None, this means that we are in the first iteration of the
+                        # field_path_elements loop, which means that the current_map_initializer_container is a root initializer.
                         root_initializers_containers[path_element.element_key] = current_map_initializer_container
                     else:
+                        # If the last_map_initializer_container is not None, we know that our current_map_initializer_container is not
+                        # a root initializer, and needs to be set in the nexts_in_line variable of the last_map_initializer_container.
                         last_map_initializer_container.nexts_in_line[path_element.element_key] = current_map_initializer_container
                     last_map_initializer_container = current_map_initializer_container
                 else:
@@ -618,17 +655,10 @@ class DynamoDbCoreAdapter:
             current_setter_attribute_names, current_setter_attribute_values = dict(), dict()
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
-
-                if isinstance(current_path_element.element_key, str):
-                    if i_path > 0:
-                        current_setter_update_expression += "."
-                    current_setter_update_expression += current_path_key
-                    current_setter_attribute_names[current_path_key] = current_path_element.element_key
-                elif isinstance(current_path_element.element_key, int):
-                    # If the element_key is an int, it means we try to access an index of a list or set. We can right away use the index access
-                    # quotation ( [$index] instead of .$attributeName ) and not need to pass the index as an attribute name. Note, that anyway,
-                    # boto3 will only accept strings as attribute names, and trying to pass an int or float as attribute name, will crash the request.
-                    current_setter_update_expression += f"[{current_path_element.element_key}]"
+                current_setter_update_expression, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
+                    base_string=current_setter_update_expression, database_path_element=current_path_element, path_key=current_path_key
+                )
+                current_setter_attribute_names = {**current_setter_attribute_names, **new_expression_attribute_names}
 
                 if i_path >= (len(current_setter.field_path_elements) - 1):
                     current_setter_update_expression += f" = :item{i_setter}"

@@ -102,7 +102,9 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                             continue
 
                     if item_type_to_return_to.items_excepted_type is not None:
-                        if MapModel in item_type_to_return_to.items_excepted_type.__bases__:
+                        if hasattr(item_type_to_return_to.items_excepted_type, '__bases__') and MapModel in item_type_to_return_to.items_excepted_type.__bases__:
+                            # We check if the items_excepted_type contains the __bases__ attributes, because form values (like the Any value that is assigned both when
+                            # using an untyped dict or when using Any in a typed Dict) will not contain the __bases__ attribute and will raise if trying to access it.
                             element_item_keys_to_pop: List[str] = list()
 
                             item_type = type(item)

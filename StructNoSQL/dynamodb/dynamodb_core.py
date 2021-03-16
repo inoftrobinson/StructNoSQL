@@ -560,8 +560,11 @@ class DynamoDbCoreAdapter:
                         previous_element_initializer_container=last_map_initializer_container
                     )
                     current_map_initializer_container = MapItemInitializerContainer(item=current_map_initializer, nexts_in_line=dict())
-                    all_initializers_containers[path_element.element_key] = current_map_initializer_container
+                    all_initializers_containers[current_absolute_target_path] = current_map_initializer_container
+                    # We must use the current_absolute_target_path as key, because the all_initializers_containers dict is a flattened dict.
 
+                    # We can use the element_key instead of the absolute path as key for both the root_initializers_containers and last_map_initializer_container
+                    # dict's since they are layered dictionnaries, unlike the all_initializers_containers dict which is a flattened dict.
                     if last_map_initializer_container is None:
                         # If the last_map_initializer_container is None, this means that we are in the first iteration of the
                         # field_path_elements loop, which means that the current_map_initializer_container is a root initializer.
@@ -570,6 +573,7 @@ class DynamoDbCoreAdapter:
                         # If the last_map_initializer_container is not None, we know that our current_map_initializer_container is not
                         # a root initializer, and needs to be set in the nexts_in_line variable of the last_map_initializer_container.
                         last_map_initializer_container.nexts_in_line[path_element.element_key] = current_map_initializer_container
+
                     last_map_initializer_container = current_map_initializer_container
                 else:
                     last_map_initializer_container = existing_container

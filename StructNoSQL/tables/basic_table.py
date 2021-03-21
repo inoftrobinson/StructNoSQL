@@ -1,3 +1,4 @@
+from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, List, Dict, Any, Tuple
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
@@ -248,6 +249,22 @@ class BasicTable(BaseTable):
                 return removed_items_values
         return None
 
+    """def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        return {key: self.remove_field(
+            key_value=key_value, index_name=index_name,
+            field_path=item.field_path, query_kwargs=item.query_kwargs
+        ) for key, item in removers.items()}"""
+
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, Any]:
+        def _task_executor(remover_item: FieldRemover):
+            return self.remove_field(
+                key_value=key_value, index_name=index_name,
+                field_path=remover_item.field_path,
+                query_kwargs=remover_item.query_kwargs
+            )
+        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
+            return {key: executor.submit(_task_executor, item).result() for key, item in removers.items()}
+
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         response_attributes, _ = self._base_removal(
             retrieve_removed_elements=False, key_value=key_value,
@@ -255,7 +272,23 @@ class BasicTable(BaseTable):
         )
         return True if response_attributes is not None else False
 
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        return {key: self.delete_field(
+            key_value=key_value, index_name=index_name,
+            field_path=item.field_path, query_kwargs=item.query_kwargs
+        ) for key, item in removers.items()}"""
+
+    def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, bool]:
+        def _task_executor(remover_item: FieldRemover):
+            return self.delete_field(
+                key_value=key_value, index_name=index_name,
+                field_path=remover_item.field_path,
+                query_kwargs=remover_item.query_kwargs
+            )
+        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
+            return {key: executor.submit(_task_executor, item).result() for key, item in removers.items()}
+
+    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         if not len(removers) > 0:
             # If no remover has been specified, we do not run the database
             # operation, and since no value has been removed, we return None.
@@ -305,7 +338,7 @@ class BasicTable(BaseTable):
                     output_data[container_key] = container_data
                 return output_data
 
-    def delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
+    def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
         if len(removers) > 0:
             removers_database_paths: List[List[DatabasePathElement]] = list()
             for current_remover in removers:

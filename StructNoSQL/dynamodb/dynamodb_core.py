@@ -291,7 +291,7 @@ class DynamoDbCoreAdapter:
     def check_if_item_exist_by_primary_key(self, index_name: str, key_value: str, fields_paths_elements: Optional[List[str]]) -> Optional[bool]:
         raise Exception("Not implemented")  # todo: implement
 
-    def _execute_update_query(self, query_kwargs_dict: dict) -> Optional[Response]:
+    def _execute_update_query(self, query_kwargs_dict: dict, allow_validation_exception: bool = False) -> Optional[Response]:
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.update_item(**query_kwargs_dict)
@@ -300,6 +300,8 @@ class DynamoDbCoreAdapter:
             raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process of being created. Failed to get attributes from DynamoDb table.")
         except ClientError as e:
             print(f"{e} - No element has been found for the update query : {query_kwargs_dict}")
+            if allow_validation_exception and e.response['Error']['Code'] == 'ValidationException':
+                return Response({})
             return None
         except Exception as e:
             print(f"Failed to update attributes in DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
@@ -377,7 +379,7 @@ class DynamoDbCoreAdapter:
             'UpdateExpression': update_expression,
             'ExpressionAttributeNames': expression_attribute_names_dict,
         }
-        response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
+        response = self._execute_update_query(query_kwargs_dict=update_query_kwargs, allow_validation_exception=True)
         if response is None:
             return None
 

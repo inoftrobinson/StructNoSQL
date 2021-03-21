@@ -251,14 +251,13 @@ class TestTableOperations(unittest.TestCase):
         )
         self.assertTrue(success_fields_set)
 
-        success_fields_remove = self.users_table.delete_multiple_fields(
-            index_name="accountId", key_value=TEST_ACCOUNT_ID,
-            removers=[
-                FieldRemover(field_path="fieldToDelete"),
-                FieldRemover(field_path="sophisticatedRemoval.{{id}}.nestedVariable", query_kwargs=query_kwargs)
-            ]
+        deletion_response = self.users_table.delete_multiple_fields(
+            index_name="accountId", key_value=TEST_ACCOUNT_ID, removers={
+                'field': FieldRemover(field_path="fieldToDelete"),
+                'nested': FieldRemover(field_path="sophisticatedRemoval.{{id}}.nestedVariable", query_kwargs=query_kwargs)
+            }
         )
-        self.assertTrue(success_fields_remove)
+        self.assertTrue(all(deletion_response.values()))
 
     def test_put_and_delete_records(self):
         success_put_invalid_record = self.users_table.put_record(record_dict_data={"invalidAccountId": "testAccountId", "multiTypes": "testPutRecord"})

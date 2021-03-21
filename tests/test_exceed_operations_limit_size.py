@@ -27,7 +27,7 @@ class TestExceedOperationsLimitSize(unittest.TestCase):
                 field_key=current_field_path,
                 field_item=BaseField(name=current_field_path, field_type=bool, required=False)
             )
-            if getsizeof(removers) > (EXPRESSION_MAX_BYTES_SIZE * 10):
+            if getsizeof(removers) > (EXPRESSION_MAX_BYTES_SIZE * 1.5):
                 break
             index += 1
 
@@ -35,9 +35,8 @@ class TestExceedOperationsLimitSize(unittest.TestCase):
         # We initialize the table after having added all the fields to the class of the TableModel, so that
         # the indexing of the model will correctly be done on all the programmatically added fields.
 
-        removers_list: List[FieldRemover] = list(removers.values())
-        deletion_success = users_table.delete_multiple_fields(key_value=TEST_ACCOUNT_ID, removers=removers_list)
-        self.assertEqual(deletion_success, True)
+        deletion_response = users_table.delete_multiple_fields(key_value=TEST_ACCOUNT_ID, removers=removers)
+        self.assertTrue(all(deletion_response.values()))
 
         retrieved_removed_data = users_table.remove_multiple_fields(key_value=TEST_ACCOUNT_ID, removers=removers)
         self.assertIsNotNone(retrieved_removed_data)

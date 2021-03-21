@@ -21,10 +21,10 @@ class InitializeFieldsWithSharedParents(unittest.TestCase):
         base_field_path = 'containerForItemsWithSharedParents.{{itemId}}'
         item_name_field_path = f'{base_field_path}.itemName'
 
-        potential_old_data_deletion_success = self.users_table.delete_multiple_fields(key_value=TEST_ACCOUNT_ID, removers=[
-            FieldRemover(field_path=base_field_path, query_kwargs={'itemId': 'itemOne'}),
-            FieldRemover(field_path=base_field_path, query_kwargs={'itemId': 'itemTwo'})
-        ])
+        potential_old_data_deletion_success = self.users_table.delete_multiple_fields(key_value=TEST_ACCOUNT_ID, removers={
+            'one': FieldRemover(field_path=base_field_path, query_kwargs={'itemId': 'itemOne'}),
+            'two': FieldRemover(field_path=base_field_path, query_kwargs={'itemId': 'itemTwo'})
+        })
         # We do not check the success of the deletion operation, because at the time of writing that, if a delete operation try to delete
         # a field path that does not exist, the operation will crash and return a success of False, where what we want is just to make sure
         # the data is fully clean so we can make sure we initialize the items from scratch. We do not really care about removing the data.

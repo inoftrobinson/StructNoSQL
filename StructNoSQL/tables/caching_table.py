@@ -477,6 +477,12 @@ class CachingTable(BaseTable):
 
             return container_output_data if self.debug is not True else {'value': container_output_data, 'fromCache': None}
 
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        return {key: self.remove_field(
+            key_value=key_value, index_name=index_name,
+            field_path=item.field_path, query_kwargs=item.query_kwargs
+        ) for key, item in removers.items()}
+
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
         pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
@@ -487,7 +493,13 @@ class CachingTable(BaseTable):
         )
         return True
 
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, bool]:
+        return {key: self.delete_field(
+            key_value=key_value, index_name=index_name,
+            field_path=item.field_path, query_kwargs=item.query_kwargs
+        ) for key, item in removers.items()}
+
+    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         # todo: do not perform the operation but store it as pending if a matching value exists in the cache
         if not len(removers) > 0:
             # If no remover has been specified, we do not run the database
@@ -550,7 +562,7 @@ class CachingTable(BaseTable):
                     output_data[container_key] = container_data
                 return output_data
 
-    def delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
+    def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
         pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
 

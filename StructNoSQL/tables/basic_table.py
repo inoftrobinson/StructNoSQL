@@ -256,6 +256,9 @@ class BasicTable(BaseTable):
         ) for key, item in removers.items()}"""
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, Any]:
+        if not len(removers) > 0:
+            return {}
+
         def _task_executor(remover_item: FieldRemover):
             return self.remove_field(
                 key_value=key_value, index_name=index_name,
@@ -279,6 +282,9 @@ class BasicTable(BaseTable):
         ) for key, item in removers.items()}"""
 
     def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, bool]:
+        if not len(removers) > 0:
+            return {}
+
         def _task_executor(remover_item: FieldRemover):
             return self.delete_field(
                 key_value=key_value, index_name=index_name,

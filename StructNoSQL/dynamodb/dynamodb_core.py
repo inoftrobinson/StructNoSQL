@@ -485,8 +485,8 @@ class DynamoDbCoreAdapter:
             # that the attribute existed, so the SET update expression with if_not_exists did not performed, and we do
             # not currently have the value we want in the database. We perform this operation only for the last path
             # element in the request, to avoid overriding and scratching list or dictionary that are expected to exist.
-            field_existing_attribute_in_database = response.attributes.get(initializer.last_item_element_key)
-            if field_existing_attribute_in_database != initializer.item_default_value:
+            field_existing_attribute_in_database = response.attributes.get(initializer.last_item_element_key) if response is not None else None
+            if field_existing_attribute_in_database is None or field_existing_attribute_in_database != initializer.item_default_value:
                 # It is possible for the field to already exist, and yet, to not have
                 current_update_expression = f"SET {initializer.path_target} = :item"
                 current_override_existing_object_value_query_kwargs = {**base_query_kwargs, 'UpdateExpression': current_update_expression}

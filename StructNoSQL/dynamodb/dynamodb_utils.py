@@ -236,6 +236,7 @@ class Utils:
         {'L': list}                             list
         {'M': dict}                             dict
         """
+        # todo: move to a switch
         if python_type == type(None):
             return "NULL"
         elif python_type == bool:

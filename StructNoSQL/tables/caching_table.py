@@ -57,15 +57,16 @@ class CachingTable(BaseTable):
             self._pending_remove_operations[index_name] = dict()
         return self._pending_remove_operations[index_name]
 
-    def commit_update_operations(self):
+    def commit_update_operations(self) -> bool:
         for formatted_index_key_value, dynamodb_setters in self._pending_update_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
             response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=index_name, key_value=key_value, setters=list(dynamodb_setters.values())
             )
             print(response)
+        return True  # todo: create a real success status instead of always True
 
-    def commit_remove_operations(self):
+    def commit_remove_operations(self) -> bool:
         for formatted_index_key_value, dynamodb_setters in self._pending_remove_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
             response = self.dynamodb_client.remove_data_elements_from_map(
@@ -74,7 +75,7 @@ class CachingTable(BaseTable):
             )
             # delete operations can be cached, where as remove operations need to be executed immediately
             print(response)
-        return True
+        return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
         self.commit_update_operations()

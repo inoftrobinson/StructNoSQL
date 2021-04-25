@@ -198,13 +198,13 @@ class DynamoDbCoreAdapter:
         # the same region_name, we do not need to wait for a new initialization of the client.
         if region_name in self._EXISTING_DATABASE_CLIENTS.keys():
             self.dynamodb = self._EXISTING_DATABASE_CLIENTS[region_name]
-            print(f"Re-using the already created dynamodb client for region {region_name}")
+            # print(f"Re-using the already created dynamodb client for region {region_name}")
         elif "default" in self._EXISTING_DATABASE_CLIENTS.keys():
             self.dynamodb = self._EXISTING_DATABASE_CLIENTS["default"]
-            print(f"Re-using the already created dynamodb client for the default region")
+            # print(f"Re-using the already created dynamodb client for the default region")
         else:
-            print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
-                  f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
+            # print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
+            #       f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
             dynamodb_regions = Session().get_available_regions("dynamodb")
             if region_name in dynamodb_regions:
@@ -238,7 +238,6 @@ class DynamoDbCoreAdapter:
             if self.global_secondary_indexes is not None:
                 create_table_query_kwargs.add_all_global_secondary_indexes(global_secondary_indexes=self.global_secondary_indexes)
             try:
-                print(create_table_query_kwargs.data)
                 self.dynamodb.create_table(**create_table_query_kwargs.data)
             except Exception as e:
                 if e.__class__.__name__ != "ResourceInUseException":

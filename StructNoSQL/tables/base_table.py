@@ -1,11 +1,10 @@
-from typing import Optional, List, Dict, Any, Set, _GenericAlias
+from typing import Optional, List, Any, Set, _GenericAlias
 from copy import copy
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter
-from StructNoSQL.fields import BaseField, MapField, MapItem, TableDataModel, BaseItem, DictModel
+from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
 
 
@@ -19,7 +18,7 @@ class FieldsSwitch(dict):
     def __init__(self, *args, **kwargs):
         super(dict).__init__(*args, **kwargs)
 
-    def set(self, key: str, item: MapField or BaseField) -> bool:
+    def set(self, key: str, item: BaseField) -> bool:
         if len(item.database_path) > 32:
             print("\nDynamoDB support a maximum depth of nested of items of 32. This is not imposed by StructNoSQL but by DynamoDB.\n"
                   "See : https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html#limits-attributes")
@@ -64,13 +63,13 @@ class BaseTable:
         return self._model
 
     @property
-    def model_virtual_map_field(self) -> MapField:
+    def model_virtual_map_field(self) -> BaseField:
         if self._model_virtual_map_field is None:
-            self._model_virtual_map_field = MapField(name="", model=self._model)
-            # The model_virtual_map_field is a MapField with no name, that use the table model, which easily
-            # give us the ability to use the functions of the MapField object (for example, functions for
+            self._model_virtual_map_field = BaseField(name="", field_type=self._model)
+            # The model_virtual_map_field is a BaseField with no name, that use the table model, which easily
+            # give us the ability to use the functions of the BaseField object (for example, functions for
             # data validation), with the data model of the table itself. For example, the put_record
-            # operation, needs to validate its data, based on the table data model, not a MapField.
+            # operation, needs to validate its data, based on the table data model, not a BaseField.
         return self._model_virtual_map_field
 
     @property
@@ -128,29 +127,6 @@ class Processor:
                 current_field_path += ("" if len(current_field_path) == 0 else ".") + "{{" + variable_item.key_name + "}}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
 
-            if isinstance(variable_item, MapField):
-                variable_item: MapField
-
-                new_database_path_element = DatabasePathElement(
-                    element_key=variable_item.field_name,
-                    default_type=variable_item.field_type,
-                    custom_default_value=variable_item.custom_default_value
-                )
-                variable_item._database_path = [*current_path_elements, new_database_path_element]
-                variable_item._table = self.table
-
-                if variable_item.required is True:
-                    required_fields.append(variable_item)
-
-                current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
-                field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
-                if field_is_valid is True:
-                    self.assign_internal_mapping_from_class(
-                        class_type=variable_item.map_model,
-                        nested_field_path=current_field_path,
-                        current_path_elements=[*variable_item.database_path]
-                    )
-
             elif isinstance(variable_item, BaseField):
                 variable_item: BaseField
                 new_database_path_element = DatabasePathElement(
@@ -167,6 +143,13 @@ class Processor:
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
                 if field_is_valid is True:
+                    if variable_item.map_model is not None:
+                        self.assign_internal_mapping_from_class(
+                            class_type=variable_item.map_model,
+                            nested_field_path=current_field_path,
+                            current_path_elements=[*variable_item.database_path]
+                        )
+
                     if variable_item.items_excepted_type is not None:
                         from StructNoSQL import ActiveSelf
                         if variable_item.items_excepted_type is ActiveSelf:

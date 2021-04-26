@@ -2,8 +2,7 @@ import unittest
 from typing import Set, Optional, Dict, List
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, TableDataModel, MapField
-from StructNoSQL.exceptions import UsageOfUntypedSetException
+from StructNoSQL import BaseField, MapModel, TableDataModel
 from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
 

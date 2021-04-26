@@ -2,7 +2,7 @@ import unittest
 from typing import Set, Optional
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, TableDataModel, MapField
+from StructNoSQL import BaseField, MapModel, TableDataModel
 from StructNoSQL.exceptions import UsageOfUntypedSetException
 from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
@@ -11,7 +11,7 @@ class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
     class ContainerModel(MapModel):
         typedSet = BaseField(name='typedSet', field_type=Set[str], key_name='setKey', required=False)
-    container = MapField(name='container', model=ContainerModel)
+    container = BaseField(name='container', field_type=ContainerModel)
 
 class TestsSetObjectType(unittest.TestCase):
     def __init__(self, method_name: str):

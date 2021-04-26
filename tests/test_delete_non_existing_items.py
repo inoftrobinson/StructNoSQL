@@ -1,7 +1,7 @@
 import unittest
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, TableDataModel, FieldSetter, MapField
+from StructNoSQL import BaseField, MapModel, TableDataModel, FieldSetter
 from tests.users_table import UsersTable, TEST_ACCOUNT_ID
 
 
@@ -9,7 +9,7 @@ class TableModel(TableDataModel):
     class FieldsToDeleteContainerModel(MapModel):
         existingItemOneToDelete = BaseField(name='existingItemOneToDelete', field_type=str, required=False)
         existingItemTwoToDelete = BaseField(name='existingItemTwoToDelete', field_type=str, required=False)
-    fieldsToDeleteContainer = MapField(name='fieldsToDeleteContainer', model=FieldsToDeleteContainerModel)
+    fieldsToDeleteContainer = BaseField(name='fieldsToDeleteContainer', field_type=FieldsToDeleteContainerModel, required=False)
 
 class TestDeleteNonExistingItems(unittest.TestCase):
     def __init__(self, method_name: str):

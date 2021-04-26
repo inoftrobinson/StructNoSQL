@@ -2,7 +2,7 @@ import unittest
 from typing import Optional, Dict, Set, List, Any
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, TableDataModel, MapField
+from StructNoSQL import BaseField, MapModel, TableDataModel
 from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
 
 
@@ -11,7 +11,7 @@ class TableModel(TableDataModel):
     class ContainerModel(MapModel):
         untypedList = BaseField(name='untypedList', field_type=list, key_name='listIndex', required=False)
         typedList = BaseField(name='typedList', field_type=List[str], key_name='listIndex', required=False)
-    container = MapField(name='container', model=ContainerModel)
+    container = BaseField(name='container', field_type=ContainerModel, required=False)
 
 class TestListObjectType(unittest.TestCase):
     def __init__(self, method_name: str):

@@ -107,7 +107,11 @@ class CachingTable(BaseTable):
                 stringed_element_key = f'{path_element.element_key}'
                 # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
                 # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
-                navigated_cached_data = navigated_cached_data[stringed_element_key] if stringed_element_key in navigated_cached_data else path_element.get_default_value()
+                navigated_cached_data = (
+                    navigated_cached_data[stringed_element_key]
+                    if stringed_element_key in navigated_cached_data
+                    else path_element.get_default_value()
+                )
 
             last_field_path_element = field_path_elements[-1]
             if last_field_path_element.element_key in navigated_cached_data:

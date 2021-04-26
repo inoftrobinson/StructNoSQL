@@ -2,7 +2,7 @@ import random
 import unittest
 from typing import List
 from uuid import uuid4
-from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, MapField, FieldSetter, FieldGetter
+from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, FieldSetter, FieldGetter
 from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_ID
 
 
@@ -20,7 +20,7 @@ class TableModel(TableDataModel):
         fieldOne = BaseField(name='fieldOne', field_type=str, required=False)
         fieldTwo = BaseField(name='fieldTwo', field_type=str, required=False)
         fieldThree = BaseField(name='fieldThree', field_type=str, required=False)
-    containerToRemove = MapField(name='containerToRemove', model=ContainerToRemoveModel)
+    containerToRemove = BaseField(name='containerToRemove', field_type=ContainerToRemoveModel, required=False)
     containersListToRemove = BaseField(name='containersListToRemove', field_type=List[ContainerToRemoveModel], key_name='listIndex')
 
 class TestAllCachingTable(unittest.TestCase):

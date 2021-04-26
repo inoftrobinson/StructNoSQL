@@ -1,5 +1,5 @@
 from typing import Dict
-from StructNoSQL import TableDataModel, BaseField, MapModel, MapField, NoneType
+from StructNoSQL import TableDataModel, BaseField, MapModel, NoneType
 
 
 class UsersTableModel(TableDataModel):
@@ -9,7 +9,7 @@ class UsersTableModel(TableDataModel):
         projectName = BaseField(name="projectName", field_type=str, required=True)
         class InstancesInfosModel(MapModel):
             ya = BaseField(name="ya", field_type=str)
-        instancesInfos = MapField(name="instancesInfos", model=InstancesInfosModel)
+        instancesInfos = BaseField(name="instancesInfos", field_type=InstancesInfosModel, required=False)
     projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
     multiTypes = BaseField(name="multiTypes", field_type=[str, NoneType], required=True)
     number1 = BaseField(name="number1", field_type=[int, float], required=False)
@@ -24,6 +24,6 @@ class UsersTableModel(TableDataModel):
 
     class TestMapModel(MapModel):
         sampleText = BaseField(name="sampleText", field_type=str, required=False)
-    testMapModel = MapField(name="testMapModel", model=TestMapModel)
+    testMapModel = BaseField(name="testMapModel", field_type=TestMapModel, required=False)
 
     testDictWithPrimitiveValue = BaseField(name="testDictWithPrimitiveValue", field_type=Dict[str, bool], key_name="key")

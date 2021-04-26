@@ -135,6 +135,11 @@ class BaseItem:
                         self._items_excepted_type = _alias_to_model(alias=self._items_excepted_type)
                     # todo: rename the _items_excepted_type variable
 
+        elif MapModel in getattr(self._field_type, '__mro__', ()):
+            self.map_model = self._field_type
+            self._field_type = dict
+            self._default_field_type = dict
+
         elif self._field_type == dict:
             # Handle an untyped dict
             self._items_excepted_type = Any
@@ -238,8 +243,10 @@ class BaseItem:
 
 
 class BaseField(BaseItem):
-    def __init__(self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
-                 custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32):
+    def __init__(
+            self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
+            custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32
+    ):
         super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
         self._name = name
         if self._name is not None:
@@ -351,19 +358,3 @@ class DictModel(BaseItem):
     @property
     def database_path(self):
         return self._database_path
-
-
-class MapField(BaseField):
-    def __init__(self, name: str, model):
-        super().__init__(name=name, field_type=dict)
-        self.map_model: type(MapModel) = model
-        # self.populate(value=model().dict)
-        # todo: create models to validate the dicts
-
-
-class ListField(BaseField):
-    def __init__(self, name: str, items_model: Optional[MapModel] = None):
-        super().__init__(name=name, field_type=list)
-        self._list_items_model = items_model
-        # todo: allow to have multiple items_model and that an item can be one of many item models
-        # self.populate(value=model().dict)

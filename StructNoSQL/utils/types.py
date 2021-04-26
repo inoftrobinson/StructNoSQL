@@ -1,4 +1,3 @@
-
 PRIMITIVE_TYPES = {
     bool,
     str,

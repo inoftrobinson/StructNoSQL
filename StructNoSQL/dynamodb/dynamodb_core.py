@@ -1,8 +1,5 @@
-import re
 from sys import getsizeof
-
 from concurrent.futures.thread import ThreadPoolExecutor
-from asyncio import Future
 
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -12,13 +9,11 @@ from typing import List, Optional, Type, Any, Dict, Tuple
 
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, validate_arguments
-from pydantic.dataclasses import dataclass
 
-from StructNoSQL.dynamodb.dynamodb_utils import Utils
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldSetter, DynamoDBMapObjectSetter, MapItemInitializer, \
+from StructNoSQL.dynamodb.dynamodb_utils import Utils, PythonToDynamoDBTypesConvertor
+from StructNoSQL.dynamodb.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.safe_dict import SafeDict
 from StructNoSQL.utils.static_logger import logger
 
 HASH_KEY_TYPE = "HASH"
@@ -33,12 +28,11 @@ class GetItemResponse(BaseModel):
 
 class Response:
     def __init__(self, response_dict: dict):
-        response_safedict = SafeDict(response_dict)
-        self.items = response_safedict.get("Items").to_list(default=None)
-        self.attributes = response_safedict.get("Attributes").to_dict(default=None)
-        self.count = response_safedict.get("Count").to_int(default=None)
-        self.scanned_count = response_safedict.get("ScannedCount").to_int(default=None)
-        self.last_evaluated_key = response_safedict.get("LastEvaluatedKey").to_dict(default=None)
+        self.items: Optional[List[dict]] = response_dict.get('Items', None)
+        self.attributes: Optional[dict] = response_dict.get('Attributes', None)
+        self.count: Optional[int] = response_dict.get('Count', None)
+        self.scanned_count: Optional[int] = response_dict.get('ScannedCount', None)
+        self.last_evaluated_key: Optional[dict] = response_dict.get('LastEvaluatedKey', None)
         self.has_reached_end = False if self.last_evaluated_key is not None else True
 
 
@@ -137,7 +131,7 @@ class CreateTableQueryKwargs:
         })
         self.data["AttributeDefinitions"].append({
             "AttributeName": key_name,
-            "AttributeType": Utils.python_type_to_dynamodb_type(python_type=key_python_variable_type)
+            "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
         })
 
     @validate_arguments
@@ -152,7 +146,7 @@ class CreateTableQueryKwargs:
         if key_name not in self._names_already_defined_attributes:
             self.data["AttributeDefinitions"].append({
                 "AttributeName": key_name,
-                "AttributeType": Utils.python_type_to_dynamodb_type(python_type=key_python_variable_type)
+                "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
             })
             self._names_already_defined_attributes.append(key_name)
 

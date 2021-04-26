@@ -8,6 +8,8 @@ from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serial
 NoneType = type(None)
 class ActiveSelf:
     pass
+class Undefined:
+    pass
 
 
 def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: Optional[BaseItem] = None) -> Tuple[Any, bool]:

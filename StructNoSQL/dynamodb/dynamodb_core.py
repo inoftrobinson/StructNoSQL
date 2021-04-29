@@ -722,7 +722,9 @@ class DynamoDbCoreAdapter:
             kwargs = {**kwargs, **additional_kwargs}
 
         kwargs["KeyConditionExpression"] = Key(index_name).eq(key_value)
-        if index_name is not None:
+        if index_name != self.primary_index.hash_key_name:
+            # If the queried index is the primary_index, it must
+            # not be specified, otherwise the request will fail.
             kwargs["IndexName"] = index_name
 
         if filter_expression is not None:

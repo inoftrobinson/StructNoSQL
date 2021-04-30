@@ -97,6 +97,7 @@ class BaseItem:
         self._custom_default_value = custom_default_value
         self._field_type = field_type
         self._default_field_type = field_type
+
         if isinstance(self._field_type, (list, tuple)):
             if len(self._field_type) > 0:
                 self._default_field_type = self._field_type[0]

@@ -3,7 +3,7 @@ from copy import copy
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
 
@@ -65,11 +65,11 @@ class BaseTable:
     @property
     def model_virtual_map_field(self) -> BaseField:
         if self._model_virtual_map_field is None:
-            self._model_virtual_map_field = BaseField(name="", field_type=self._model)
-            # The model_virtual_map_field is a BaseField with no name, that use the table model, which easily
-            # give us the ability to use the functions of the BaseField object (for example, functions for
-            # data validation), with the data model of the table itself. For example, the put_record
-            # operation, needs to validate its data, based on the table data model, not a BaseField.
+            self._model_virtual_map_field = BaseField(name="", field_type=self._model.__class__)
+            # The model_virtual_map_field is a BaseField with no name, that use the table model class type, which easily
+            # give us the ability to use the functions of the BaseField object (for example, functions for data validation),
+            # with the data model of the table itself, without having to create an intermediary item. For example, the
+            # put_record operation, needs to validate its data, based on the table data model, not a BaseField.
         return self._model_virtual_map_field
 
     @property

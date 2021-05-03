@@ -1,23 +1,40 @@
 import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
+
+from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 from StructNoSQL.utils.types import ACCEPTABLE_KEY_TYPES
 
-FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')' '|']
-FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = r'(\[|\]|\{|\}|\(|\)|\|)'
+
+FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')', '|']
+FIELD_NAME_RESTRICTED_CHARS_EXPRESSION = "|".join(re.escape(char) for char in FIELD_NAME_RESTRICTED_CHARS_LIST)
+# We escape each individual char, which will add the appropriate backslashes to the chars that require them.
+
+FIELD_NAME_RESTRICTED_NAMES_LIST = DynamoDBUtils.DYNAMODB_TYPES_KEYS
+FIELD_NAME_RESTRICTED_NAMES_EXPRESSION = f"^({'|'.join(name for name in FIELD_NAME_RESTRICTED_NAMES_LIST)})$"
 
 
 def _raise_if_field_name_is_invalid(field_name: str):
-    match: Optional[List[tuple]] = re.findall(pattern=FIELD_NAME_RESTRICTED_CHARS_EXPRESSION, string=field_name)
-    if match is not None and len(match) > 0:
+    restricted_chars_matches: Optional[List[tuple]] = re.findall(pattern=FIELD_NAME_RESTRICTED_CHARS_EXPRESSION, string=field_name)
+    if restricted_chars_matches is not None and len(restricted_chars_matches) > 0:
         raise InvalidFieldNameException(message_with_vars(
             message="A field name was using one or multiple restricted chars",
             vars_dict={
-                'fieldName': field_name, 'restrictedCharsMatch': match,
+                'fieldName': field_name, 'restrictedCharsMatch': restricted_chars_matches,
                 'FIELD_NAME_RESTRICTED_CHARS_LIST': FIELD_NAME_RESTRICTED_CHARS_LIST
+            }
+        ))
+
+    restricted_names_matches: Optional[List[tuple]] = re.findall(pattern=FIELD_NAME_RESTRICTED_NAMES_EXPRESSION, string=field_name)
+    if restricted_names_matches is not None and len(restricted_names_matches) > 0:
+        raise InvalidFieldNameException(message_with_vars(
+            message="A field name was using a restricted name",
+            vars_dict={
+                'fieldName': field_name, 'restricted_names_matches': restricted_names_matches,
+                'FIELD_NAME_RESTRICTED_NAMES_LIST': FIELD_NAME_RESTRICTED_NAMES_LIST
             }
         ))
 

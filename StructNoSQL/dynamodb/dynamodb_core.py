@@ -10,7 +10,7 @@ from typing import List, Optional, Type, Any, Dict, Tuple
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, validate_arguments
 
-from StructNoSQL.dynamodb.dynamodb_utils import Utils, PythonToDynamoDBTypesConvertor
+from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils, PythonToDynamoDBTypesConvertor
 from StructNoSQL.dynamodb.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
@@ -271,7 +271,7 @@ class DynamoDbCoreAdapter:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
             if "Item" in response:
-                processed_item = Utils.dynamodb_to_python_higher_level(dynamodb_object=response["Item"])
+                processed_item = DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=response['Item'])
                 return GetItemResponse(item=processed_item, success=True)
             else:
                 return GetItemResponse(item=None, success=False)
@@ -379,7 +379,7 @@ class DynamoDbCoreAdapter:
         # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
         # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
         # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
-        output_response_attributes: Dict[str, Any] = Utils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else dict()
+        output_response_attributes: Dict[str, Any] = DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else {}
         if len(targets_path_elements) == len(consumed_targets_path_elements):
             return output_response_attributes
         else:
@@ -736,7 +736,7 @@ class DynamoDbCoreAdapter:
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.query(**kwargs)
-            return Response(Utils.dynamodb_to_python(response))
+            return Response(DynamoDBUtils.dynamodb_to_python(response))
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} do not exist or in the process"
                             "of being created. Failed to get attributes from DynamoDb table.")

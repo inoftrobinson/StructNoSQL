@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Callable
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
@@ -13,23 +13,17 @@ def join_field_path_elements(field_path_elements) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))
 
 
-class CachingTable(BaseTable):
-    def __init__(
-        self, table_name: str, region_name: str,
-        data_model, primary_index: PrimaryIndex,
-        billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-        global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-        auto_create_table: bool = True
-    ):
-        super().__init__(
-            table_name=table_name, region_name=region_name, data_model=data_model,
-            primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
-            billing_mode=billing_mode, auto_create_table=auto_create_table
-        )
+class BaseCachingTable:
+    def __init__(self):  #, primary_index: PrimaryIndex):
+        # self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
         self._cached_data = dict()
         self._pending_update_operations: Dict[str, Dict[str, DynamoDBMapObjectSetter]] = dict()
         self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
         self._debug = False
+
+    @property
+    def primary_index_name(self) -> str:
+        return self._primary_index_name
 
     @property
     def debug(self) -> bool:
@@ -191,25 +185,25 @@ class CachingTable(BaseTable):
         else:
             return False
 
-    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Any:
+    def get_field(
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+            key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
+    ) -> Tuple[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool]:
+
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
             field_path_elements: List[DatabasePathElement]
-
-            found_in_cache, field_value_from_cache = CachingTable._cache_get_data(
+            found_in_cache, field_value_from_cache = BaseCachingTable._cache_get_data(
                 index_cached_data=index_cached_data, field_path_elements=field_path_elements
             )
             if found_in_cache is True:
                 return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
 
-            response_data = self.dynamodb_client.get_value_in_path_target(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=field_path_elements
-            )
-            CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
+            response_data = middleware(field_path_elements, has_multiple_fields_path)
+            BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
             return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
@@ -217,12 +211,16 @@ class CachingTable(BaseTable):
 
             keys_fields_already_cached_to_pop: List[str] = list()
             for item_key, item_field_path_elements in field_path_elements.items():
-                found_item_value_in_cache, field_item_value_from_cache = CachingTable._cache_get_data(
+                found_item_value_in_cache, field_item_value_from_cache = BaseCachingTable._cache_get_data(
                     index_cached_data=index_cached_data, field_path_elements=item_field_path_elements
                 )
                 if found_item_value_in_cache is True:
                     # We do not use a .get('key', None), because None can be a valid value for a field
-                    response_items_values[item_key] = field_item_value_from_cache if self.debug is not True else {'value': field_item_value_from_cache, 'fromCache': True}
+                    response_items_values[item_key] = (
+                        field_item_value_from_cache
+                        if self.debug is not True else
+                        {'value': field_item_value_from_cache, 'fromCache': True}
+                    )
                     keys_fields_already_cached_to_pop.append(item_key)
 
             for key_to_pop in keys_fields_already_cached_to_pop:
@@ -244,7 +242,7 @@ class CachingTable(BaseTable):
                         response_items_values[key] = item_value if self.debug is not True else {'value': item_value, 'fromCache': False}
             return response_items_values if self.debug is not True else {'value': response_items_values, 'fromCache': None}
 
-    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
+    """def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
         output_data: Dict[str, Any] = dict()
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
 
@@ -579,3 +577,4 @@ class CachingTable(BaseTable):
                 query_kwargs=current_remover.query_kwargs
             )
         return True
+    """

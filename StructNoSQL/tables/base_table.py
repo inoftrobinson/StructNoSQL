@@ -29,21 +29,9 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(
-        self, table_name: str, region_name: str,
-        data_model, primary_index: PrimaryIndex,
-        billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-        global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-        auto_create_table: bool = True
-    ):
+    def __init__(self, data_model):
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = dict()
-        self._dynamodb_client = DynamoDbCoreAdapter(
-            table_name=table_name, region_name=region_name, billing_mode=billing_mode,
-            primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
-            create_table=auto_create_table
-        )
-        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
 
         if not isinstance(data_model, type):
             self._model = data_model
@@ -53,10 +41,6 @@ class BaseTable:
 
         self.processed_class_types: Set[type] = set()
         Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
-
-    @property
-    def primary_index_name(self) -> str:
-        return self._primary_index_name
 
     @property
     def model(self) -> TableDataModel:
@@ -75,10 +59,6 @@ class BaseTable:
     @property
     def internal_mapping(self) -> dict:
         return self._internal_mapping
-
-    @property
-    def dynamodb_client(self) -> DynamoDbCoreAdapter:
-        return self._dynamodb_client
 
 
 def make_dict_key_var_name(key_name: str) -> str:

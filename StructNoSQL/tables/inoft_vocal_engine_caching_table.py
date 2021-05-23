@@ -2,7 +2,9 @@ from typing import Optional, List, Dict, Any, Tuple
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.tables.base_dynamodb_table import BaseTable
+from StructNoSQL.tables.base_inoft_vocal_engine_table import BaseInoftVocalEngineTable
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
     process_and_get_field_path_object_from_field_path, make_rendered_database_path
@@ -13,19 +15,9 @@ def join_field_path_elements(field_path_elements) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))
 
 
-class CachingTable(BaseTable):
-    def __init__(
-        self, table_name: str, region_name: str,
-        data_model, primary_index: PrimaryIndex,
-        billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-        global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-        auto_create_table: bool = True
-    ):
-        super().__init__(
-            table_name=table_name, region_name=region_name, data_model=data_model,
-            primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
-            billing_mode=billing_mode, auto_create_table=auto_create_table
-        )
+class InoftVocalEngineCachingTable(BaseInoftVocalEngineTable, BaseCachingTable):
+    def __init__(self, table_id: str, region_name: str, data_model):
+        super().__init__(table_id=table_id, region_name=region_name, data_model=data_model)
         self._cached_data = dict()
         self._pending_update_operations: Dict[str, Dict[str, DynamoDBMapObjectSetter]] = dict()
         self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()

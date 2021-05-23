@@ -3,8 +3,9 @@ from typing import Optional, List, Dict, Any, Tuple
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.base_middleware import BaseMiddleware
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.tables.base_table import BaseTable
+from StructNoSQL.tables.base_dynamodb_table import BaseTable
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path, \
     process_and_get_field_path_object_from_field_path, make_rendered_database_path
@@ -24,6 +25,12 @@ class BasicTable(BaseTable):
             primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
             billing_mode=billing_mode, auto_create_table=auto_create_table
         )
+        from StructNoSQL.middlewares.inoft_vocal_engine_middleware import InoftVocalEngineMiddleware
+        self._middleware = InoftVocalEngineMiddleware(table_name=table_name, region_name=region_name, primary_index=primary_index)
+
+    @property
+    def middleware(self) -> BaseMiddleware:
+        return self._middleware
 
     def put_record(self, record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
@@ -53,20 +60,11 @@ class BasicTable(BaseTable):
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        if has_multiple_fields_path is not True:
-            field_path_elements: List[DatabasePathElement]
-            response_data = self.dynamodb_client.get_value_in_path_target(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=field_path_elements
-            )
-            return response_data
-        else:
-            field_path_elements: Dict[str, List[DatabasePathElement]]
-            response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, fields_paths_elements=field_path_elements
-            )
-            return response_data
+        return self.middleware.get_field(
+            has_multiple_fields_path=has_multiple_fields_path,
+            field_path_elements=field_path_elements,
+            key_value=key_value, index_name=index_name
+        )
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
         single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = dict()

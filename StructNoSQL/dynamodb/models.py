@@ -15,6 +15,15 @@ class DatabasePathElement:
             return None
         return self.default_type()
 
+    def serialize(self) -> dict:
+        output: dict = {
+            'elementKey': self.element_key,
+            'defaultType': self.default_type.__name__,
+        }
+        if self.custom_default_value is not None:
+            output['customDefaultValue'] = self.custom_default_value
+        return output
+
 
 @dataclass
 class FieldSetter:

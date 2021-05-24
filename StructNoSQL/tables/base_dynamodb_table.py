@@ -1,18 +1,15 @@
 from typing import List
-
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.tables.base_table import BaseTable
 
 
-class BaseDynamoDBTable(BaseTable):
-    def __init__(
-        self, table_name: str, region_name: str,
-        data_model, primary_index: PrimaryIndex,
+class BaseDynamoDBTable:
+    def __setup__(
+        self, table_name: str, region_name: str, primary_index: PrimaryIndex,
         billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
         global_secondary_indexes: List[GlobalSecondaryIndex] = None,
         auto_create_table: bool = True
     ):
-        super().__init__(data_model=data_model)
+        # super().__init__(data_model=data_model)
         self._table_name = table_name
         self._region_name = region_name
         self._dynamodb_client = DynamoDbCoreAdapter(
@@ -21,7 +18,6 @@ class BaseDynamoDBTable(BaseTable):
             create_table=auto_create_table
         )
         self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
-
 
     @property
     def table_name(self) -> str:

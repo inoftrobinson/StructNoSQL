@@ -56,6 +56,14 @@ class DynamoDBMapObjectSetter:
     field_path_elements: List[DatabasePathElement]
     value_to_set: Any
 
+    def serialize(self) -> dict:
+        return {
+            'valueToSet': self.value_to_set,
+            'fieldPathElements': [
+                item.serialize() for item in self.field_path_elements
+            ]
+        }
+
 
 @dataclass
 class MapItemInitializer:

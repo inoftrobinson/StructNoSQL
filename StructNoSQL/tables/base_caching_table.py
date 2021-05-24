@@ -228,11 +228,12 @@ class BaseCachingTable(BaseTable):
                 field_path_elements.pop(key_to_pop)
 
             if len(field_path_elements) > 0:
-                response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+                response_data = middleware(field_path_elements, has_multiple_fields_path)
+                """response_data = self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, fields_paths_elements=field_path_elements,
                     metadata=True
-                )
+                )"""
                 if response_data is not None:
                     for key, item in response_data.items():
                         # We access the item attributes with brackets, because the attributes

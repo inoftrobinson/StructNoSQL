@@ -12,7 +12,7 @@ class InoftVocalEngineTableConnectors:
         self.region_name = region_name
 
     @staticmethod
-    def _api_handler(payload: dict) -> Optional[Any]:
+    def _base_api_handler(payload: dict) -> Optional[dict]:
         response = requests.post(url='http://127.0.0.1:5000/api/v1/database-client', json=payload)
         if not response.ok:
             print("Response not ok")
@@ -20,11 +20,25 @@ class InoftVocalEngineTableConnectors:
         else:
             try:
                 response_data: Optional[dict] = response.json()
-                if response_data is not None and isinstance(response_data, dict):
-                    success: bool = response_data.get('success', False)
-                    if success is True:
-                        return response_data.get('data', None)
-                return None
+                return response_data if response_data is not None and isinstance(response_data, dict) else None
             except JSONDecodeError as e:
                 print(f"JSON decoding error : {e} : {response.text}")
                 return None
+
+    @staticmethod
+    def _data_api_handler(payload: dict) -> Optional[Any]:
+        response_data: Optional[dict] = InoftVocalEngineTableConnectors._base_api_handler(payload=payload)
+        if response_data is not None:
+            success: bool = response_data.get('success', False)
+            if success is True:
+                return response_data.get('data', None)
+        return None
+
+    @staticmethod
+    def _success_api_handler(payload: dict) -> Optional[Any]:
+        response_data: Optional[dict] = InoftVocalEngineTableConnectors._base_api_handler(payload=payload)
+        if response_data is not None:
+            success: bool = response_data.get('success', False)
+            return success
+        return None
+

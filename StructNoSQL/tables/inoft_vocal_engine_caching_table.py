@@ -3,7 +3,6 @@ from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
-from StructNoSQL.tables.base_dynamodb_table import BaseTable
 from StructNoSQL.tables.base_inoft_vocal_engine_table import InoftVocalEngineTableConnectors
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
@@ -19,29 +18,30 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
     def __init__(self, table_id: str, region_name: str, data_model):
         super().__init__(data_model=data_model, primary_index=None)
         self.__setup_connectors__(table_id=table_id, region_name=region_name)
-        self._cached_data = dict()
         self._pending_update_operations: Dict[str, Dict[str, DynamoDBMapObjectSetter]] = dict()
         self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
-        self._debug = False
 
     def commit_update_operations(self) -> bool:
         for formatted_index_key_value, dynamodb_setters in self._pending_update_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
-                index_name=index_name, key_value=key_value, setters=list(dynamodb_setters.values())
-            )
-            print(response)
+            serialized_setters = [item.serialize() for item in dynamodb_setters.values()]
+            return self._success_api_handler(payload={
+                'operationType': 'setUpdateMultipleDataElementsToMap',
+                'setters': serialized_setters
+            })
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
         for formatted_index_key_value, dynamodb_setters in self._pending_remove_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            response = self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name, key_value=key_value,
-                targets_path_elements=list(dynamodb_setters.values())
-            )
-            # delete operations can be cached, where as remove operations need to be executed immediately
-            print(response)
+            serialized_fields_path_elements = {
+                key: [item.serialize() for item in items_container]
+                for key, items_container in dynamodb_setters.items()
+            }
+            return self._success_api_handler(payload={
+                'operationType': 'removeDataElementsFromMap',
+                'fieldsPathElements': serialized_fields_path_elements
+            })
         return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
@@ -79,13 +79,13 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                return self._api_handler(payload={
+                return self._data_api_handler(payload={
                     'operationType': 'getSingleValueInPathTarget',
                     'fieldPathElements': [item.serialize() for item in field_path_elements],
                 })
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                return self._api_handler(payload={
+                return self._data_api_handler(payload={
                     'operationType': 'getValuesInMultiplePathTarget',
                     'fieldsPathsElements': {
                         field_key: [item.serialize() for item in field_path_elements_items]
@@ -96,7 +96,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self._api_handler(payload={
+            return self._data_api_handler(payload={
                 'operationType': 'getOrQuerySingleItem',
                 'keyValue': key_value,
                 'fieldsPathElements': [
@@ -143,7 +143,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         )
         if valid is True and field_path_elements is not None:
             index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-            CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
+            BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
 
             joined_field_path = join_field_path_elements(field_path_elements)
             pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
@@ -162,7 +162,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
                 if valid is True:
-                    CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
+                    BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
                     joined_field_path = join_field_path_elements(field_path_elements)
                     pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
                     pending_update_operations[joined_field_path] = DynamoDBMapObjectSetter(
@@ -201,7 +201,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
         if has_multiple_fields_path is not True:
             field_path_elements: List[DatabasePathElement]
-            found_value_in_cache, field_value_from_cache = CachingTable._cache_get_data(
+            found_value_in_cache, field_value_from_cache = BaseCachingTable._cache_get_data(
                 index_cached_data=index_cached_data, field_path_elements=field_path_elements
             )
             if found_value_in_cache is True:
@@ -242,7 +242,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             for item_field_path_elements_value in field_path_elements.values():
                 item_last_path_element = item_field_path_elements_value[-1]
 
-                found_item_value_in_cache, field_item_value_from_cache = CachingTable._cache_get_data(
+                found_item_value_in_cache, field_item_value_from_cache = BaseCachingTable._cache_get_data(
                     index_cached_data=index_cached_data, field_path_elements=item_field_path_elements_value
                 )
                 if found_item_value_in_cache is True:

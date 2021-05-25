@@ -1,4 +1,4 @@
-from typing import Optional, _GenericAlias, Tuple, List, Any
+from typing import Optional, Tuple, List, Any
 
 from StructNoSQL.dynamodb.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
@@ -79,9 +79,13 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                             vars_dict={"key": key, "item": item}
                         ))
 
-                if len(item_type_to_return_to.map_model.required_fields) != len(populated_required_fields):
+                map_model_required_fields: Optional[List[BaseField]] = getattr(item_type_to_return_to.map_model, 'required_fields', None)
+                if map_model_required_fields is None:
+                    raise Exception("Missing required_fields")
+
+                if len(map_model_required_fields) != len(populated_required_fields):
                     missing_required_fields_database_paths: List[List[DatabasePathElement]] = list()
-                    for current_required_field in item_type_to_return_to.map_model.required_fields:
+                    for current_required_field in map_model_required_fields:
                         if current_required_field not in populated_required_fields:
                             missing_required_fields_database_paths.append(current_required_field.database_path)
 

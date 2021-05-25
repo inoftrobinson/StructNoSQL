@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
+from typing import List, Optional, Any, Dict, _GenericAlias, Tuple, Generic
 
 from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.dynamodb.models import DatabasePathElement

@@ -1,18 +1,15 @@
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, List, Dict, Any, Tuple
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
+from StructNoSQL import DynamoDBTableConnectors
+from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
-from StructNoSQL.middlewares.base_middleware import BaseMiddleware
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path, \
-    process_and_get_field_path_object_from_field_path, make_rendered_database_path
-from StructNoSQL.utils.decimals import float_to_decimal_serializer
+    process_validate_data_and_make_single_rendered_database_path
 
 
-class BasicTable(BaseTable):
+class BasicTable(DynamoDBTableConnectors):
     def __init__(
         self, table_name: str, region_name: str,
         data_model, primary_index: PrimaryIndex,
@@ -20,17 +17,12 @@ class BasicTable(BaseTable):
         global_secondary_indexes: List[GlobalSecondaryIndex] = None,
         auto_create_table: bool = True
     ):
-        super().__init__(
-            table_name=table_name, region_name=region_name, data_model=data_model,
+        super().__init__(data_model=data_model)
+        super().__setup_connectors__(
+            table_name=table_name, region_name=region_name,
             primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
             billing_mode=billing_mode, auto_create_table=auto_create_table
         )
-        from StructNoSQL.middlewares.inoft_vocal_engine_middleware import InoftVocalEngineMiddleware
-        self._middleware = InoftVocalEngineMiddleware(table_name=table_name, region_name=region_name, primary_index=primary_index)
-
-    @property
-    def middleware(self) -> BaseMiddleware:
-        return self._middleware
 
     def put_record(self, record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)

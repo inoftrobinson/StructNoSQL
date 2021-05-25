@@ -2,14 +2,13 @@ from typing import List
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 
 
-class BaseDynamoDBTable:
-    def __setup__(
+class DynamoDBTableConnectors:
+    def __setup_connectors__(
         self, table_name: str, region_name: str, primary_index: PrimaryIndex,
         billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
         global_secondary_indexes: List[GlobalSecondaryIndex] = None,
         auto_create_table: bool = True
     ):
-        # super().__init__(data_model=data_model)
         self._table_name = table_name
         self._region_name = region_name
         self._dynamodb_client = DynamoDbCoreAdapter(

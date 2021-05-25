@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.middlewares.base_middleware import BaseMiddleware
+from StructNoSQL.tables.deprecated.middlewares.base_middleware import BaseMiddleware
 
 
 class DynamoDBMiddleWare(BaseMiddleware):

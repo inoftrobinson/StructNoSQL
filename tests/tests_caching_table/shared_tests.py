@@ -89,14 +89,13 @@ class TestsSharedAcrossDynamoDBAndInoftVocalEngine(unittest.TestCase):
 
         # Caching the simpleValue field
         first_retrieved_first_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
-        self.assertFalse(first_retrieved_first_value['fromCache'])
-        self.assertEqual(first_retrieved_first_value['value'], random_field_one_value)
+        self.assertEqual({'value': random_field_one_value, 'fromCache': False}, first_retrieved_first_value)
 
         # With get_field function and multi selector
         get_field_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(simpleValue, simpleValue2)')
         self.assertIsNone(get_field_response_data['fromCache'])
-        self.assertEqual(get_field_response_data['value'].get('simpleValue', None), {'value': random_field_one_value, 'fromCache': True})
-        self.assertEqual(get_field_response_data['value'].get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': False})
+        self.assertEqual({'value': random_field_one_value, 'fromCache': True}, get_field_response_data['value'].get('simpleValue', None))
+        self.assertEqual({'value': random_field_two_value, 'fromCache': False}, get_field_response_data['value'].get('simpleValue2', None))
 
         self.reset_table()
         # Caching the simpleValue field
@@ -274,8 +273,8 @@ class TestsSharedAcrossDynamoDBAndInoftVocalEngine(unittest.TestCase):
         self.reset_table()
         removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
         self.assertIsNone(removed_value['fromCache'])
-        self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': False})
-        self.assertEqual(removed_value['value'].get('fieldThree', {}), {'value': random_field_three_value, 'fromCache': False})
+        self.assertEqual({'value': random_field_one_value, 'fromCache': False}, removed_value['value'].get('fieldOne', {}))
+        self.assertEqual({'value': random_field_three_value, 'fromCache': False}, removed_value['value'].get('fieldThree', {}))
 
     def test_set_delete_multiple_fields(self):
         self.reset_table()

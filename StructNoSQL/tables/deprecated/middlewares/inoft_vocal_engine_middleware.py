@@ -1,8 +1,8 @@
 import requests
 from typing import Optional, List, Dict, Any
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.dynamodb.dynamodb_core import PrimaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.middlewares.base_middleware import BaseMiddleware
+from StructNoSQL.tables.deprecated.middlewares.base_middleware import BaseMiddleware
 
 
 class InoftVocalEngineMiddleware(BaseMiddleware):
@@ -33,5 +33,5 @@ class InoftVocalEngineMiddleware(BaseMiddleware):
             field_path_elements: Dict[str, List[DatabasePathElement]]
             return self._api_handler(payload={
                 'operationType': 'getValuesInMultiplePathTarget',
-                'fieldsPathsElements': field_path_elements,
+                'fieldsPathElements': field_path_elements,
             })

@@ -3,8 +3,8 @@ from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
-from StructNoSQL.tables.base_dynamodb_table import BaseDynamoDBTable
-from StructNoSQL.tables.base_inoft_vocal_engine_table import InoftVocalEngineTableConnectors
+from StructNoSQL.tables.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.tables.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
 from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
     process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
     process_and_get_field_path_object_from_field_path, make_rendered_database_path
@@ -15,7 +15,7 @@ def join_field_path_elements(field_path_elements) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))
 
 
-class DynamoDBCachingTable(BaseCachingTable, BaseDynamoDBTable):
+class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def __init__(
             self, table_name: str, region_name: str, data_model,
             primary_index: PrimaryIndex,
@@ -24,7 +24,7 @@ class DynamoDBCachingTable(BaseCachingTable, BaseDynamoDBTable):
             auto_create_table: bool = True
     ):
         super().__init__(data_model=data_model, primary_index=None)
-        super().__setup__(
+        super().__setup_connectors__(
             table_name=table_name, region_name=region_name, primary_index=primary_index,
             billing_mode=billing_mode, global_secondary_indexes=global_secondary_indexes,
             auto_create_table=auto_create_table
@@ -93,11 +93,21 @@ class DynamoDBCachingTable(BaseCachingTable, BaseDynamoDBTable):
                 )
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                return self.dynamodb_client.get_values_in_multiple_path_target(
+                response_data = self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, fields_paths_elements=field_path_elements,
                     metadata=True
                 )
+                if response_data is not None:
+                    output: Dict[str, Any] = {}
+                    for key, item in response_data.items():
+                        # We access the item attributes with brackets, because the attributes
+                        # are required, and we should cause an exception if they are missing.
+                        item_value: Any = item['value']
+                        item_field_path_elements: List[DatabasePathElement] = item['field_path_elements']
+                        output[join_field_path_elements(item_field_path_elements)] = {'value': item_value, 'key': key}
+                    return output
+                return None
         return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:

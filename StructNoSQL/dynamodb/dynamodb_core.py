@@ -829,49 +829,49 @@ class DynamoDbCoreAdapter:
             metadata: bool = False
     ) -> Optional[Dict[str, Any]]:
 
-        response_item = self.get_or_query_single_item(
+        response_item: Optional[dict] = self.get_or_query_single_item(
             index_name=index_name, key_value=key_value,
             fields_paths_elements=list(fields_paths_elements.values())
         )
-        if response_item is not None:
-            output_dict: Dict[str, Any] = dict()
+        if response_item is None:
+            return None
 
-            for path_elements_key, path_elements_item in fields_paths_elements.items():
-                if len(path_elements_item) > 0:
-                    num_keys_to_navigation_into = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
-                    first_path_element_item_element_key = path_elements_item[0].element_key
+        output_dict: Dict[str, Any] = {}
+        for path_elements_key, path_elements_item in fields_paths_elements.items():
+            if len(path_elements_item) > 0:
+                num_keys_to_navigation_into: int = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
+                first_path_element_item_element_key: str = path_elements_item[0].element_key
 
-                    current_navigated_response_item_value = response_item.get(first_path_element_item_element_key)
-                    if current_navigated_response_item_value is not None:
-                        current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
-                        # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
-                        # get the response_items, they will be all put in the same dict, which means that the response_items dict has
-                        # values and items that might have nothing to do with the current target field. Of course, its not an issue,
-                        # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
-                        # function and that we queried a base field that does not require any validation), we need to isolate the item
-                        # from the other response_items, otherwise, we would return the entire response instead of only the item that
-                        # was found in the field that was queried.
+                current_navigated_response_item_value: Optional[Any] = response_item.get(first_path_element_item_element_key, None)
+                if current_navigated_response_item_value is not None:
+                    current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
+                    # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
+                    # get the response_items, they will be all put in the same dict, which means that the response_items dict has
+                    # values and items that might have nothing to do with the current target field. Of course, its not an issue,
+                    # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
+                    # function and that we queried a base field that does not require any validation), we need to isolate the item
+                    # from the other response_items, otherwise, we would return the entire response instead of only the item that
+                    # was found in the field that was queried.
 
-                        for i, path_element in enumerate(path_elements_item):
-                            if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
-                                break
+                    for i, path_element in enumerate(path_elements_item):
+                        if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
+                            break
 
-                            current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
-                            if current_navigated_response_item is None:
-                                # If the current_navigated_response_item is None, it means that one key has not been
-                                # found, so we need to break the loop in order to try to call get on a None object,
-                                # and then we will return the response_item, so we will return None.
-                                break
+                        current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
+                        if current_navigated_response_item is None:
+                            # If the current_navigated_response_item is None, it means that one key has not been
+                            # found, so we need to break the loop in order to try to call get on a None object,
+                            # and then we will return the response_item, so we will return None.
+                            break
 
-                        if metadata is not True:
-                            output_dict[path_elements_key] = current_navigated_response_item
-                        else:
-                            output_dict[path_elements_key] = {
-                                'value': current_navigated_response_item,
-                                'field_path_elements': path_elements_item
-                            }
-            return output_dict
-        return None
+                    if metadata is not True:
+                        output_dict[path_elements_key] = current_navigated_response_item
+                    else:
+                        output_dict[path_elements_key] = {
+                            'value': current_navigated_response_item,
+                            'field_path_elements': path_elements_item
+                        }
+        return output_dict
 
     def get_values_in_multiple_path_target(
             self, index_name: str, key_value: str,

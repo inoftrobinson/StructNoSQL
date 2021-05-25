@@ -2,22 +2,10 @@ from typing import List, Optional, Dict, Any
 
 from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.tables.base_dynamodb_table import BaseDynamoDBTable
+from StructNoSQL.tables.dynamodb_table_connectors import DynamoDBTableConnectors
 
 
-class BasicLowLevelDynamoDBTable(BaseDynamoDBTable):
-    def __init__(
-        self, table_name: str, region_name: str, primary_index: PrimaryIndex,
-        billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-        global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-        auto_create_table: bool = True
-    ):
-        super().__setup__(
-            table_name=table_name, region_name=region_name,
-            primary_index=primary_index, billing_mode=billing_mode,
-            global_secondary_indexes=global_secondary_indexes, auto_create_table=auto_create_table
-        )
-
+class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):
     def get_field(
             self, has_multiple_fields_path: bool,
             field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
@@ -37,3 +25,14 @@ class BasicLowLevelDynamoDBTable(BaseDynamoDBTable):
                 key_value=key_value, fields_paths_elements=field_path_elements
             )
             return response_data
+
+    def update_field(
+            self, field_path_elements: List[DatabasePathElement], validated_data: Any,
+            key_value: str, index_name: Optional[str] = None
+    ) -> bool:
+        response = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
+            index_name=index_name or self.primary_index_name,
+            key_value=key_value, value=validated_data,
+            field_path_elements=field_path_elements
+        )
+        return True if response is not None else False

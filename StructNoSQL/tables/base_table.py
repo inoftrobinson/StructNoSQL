@@ -1,9 +1,8 @@
 from typing import Optional, List, Any, Set, _GenericAlias
 from copy import copy
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
 

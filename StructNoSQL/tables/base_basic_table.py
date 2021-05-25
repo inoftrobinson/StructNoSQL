@@ -1,12 +1,10 @@
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, List, Dict, Any, Tuple, Callable
 
-from StructNoSQL import DynamoDBTableConnectors
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, DynamoDBMapObjectSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
-from StructNoSQL.tables.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path
 

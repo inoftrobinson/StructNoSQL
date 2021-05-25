@@ -4,7 +4,7 @@ from json import JSONDecodeError
 import requests
 from typing import List, Optional, Any, Dict
 
-from StructNoSQL.dynamodb.models import DynamoDBMapObjectSetter, DatabasePathElement
+from StructNoSQL.models import DynamoDBMapObjectSetter, DatabasePathElement
 from StructNoSQL.tables.base_table import BaseTable
 
 

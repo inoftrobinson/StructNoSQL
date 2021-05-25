@@ -1,12 +1,11 @@
 import random
 import unittest
-from abc import abstractmethod
 from typing import List, Callable
 from uuid import uuid4
 from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, FieldSetter, FieldGetter
-from StructNoSQL.tables.dynamodb_caching_table import DynamoDBCachingTable
-from StructNoSQL.tables.inoft_vocal_engine_caching_table import InoftVocalEngineCachingTable
-from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_ID
+from StructNoSQL.middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
+from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_caching_table import InoftVocalEngineCachingTable
+from tests.tests_caching_table.caching_users_table import TEST_ACCOUNT_ID
 
 
 # todo: add an unit test that make sure that what matter with the field are the field names, not their variable names

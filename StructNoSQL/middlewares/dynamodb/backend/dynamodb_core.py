@@ -1,8 +1,9 @@
+import logging
 from sys import getsizeof
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 from boto3.exceptions import ResourceNotExistsError
 from boto3.session import Session
 from typing import List, Optional, Type, Any, Dict, Tuple
@@ -10,11 +11,10 @@ from typing import List, Optional, Type, Any, Dict, Tuple
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, validate_arguments
 
-from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils, PythonToDynamoDBTypesConvertor
-from StructNoSQL.dynamodb.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils, PythonToDynamoDBTypesConvertor
+from StructNoSQL.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.static_logger import logger
 
 HASH_KEY_TYPE = "HASH"
 SORT_KEY_TYPE = "RANGE"
@@ -207,8 +207,8 @@ class DynamoDbCoreAdapter:
             else:
                 self.dynamodb = boto3.resource("dynamodb")
                 self._EXISTING_DATABASE_CLIENTS["default"] = self.dynamodb
-                logger.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
-                             f"The dynamodb client has been initialized without specifying the region.")
+                logging.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
+                              f"The dynamodb client has been initialized without specifying the region.")
 
         self._create_table_if_not_exists()
 
@@ -572,7 +572,7 @@ class DynamoDbCoreAdapter:
                     last_map_initializer_container = current_map_initializer_container
                 else:
                     last_map_initializer_container = existing_container
-                    logger.info(message_with_vars(
+                    logging.info(message_with_vars(
                         message="Successfully tidied duplicate DatabasePathElement initializer",
                         vars_dict={
                             'trimmedPathElementKey': path_element.element_key,
@@ -592,7 +592,7 @@ class DynamoDbCoreAdapter:
             is_last_path_element=is_last_path_element
         )
         if initialization_response is None:
-            logger.error(message_with_vars(
+            logging.error(message_with_vars(
                 message="Initialized a field after a set/update multiple data elements in map request had failed.",
                 vars_dict={'initializer_container': initializer_container}
             ))

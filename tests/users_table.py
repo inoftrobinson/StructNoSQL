@@ -1,6 +1,6 @@
 from typing import Optional, Any
 from StructNoSQL import PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.tables.dynamodb_basic_table import DynamoDBBasicTable
+from StructNoSQL.middlewares.dynamodb.dynamodb_basic_table import DynamoDBBasicTable
 
 TEST_ACCOUNT_ID = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
 TEST_PROJECT_ID = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"

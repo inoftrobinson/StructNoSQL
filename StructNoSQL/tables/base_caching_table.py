@@ -1,12 +1,9 @@
 from typing import Optional, List, Dict, Any, Tuple, Callable
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, DynamoDBMapObjectSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
-from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
-    process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
-    process_and_get_field_path_object_from_field_path, make_rendered_database_path
-from StructNoSQL.utils.decimals import float_to_decimal_serializer
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 
 
 def join_field_path_elements(field_path_elements) -> str:

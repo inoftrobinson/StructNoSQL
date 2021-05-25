@@ -1,6 +1,6 @@
 import re
 from typing import List, Dict, Any, Optional, Tuple
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
@@ -52,7 +52,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
     return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 
 def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[str], fields_switch: dict) -> Dict[str, BaseItem]:
-    fields_objects_to_get = dict()
+    fields_objects_to_get = {}
     for field_key in fields_paths:
         field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
             field_path_key=field_key, fields_switch=fields_switch

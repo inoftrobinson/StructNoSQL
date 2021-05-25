@@ -1,10 +1,10 @@
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
-from StructNoSQL.tables.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
+from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
 
 
 class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):

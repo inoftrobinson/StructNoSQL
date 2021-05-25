@@ -1,13 +1,10 @@
-from typing import Optional, List, Dict, Any, Tuple
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter, Response
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from typing import Optional, List, Dict, Any
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, DynamoDBMapObjectSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
-from StructNoSQL.tables.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
-from StructNoSQL.utils.process_render_fields_paths import process_and_get_fields_paths_objects_from_fields_paths, \
-    process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path, \
-    process_and_get_field_path_object_from_field_path, make_rendered_database_path
-from StructNoSQL.utils.decimals import float_to_decimal_serializer
+from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
 
 
 def join_field_path_elements(field_path_elements) -> str:

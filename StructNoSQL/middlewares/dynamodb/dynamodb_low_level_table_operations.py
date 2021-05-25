@@ -1,8 +1,7 @@
 from typing import List, Optional, Dict, Any
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.tables.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.models import DatabasePathElement
+from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
 
 
 class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):

@@ -1,9 +1,9 @@
 import unittest
 from sys import getsizeof
-from typing import List, Dict
+from typing import Dict
 
-from StructNoSQL import FieldRemover, BaseField, MapModel, TableDataModel
-from StructNoSQL.dynamodb.dynamodb_core import EXPRESSION_MAX_BYTES_SIZE
+from StructNoSQL import FieldRemover, BaseField, TableDataModel
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import EXPRESSION_MAX_BYTES_SIZE
 from tests.users_table import UsersTable, TEST_ACCOUNT_ID
 
 

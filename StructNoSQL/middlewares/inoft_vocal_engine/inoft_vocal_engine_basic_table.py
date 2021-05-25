@@ -1,10 +1,10 @@
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDBMapObjectSetter
-from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDBMapObjectSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
-from StructNoSQL.tables.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
+from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
 
 
 class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors):

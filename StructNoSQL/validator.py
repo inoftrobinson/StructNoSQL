@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, List, Any
 
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serializer

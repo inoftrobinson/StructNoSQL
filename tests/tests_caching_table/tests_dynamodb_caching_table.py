@@ -1,19 +1,19 @@
 import unittest
 
 from tests.tests_caching_table.caching_users_table import CachingUsersTable, InoftVocalEngineUsersCachingTable
-from tests.tests_caching_table.shared_tests import TestsSharedAcrossDynamoDBAndInoftVocalEngine, TableModel
+from tests.tests_caching_table.shared_cases import AbstractContainer, TableModel
 
 
 # Yes. Do not argue. Any resistance will be futile. Inheritance in unittest's is the way.
 
 
-class TestDynamoDBCachingTable(TestsSharedAcrossDynamoDBAndInoftVocalEngine):
+class TestDynamoDBCachingTable(AbstractContainer.TestsSharedAcrossDynamoDBAndInoftVocalEngine):
     def __init__(self, method_name: str):
         def table_factory():
             return CachingUsersTable(data_model=TableModel)
         super().__init__(method_name=method_name, table_factory=table_factory)
 
-class TestInoftVocalEngineCachingTable(TestsSharedAcrossDynamoDBAndInoftVocalEngine):
+class TestInoftVocalEngineCachingTable(AbstractContainer.TestsSharedAcrossDynamoDBAndInoftVocalEngine):
     def __init__(self, method_name: str):
         def table_factory():
             return InoftVocalEngineUsersCachingTable(data_model=TableModel)

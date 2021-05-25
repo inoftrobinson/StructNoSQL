@@ -32,6 +32,9 @@ class InoftVocalEngineTableConnectors:
             success: bool = response_data.get('success', False)
             if success is True:
                 return response_data.get('data', None)
+            """exception: Optional[str] = response_data.get('exception', None)
+            if exception is not None:
+                raise Exception(exception)"""
         return None
 
     @staticmethod

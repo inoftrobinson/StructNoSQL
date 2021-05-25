@@ -15,35 +15,30 @@ def join_field_path_elements(field_path_elements) -> str:
 
 
 class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnectors):
-    def __init__(self, table_id: str, region_name: str, data_model):
+    def __init__(
+            self, engine_account_id: str, engine_project_id: str, engine_api_key: str,
+            table_id: str, region_name: str, data_model
+    ):
         super().__init__(data_model=data_model, primary_index=None)
-        self.__setup_connectors__(table_id=table_id, region_name=region_name)
+        self.__setup_connectors__(
+            engine_account_id=engine_account_id,
+            engine_project_id=engine_project_id,
+            engine_api_key=engine_api_key,
+            table_id=table_id, region_name=region_name
+        )
         self._pending_update_operations: Dict[str, Dict[str, DynamoDBMapObjectSetter]] = dict()
         self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
 
     def commit_update_operations(self) -> bool:
         for formatted_index_key_value, dynamodb_setters in self._pending_update_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            serialized_setters = [item.serialize() for item in dynamodb_setters.values()]
-            return self._success_api_handler(payload={
-                'operationType': 'setUpdateMultipleDataElementsToMap',
-                'keyValue': key_value,
-                'setters': serialized_setters
-            })
+            return self._set_update_multiple_data_elements_to_map(key_value=key_value, setters=list(dynamodb_setters.values()))
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
-        for formatted_index_key_value, dynamodb_setters in self._pending_remove_operations.items():
+        for formatted_index_key_value, fields_path_elements in self._pending_remove_operations.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            serialized_fields_path_elements = [
-                [item.serialize() for item in items_container]
-                for key, items_container in dynamodb_setters.items()
-            ]
-            return self._success_api_handler(payload={
-                'operationType': 'removeDataElementsFromMap',
-                'keyValue': key_value,
-                'fieldsPathElements': serialized_fields_path_elements
-            })
+            return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=list(fields_path_elements.values()))
         return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
@@ -81,65 +76,16 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                return self._data_api_handler(payload={
-                    'operationType': 'getSingleValueInPathTarget',
-                    'keyValue': key_value,
-                    'fieldPathElements': [item.serialize() for item in field_path_elements],
-                })
+                return self._get_single_value_in_path_target(key_value=key_value, field_path_elements=field_path_elements)
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                return self._data_api_handler(payload={
-                    'operationType': 'getValuesInMultiplePathTarget',
-                    'keyValue': key_value,
-                    'fieldsPathElements': {
-                        field_key: [item.serialize() for item in field_path_elements_items]
-                        for field_key, field_path_elements_items in field_path_elements.items()
-                    },
-                })
+                return self._get_values_in_multiple_path_target(key_value=key_value, fields_path_elements=field_path_elements)
         return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self._data_api_handler(payload={
-                'operationType': 'getOrQuerySingleItem',
-                'keyValue': key_value,
-                'fieldsPathElements': [
-                    [item.serialize() for item in items_container]
-                    for items_container in fields_path_elements
-                ],
-            })
+            return self._get_or_query_single_item(key_value=key_value, fields_path_elements=fields_path_elements)
         return self._get_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
-
-    """def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
-        # raise Exception("Not implemented with caching table")
-        getters_database_paths = self._getters_to_database_paths(getters=getters)
-
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-        )
-        if has_multiple_fields_path is not True:
-            field_path_elements: List[DatabasePathElement]
-
-            found_in_cache, field_value_from_cache = CachingTable._cache_get_data(
-                index_cached_data=index_cached_data, field_path_elements=field_path_elements
-            )
-            if found_in_cache is True:
-                return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
-
-            response_data = self.dynamodb_client.get_value_in_path_target(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=field_path_elements
-            )
-            CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
-            return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
-
-        response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-            index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
-        )
-        return response_data
-    """
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -199,14 +145,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self._data_api_handler(payload={
-                'operationType': 'removeDataElementsFromMap',
-                'keyValue': key_value,
-                'fieldsPathElements': [
-                    [item.serialize() for item in items_container]
-                    for items_container in fields_path_elements
-                ],
-            })
+            return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=fields_path_elements)
         return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, index_name=index_name)
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -268,31 +207,29 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
                             key_value=key_value, field_path_elements=item_field_path_elements_values
                         )
 
-            response_attributes = self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name or self.primary_index_name, key_value=key_value,
-                targets_path_elements=removers_database_paths,
-                retrieve_removed_elements=True
+            response_attributes = self._remove_data_elements_from_map(
+                key_value=key_value, fields_path_elements=removers_database_paths
             )
             if response_attributes is None:
                 return None
-            else:
-                output_data: Dict[str, Any] = dict()
-                for item_key, item_field_path_elements in removers_field_paths_elements.items():
-                    removed_item_data = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
-                        data=response_attributes, field_path_elements=item_field_path_elements,
-                        num_keys_to_navigation_into=len(item_field_path_elements)
-                    )
-                    output_data[item_key] = removed_item_data
 
-                for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
-                    container_data: Dict[str, Any] = dict()
-                    for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                        container_data[child_item_key] = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
-                            data=response_attributes, field_path_elements=child_item_field_path_elements,
-                            num_keys_to_navigation_into=len(child_item_field_path_elements)
-                        )
-                    output_data[container_key] = container_data
-                return output_data
+            output_data: Dict[str, Any] = dict()
+            for item_key, item_field_path_elements in removers_field_paths_elements.items():
+                removed_item_data = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                    data=response_attributes, field_path_elements=item_field_path_elements,
+                    num_keys_to_navigation_into=len(item_field_path_elements)
+                )
+                output_data[item_key] = removed_item_data
+
+            for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
+                container_data: Dict[str, Any] = dict()
+                for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
+                    container_data[child_item_key] = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                        data=response_attributes, field_path_elements=child_item_field_path_elements,
+                        num_keys_to_navigation_into=len(child_item_field_path_elements)
+                    )
+                output_data[container_key] = container_data
+            return output_data
 
     def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)

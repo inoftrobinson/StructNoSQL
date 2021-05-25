@@ -183,7 +183,7 @@ class BaseItem:
         # self.validate_data()
         # print("Finished data validation.")
 
-    def query(self, key_value: str, fields_paths_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
+    def query(self, key_value: str, fields_path_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
         """for path_element in self._database_path:
             if "$key$:" in path_element.element_key:
                 variable_name = path_element.element_key.replace("$key$:", "")

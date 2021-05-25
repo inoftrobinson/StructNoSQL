@@ -95,7 +95,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 field_path_elements: Dict[str, List[DatabasePathElement]]
                 response_data = self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=index_name or self.primary_index_name,
-                    key_value=key_value, fields_paths_elements=field_path_elements,
+                    key_value=key_value, fields_path_elements=field_path_elements,
                     metadata=True
                 )
                 if response_data is not None:
@@ -114,7 +114,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self.dynamodb_client.get_or_query_single_item(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, fields_paths_elements=fields_path_elements,
+                key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._get_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
 
@@ -144,7 +144,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
 
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
             index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
+            key_value=key_value, fields_path_elements=getters_database_paths,
         )
         return response_data
     """

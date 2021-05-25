@@ -6,7 +6,7 @@ from StructNoSQL.tables.dynamodb_table_connectors import DynamoDBTableConnectors
 
 
 class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):
-    def get_field(
+    def _get_field_middleware(
             self, has_multiple_fields_path: bool,
             field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
             key_value: str, index_name: Optional[str] = None
@@ -22,7 +22,7 @@ class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):
             field_path_elements: Dict[str, List[DatabasePathElement]]
             response_data = self.dynamodb_client.get_values_in_multiple_path_target(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, fields_paths_elements=field_path_elements
+                key_value=key_value, fields_path_elements=field_path_elements
             )
             return response_data
 

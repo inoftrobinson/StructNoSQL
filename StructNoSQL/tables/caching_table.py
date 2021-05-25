@@ -231,7 +231,7 @@ class CachingTable(BaseTable):
             if len(field_path_elements) > 0:
                 response_data = self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=index_name or self.primary_index_name,
-                    key_value=key_value, fields_paths_elements=field_path_elements,
+                    key_value=key_value, fields_path_elements=field_path_elements,
                     metadata=True
                 )
                 if response_data is not None:
@@ -287,7 +287,7 @@ class CachingTable(BaseTable):
 
         response_data = self.dynamodb_client.get_or_query_single_item(
             index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
+            key_value=key_value, fields_path_elements=getters_database_paths,
         )
         if response_data is None:
             return None
@@ -336,7 +336,7 @@ class CachingTable(BaseTable):
 
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
             index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
+            key_value=key_value, fields_path_elements=getters_database_paths,
         )
         return response_data
     """

@@ -295,7 +295,7 @@ class BaseCachingTable(BaseTable):
         response_data = middleware(getters_database_paths)
         """self.dynamodb_client.get_or_query_single_item(
             index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
+            key_value=key_value, fields_path_elements=getters_database_paths,
         )"""
         if response_data is None:
             return None
@@ -344,7 +344,7 @@ class BaseCachingTable(BaseTable):
 
         response_data = self.dynamodb_client.get_values_in_multiple_path_target(
             index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_paths_elements=getters_database_paths,
+            key_value=key_value, fields_path_elements=getters_database_paths,
         )
         return response_data
     ""
@@ -518,12 +518,11 @@ class BaseCachingTable(BaseTable):
             key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
 
-        return {key: self.remove_field(
+        return {key: self._remove_field(
             middleware=middleware, key_value=key_value, index_name=index_name,
             field_path=item.field_path, query_kwargs=item.query_kwargs
         ) for key, item in removers.items()}
 
-    """
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
         pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
@@ -539,7 +538,7 @@ class BaseCachingTable(BaseTable):
             key_value=key_value, index_name=index_name,
             field_path=item.field_path, query_kwargs=item.query_kwargs
         ) for key, item in removers.items()}
-
+    """
     def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         # todo: do not perform the operation but store it as pending if a matching value exists in the cache
         if not len(removers) > 0:

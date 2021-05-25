@@ -1,25 +1,23 @@
 from typing import Optional, List, Dict, Any, Tuple
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
+from StructNoSQL.dynamodb.dynamodb_core import DynamoDBMapObjectSetter
 from StructNoSQL.dynamodb.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
-from StructNoSQL.tables.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
+from StructNoSQL.tables.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
 
 
-class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
+class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors):
     def __init__(
-            self, table_name: str, region_name: str,
-            data_model, primary_index: PrimaryIndex,
-            billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-            global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-            auto_create_table: bool = True
+            self, engine_account_id: str, engine_project_id: str, engine_api_key: str,
+            table_id: str, region_name: str, data_model
     ):
         super().__init__(data_model=data_model)
-        super().__setup_connectors__(
-            table_name=table_name, region_name=region_name,
-            primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
-            billing_mode=billing_mode, auto_create_table=auto_create_table
+        self.__setup_connectors__(
+            engine_account_id=engine_account_id,
+            engine_project_id=engine_project_id,
+            engine_api_key=engine_api_key,
+            table_id=table_id, region_name=region_name
         )
 
     def put_record(self, record_dict_data: dict) -> bool:
@@ -46,32 +44,23 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         else:
             return False
 
-    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Any:
+    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                response_data = self.dynamodb_client.get_value_in_path_target(
-                    index_name=index_name or self.primary_index_name,
-                    key_value=key_value, field_path_elements=field_path_elements
-                )
-                return response_data
+                return self._get_single_value_in_path_target(key_value=key_value, field_path_elements=field_path_elements)
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-                    index_name=index_name or self.primary_index_name,
-                    key_value=key_value, fields_path_elements=field_path_elements
-                )
-                return response_data
+                return self._get_values_in_multiple_path_target(key_value=key_value, fields_path_elements=field_path_elements)
         return self._get_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 
-    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
+    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.get_or_query_single_item(
-                index_name=index_name or self.primary_index_name,
+            return self._get_or_query_single_item(
                 key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._get_multiple_fields(middleware=middleware, getters=getters)
-
+        
     # todo: deprecated
     """
     def query(self, key_value: str, fields_paths: List[str], query_kwargs: Optional[dict] = None, limit: Optional[int] = None,
@@ -108,10 +97,9 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return None
     """
 
-    def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
+    def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):
-            response = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
-                index_name=index_name or self.primary_index_name,
+            response = self._set_update_data_element_to_map_with_default_initialization(
                 key_value=key_value, value=validated_data,
                 field_path_elements=field_path_elements
             )
@@ -120,18 +108,15 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter], index_name: Optional[str] = None) -> bool:
         def middleware(dynamodb_setters: List[DynamoDBMapObjectSetter]):
-            return self.dynamodb_client.set_update_multiple_data_elements_to_map(
-                index_name=index_name or self.primary_index_name,
+            return self._set_update_multiple_data_elements_to_map(
                 key_value=key_value, setters=dynamodb_setters
             )
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, targets_path_elements=fields_path_elements,
-                retrieve_removed_elements=True
+            return self._remove_data_elements_from_map(
+                key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._remove_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 
@@ -144,38 +129,31 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._remove_multiple_fields(task_executor=task_executor, removers=removers)
 
-    def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
+    def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, targets_path_elements=fields_path_elements,
-                retrieve_removed_elements=False
-            )
+            return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=fields_path_elements)
         return self._delete_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 
-    def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, bool]:
+    def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, bool]:
         def task_executor(remover_item: FieldRemover):
             return self.delete_field(
-                key_value=key_value, index_name=index_name,
+                key_value=key_value,
                 field_path=remover_item.field_path,
                 query_kwargs=remover_item.query_kwargs
             )
         return self._delete_multiple_fields(task_executor=task_executor, removers=removers)
 
-    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, targets_path_elements=fields_path_elements,
-                retrieve_removed_elements=True
+            return self._remove_data_elements_from_map(
+                key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._grouped_remove_multiple_fields(middleware=middleware, removers=removers)
 
-    def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
+    def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover]) -> bool:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, targets_path_elements=fields_path_elements,
-                retrieve_removed_elements=False
+            return self._delete_data_elements_from_map(
+                key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._grouped_delete_multiple_fields(middleware=middleware, removers=removers)
+

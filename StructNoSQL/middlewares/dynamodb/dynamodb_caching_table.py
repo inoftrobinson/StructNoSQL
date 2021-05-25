@@ -4,6 +4,7 @@ from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, Un
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
 
 
@@ -235,7 +236,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                     retrieve_removed_elements=True
                 )
                 if response_attributes is not None:
-                    removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                    removed_item_data = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
@@ -278,7 +279,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 )
                 if response_attributes is not None:
                     for key, child_item_field_path_elements in field_path_elements.items():
-                        removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                        removed_item_data = navigate_into_data_with_field_path_elements(
                             data=response_attributes, field_path_elements=child_item_field_path_elements,
                             num_keys_to_navigation_into=len(child_item_field_path_elements)
                         )
@@ -355,7 +356,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             else:
                 output_data: Dict[str, Any] = dict()
                 for item_key, item_field_path_elements in removers_field_paths_elements.items():
-                    removed_item_data = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                    removed_item_data = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=item_field_path_elements,
                         num_keys_to_navigation_into=len(item_field_path_elements)
                     )
@@ -364,7 +365,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
                     container_data: Dict[str, Any] = dict()
                     for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                        container_data[child_item_key] = self.dynamodb_client.navigate_into_data_with_field_path_elements(
+                        container_data[child_item_key] = navigate_into_data_with_field_path_elements(
                             data=response_attributes, field_path_elements=child_item_field_path_elements,
                             num_keys_to_navigation_into=len(child_item_field_path_elements)
                         )

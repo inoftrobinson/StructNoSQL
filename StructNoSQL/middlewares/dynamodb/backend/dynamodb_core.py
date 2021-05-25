@@ -9,181 +9,32 @@ from boto3.session import Session
 from typing import List, Optional, Type, Any, Dict, Tuple
 
 from botocore.exceptions import ClientError
-from pydantic import BaseModel, validate_arguments
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils, PythonToDynamoDBTypesConvertor
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
+    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
 from StructNoSQL.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
-
-HASH_KEY_TYPE = "HASH"
-SORT_KEY_TYPE = "RANGE"
-EXPRESSION_MAX_BYTES_SIZE = 4000  # DynamoDB max expression size is 4kb
-
-
-class GetItemResponse(BaseModel):
-    item: Optional[dict]
-    success: bool
-
-
-class Response:
-    def __init__(self, response_dict: dict):
-        self.items: Optional[List[dict]] = response_dict.get('Items', None)
-        self.attributes: Optional[dict] = response_dict.get('Attributes', None)
-        self.count: Optional[int] = response_dict.get('Count', None)
-        self.scanned_count: Optional[int] = response_dict.get('ScannedCount', None)
-        self.last_evaluated_key: Optional[dict] = response_dict.get('LastEvaluatedKey', None)
-        self.has_reached_end = False if self.last_evaluated_key is not None else True
-
-
-class Index(BaseModel):
-    hash_key_name: str
-    hash_key_variable_python_type: Type
-    sort_key_name: Optional[str]
-    sort_key_variable_python_type: Optional[Type]
-    index_custom_name: Optional[str]
-
-
-class PrimaryIndex(Index):
-    pass
-
-
-class GlobalSecondaryIndex(Index):
-    # todo: add pydantic to this class
-    PROJECTION_TYPE_USE_ALL = "ALL"
-    PROJECTION_TYPE_KEYS_ONLY = "KEYS_ONLY"
-    PROJECTION_TYPE_INCLUDE = "INCLUDE"
-    ALL_PROJECTIONS_TYPES = [PROJECTION_TYPE_USE_ALL, PROJECTION_TYPE_KEYS_ONLY, PROJECTION_TYPE_INCLUDE]
-
-    projection_type: str
-    non_key_attributes: Optional[List[str]]
-
-    def __init__(self, hash_key_name: str, hash_key_variable_python_type: Type,
-                 projection_type: str, non_key_attributes: Optional[List[str]] = None,
-                 sort_key_name: Optional[str] = None, sort_key_variable_python_type: Optional[Type] = None,
-                 index_custom_name: Optional[str] = None):
-
-        super().__init__(
-            hash_key_name=hash_key_name, hash_key_variable_python_type=hash_key_variable_python_type,
-            sort_index_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type,
-            projection_type=projection_type, non_key_attributes=non_key_attributes
-        )
-
-        if projection_type not in self.ALL_PROJECTIONS_TYPES:
-            raise Exception(f"{projection_type} has not been found in the available projection_types : {self.ALL_PROJECTIONS_TYPES}")
-        if non_key_attributes is not None:
-            if projection_type == self.PROJECTION_TYPE_INCLUDE:
-                self.non_key_attributes = non_key_attributes
-            else:
-                raise Exception(f"In order to use non_key_attributes, you must specify the projection_type as {self.PROJECTION_TYPE_INCLUDE}")
-        else:
-            self.non_key_attributes = None
-
-        self.projection_type = projection_type
-
-    def to_dict(self):
-        if self.index_custom_name is not None:
-            index_name = self.index_custom_name
-        else:
-            if self.sort_key_name is None:
-                index_name = self.hash_key_name
-            else:
-                index_name = f"{self.hash_key_name}-{self.sort_key_name}"
-
-        output_dict = {
-            "IndexName": index_name,
-            "KeySchema": [
-                {
-                    "AttributeName": self.hash_key_name,
-                    "KeyType": HASH_KEY_TYPE
-                },
-            ],
-            "Projection": {
-                "ProjectionType": self.projection_type
-            }
-        }
-        if self.non_key_attributes is not None:
-            output_dict["Projection"]["NonKeyAttributes"] = self.non_key_attributes
-
-        if self.sort_key_name is not None and self.sort_key_variable_python_type is not None:
-            output_dict["KeySchema"].append({
-                "AttributeName": self.sort_key_name,
-                "KeyType": SORT_KEY_TYPE
-            })
-        return output_dict
-
-
-class CreateTableQueryKwargs:
-    @validate_arguments
-    def __init__(self, table_name: str, billing_mode: str):
-        self._names_already_defined_attributes: List[str] = list()
-        self.data = {
-            "TableName": table_name,
-            "KeySchema": list(),
-            "AttributeDefinitions": list(),
-            "BillingMode": billing_mode,
-        }
-
-    def _add_key(self, key_name: str, key_python_variable_type: Type, key_type: str):
-        self.data["KeySchema"].append({
-            "AttributeName": key_name,
-            "KeyType": key_type
-        })
-        self.data["AttributeDefinitions"].append({
-            "AttributeName": key_name,
-            "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
-        })
-
-    @validate_arguments
-    def add_hash_key(self, key_name: str, key_python_variable_type: Type):
-        self._add_key(key_name=key_name, key_python_variable_type=key_python_variable_type, key_type=HASH_KEY_TYPE)
-
-    @validate_arguments
-    def add_sort_key(self, key_name: str, key_python_variable_type: Type):
-        self._add_key(key_name=key_name, key_python_variable_type=key_python_variable_type, key_type=SORT_KEY_TYPE)
-
-    def _add_global_secondary_index(self, key_name: str, key_python_variable_type: Type):
-        if key_name not in self._names_already_defined_attributes:
-            self.data["AttributeDefinitions"].append({
-                "AttributeName": key_name,
-                "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
-            })
-            self._names_already_defined_attributes.append(key_name)
-
-    @validate_arguments
-    def add_global_secondary_index(self, global_secondary_index: GlobalSecondaryIndex):
-        if "GlobalSecondaryIndexes" not in self.data:
-            self.data["GlobalSecondaryIndexes"] = list()
-
-        self._add_global_secondary_index(key_name=global_secondary_index.hash_key_name,
-                                         key_python_variable_type=global_secondary_index.hash_key_variable_python_type)
-
-        if global_secondary_index.sort_key_name is not None and global_secondary_index.sort_key_variable_python_type is not None:
-            self._add_global_secondary_index(key_name=global_secondary_index.sort_key_name,
-                                             key_python_variable_type=global_secondary_index.sort_key_variable_python_type)
-
-        self.data["GlobalSecondaryIndexes"].append(global_secondary_index.to_dict())
-
-    @validate_arguments
-    def add_all_global_secondary_indexes(self, global_secondary_indexes: List[GlobalSecondaryIndex]):
-        for global_secondary_index in global_secondary_indexes:
-            self.add_global_secondary_index(global_secondary_index=global_secondary_index)
+from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 
 
 class DynamoDbCoreAdapter:
-    _EXISTING_DATABASE_CLIENTS = dict()
+    _EXISTING_DATABASE_CLIENTS = {}
     PAY_PER_REQUEST = "PAY_PER_REQUEST"
     PROVISIONED = "PROVISIONED"
 
-    def __init__(self, table_name: str, region_name: str, primary_index: PrimaryIndex,
-                 create_table: bool = True, billing_mode: str = PAY_PER_REQUEST,
-                 global_secondary_indexes: List[GlobalSecondaryIndex] = None):
+    def __init__(
+            self, table_name: str, region_name: str, primary_index: PrimaryIndex,
+            create_table: bool = True, billing_mode: str = PAY_PER_REQUEST,
+            global_secondary_indexes: List[GlobalSecondaryIndex] = None
+    ):
         self.table_name = table_name
         self.primary_index = primary_index
         self.create_table = create_table
         self.billing_mode = billing_mode
         self.global_secondary_indexes = global_secondary_indexes
-        self._global_secondary_indexes_hash_keys = list()
+        self._global_secondary_indexes_hash_keys = []
         if self.global_secondary_indexes is not None:
             for secondary_index in self.global_secondary_indexes:
                 self._global_secondary_indexes_hash_keys.append(secondary_index.hash_key_name)
@@ -200,13 +51,13 @@ class DynamoDbCoreAdapter:
             # print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
             #       f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
-            dynamodb_regions = Session().get_available_regions("dynamodb")
+            dynamodb_regions = Session().get_available_regions('dynamodb')
             if region_name in dynamodb_regions:
-                self.dynamodb = boto3.resource("dynamodb", region_name=region_name)
+                self.dynamodb = boto3.resource('dynamodb', region_name=region_name)
                 self._EXISTING_DATABASE_CLIENTS[region_name] = self.dynamodb
             else:
-                self.dynamodb = boto3.resource("dynamodb")
-                self._EXISTING_DATABASE_CLIENTS["default"] = self.dynamodb
+                self.dynamodb = boto3.resource('dynamodb')
+                self._EXISTING_DATABASE_CLIENTS['default'] = self.dynamodb
                 logging.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
                               f"The dynamodb client has been initialized without specifying the region.")
 
@@ -804,7 +655,7 @@ class DynamoDbCoreAdapter:
             index_name=index_name, key_value=key_value,
             fields_path_elements=[field_path_elements]
         )
-        return self.navigate_into_data_with_field_path_elements(
+        return navigate_into_data_with_field_path_elements(
             data=response_item, field_path_elements=field_path_elements,
             num_keys_to_navigation_into=num_keys_to_navigation_into
         )
@@ -943,27 +794,3 @@ class DynamoDbCoreAdapter:
 
         return output_kwargs
 
-    @staticmethod
-    def navigate_into_data_with_field_path_elements(data: Any, field_path_elements: List[DatabasePathElement], num_keys_to_navigation_into: int) -> Optional[Any]:
-        if data is not None:
-            num_field_path_elements = len(field_path_elements)
-            for i, path_element in enumerate(field_path_elements):
-                if i + 1 > num_keys_to_navigation_into:
-                    break
-                elif i > 0 and field_path_elements[i - 1].default_type == list:
-                    data = data[0]
-                else:
-                    if not isinstance(data, dict):
-                        break
-
-                    if path_element.default_type == set and data == {} and num_field_path_elements > i + 1:
-                        data = field_path_elements[i + 1].element_key
-                        break
-
-                    data = data.get(path_element.element_key, None)
-                    if data is None:
-                        # If the response_item is None, it means that one key has not been found,
-                        # so we need to break the loop in order to try to call get on a None object,
-                        # and then we will return the response_item, so we will return None.
-                        break
-        return data

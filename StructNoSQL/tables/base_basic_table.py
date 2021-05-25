@@ -5,6 +5,7 @@ from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreA
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
+from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path
 
@@ -72,7 +73,7 @@ class BaseBasicTable(BaseTable):
 
         output_data: Dict[str, Any] = {}
         for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
-            retrieved_item_data = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+            retrieved_item_data = navigate_into_data_with_field_path_elements(
                 data=response_data, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
@@ -81,7 +82,7 @@ class BaseBasicTable(BaseTable):
         for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
             container_data: Dict[str, Any] = {}
             for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                container_data[child_item_key] = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                container_data[child_item_key] = navigate_into_data_with_field_path_elements(
                     data=response_data, field_path_elements=child_item_field_path_elements,
                     num_keys_to_navigation_into=len(child_item_field_path_elements)
                 )
@@ -207,7 +208,7 @@ class BaseBasicTable(BaseTable):
                 return None
             elif len(all_fields_items_path_elements) == 1:
                 field_path_elements = all_fields_items_path_elements[0]
-                removed_item_data = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                removed_item_data = navigate_into_data_with_field_path_elements(
                     data=response_attributes, field_path_elements=field_path_elements,
                     num_keys_to_navigation_into=len(field_path_elements)
                 )
@@ -218,7 +219,7 @@ class BaseBasicTable(BaseTable):
                     # Even the remove_field function can potentially remove multiple
                     # field_path_elements if the field_path expression is selecting multiple fields.
                     last_path_element = field_path_elements[len(field_path_elements) - 1]
-                    removed_items_values[last_path_element.element_key] = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                    removed_items_values[last_path_element.element_key] = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
@@ -290,7 +291,7 @@ class BaseBasicTable(BaseTable):
 
             output_data: Dict[str, Any] = {}
             for item_key, item_field_path_elements in removers_field_paths_elements.items():
-                removed_item_data = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                removed_item_data = navigate_into_data_with_field_path_elements(
                     data=response_attributes, field_path_elements=item_field_path_elements,
                     num_keys_to_navigation_into=len(item_field_path_elements)
                 )
@@ -299,7 +300,7 @@ class BaseBasicTable(BaseTable):
             for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
                 container_data: Dict[str, Any] = {}
                 for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                    container_data[child_item_key] = DynamoDbCoreAdapter.navigate_into_data_with_field_path_elements(
+                    container_data[child_item_key] = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=child_item_field_path_elements,
                         num_keys_to_navigation_into=len(child_item_field_path_elements)
                     )

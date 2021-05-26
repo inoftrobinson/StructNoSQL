@@ -1,7 +1,6 @@
 from typing import Optional, List, Dict, Any
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDBMapObjectSetter
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
@@ -107,7 +106,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter], index_name: Optional[str] = None) -> bool:
-        def middleware(dynamodb_setters: List[DynamoDBMapObjectSetter]):
+        def middleware(dynamodb_setters: List[FieldPathSetter]):
             return self._set_update_multiple_data_elements_to_map(
                 key_value=key_value, setters=dynamodb_setters
             )
@@ -127,7 +126,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
                 field_path=remover_item.field_path,
                 query_kwargs=remover_item.query_kwargs
             )
-        return self._remove_multiple_fields(task_executor=task_executor, removers=removers)
+        return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
@@ -141,7 +140,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
                 field_path=remover_item.field_path,
                 query_kwargs=remover_item.query_kwargs
             )
-        return self._delete_multiple_fields(task_executor=task_executor, removers=removers)
+        return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
     def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

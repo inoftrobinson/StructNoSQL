@@ -52,7 +52,7 @@ class FieldRemover:
 
 
 @dataclass
-class DynamoDBMapObjectSetter:
+class FieldPathSetter:
     field_path_elements: List[DatabasePathElement]
     value_to_set: Any
 

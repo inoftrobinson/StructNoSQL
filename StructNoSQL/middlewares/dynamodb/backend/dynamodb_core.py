@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
     GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
-from StructNoSQL.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
+from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
@@ -374,7 +374,7 @@ class DynamoDbCoreAdapter:
         )
         return self._execute_update_query_with_initialization_if_missing(
             index_name=index_name, key_value=key_value, update_query_kwargs=update_query_kwargs,
-            setters=[DynamoDBMapObjectSetter(field_path_elements=field_path_elements, value_to_set=value)]
+            setters=[FieldPathSetter(field_path_elements=field_path_elements, value_to_set=value)]
         )
 
     def set_update_data_element_to_map_without_default_initialization(
@@ -386,7 +386,7 @@ class DynamoDbCoreAdapter:
         return self._execute_update_query(query_kwargs_dict=update_query_kwargs)
 
     @staticmethod
-    def _setters_to_tidied_initializers(setters: List[DynamoDBMapObjectSetter]) -> Dict[str, MapItemInitializerContainer]:
+    def _setters_to_tidied_initializers(setters: List[FieldPathSetter]) -> Dict[str, MapItemInitializerContainer]:
         root_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
         all_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
 
@@ -465,7 +465,7 @@ class DynamoDbCoreAdapter:
         return results
 
     def _execute_update_query_with_initialization_if_missing(
-            self, index_name: str, key_value: Any, update_query_kwargs: dict, setters: List[DynamoDBMapObjectSetter]
+            self, index_name: str, key_value: Any, update_query_kwargs: dict, setters: List[FieldPathSetter]
     ) -> Optional[Response]:
 
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
@@ -483,7 +483,7 @@ class DynamoDbCoreAdapter:
         return response
 
     def set_update_multiple_data_elements_to_map(
-            self, index_name: str, key_value: Any, setters: List[DynamoDBMapObjectSetter]
+            self, index_name: str, key_value: Any, setters: List[FieldPathSetter]
     ) -> Optional[Response]:
 
         if not len(setters) > 0:
@@ -499,7 +499,7 @@ class DynamoDbCoreAdapter:
         update_expression = "SET "
         expression_attribute_names_dict, expression_attribute_values_dict = dict(), dict()
 
-        consumed_setters: List[DynamoDBMapObjectSetter] = list()
+        consumed_setters: List[FieldPathSetter] = list()
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
             current_setter_attribute_names, current_setter_attribute_values = dict(), dict()

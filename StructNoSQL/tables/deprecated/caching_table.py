@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any, Tuple
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex, DynamoDBMapObjectSetter
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
@@ -25,7 +25,7 @@ class CachingTable(BaseTable):
             billing_mode=billing_mode, auto_create_table=auto_create_table
         )
         self._cached_data = dict()
-        self._pending_update_operations: Dict[str, Dict[str, DynamoDBMapObjectSetter]] = dict()
+        self._pending_update_operations: Dict[str, Dict[str, FieldPathSetter]] = dict()
         self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
         self._debug = False
 
@@ -349,7 +349,7 @@ class CachingTable(BaseTable):
 
             joined_field_path = join_field_path_elements(field_path_elements)
             pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
-            pending_update_operations[joined_field_path] = DynamoDBMapObjectSetter(
+            pending_update_operations[joined_field_path] = FieldPathSetter(
                 field_path_elements=field_path_elements, value_to_set=validated_data
             )
             return True
@@ -367,7 +367,7 @@ class CachingTable(BaseTable):
                     CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
                     joined_field_path = join_field_path_elements(field_path_elements)
                     pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
-                    pending_update_operations[joined_field_path] = DynamoDBMapObjectSetter(
+                    pending_update_operations[joined_field_path] = FieldPathSetter(
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     )
             elif isinstance(current_setter, UnsafeFieldSetter):
@@ -389,7 +389,7 @@ class CachingTable(BaseTable):
                     database_path_elements=field_path_elements,
                     query_kwargs=current_setter.query_kwargs
                 )
-                dynamodb_setters.append(DynamoDBMapObjectSetter(
+                dynamodb_setters.append(FieldPathSetter(
                     field_path_elements=rendered_field_path_elements,
                     value_to_set=processed_value_to_set
                 ))"""

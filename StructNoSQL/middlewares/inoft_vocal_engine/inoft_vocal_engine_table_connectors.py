@@ -1,11 +1,9 @@
-import json
 from json import JSONDecodeError
 
 import requests
 from typing import List, Optional, Any, Dict
 
-from StructNoSQL.models import DynamoDBMapObjectSetter, DatabasePathElement
-from StructNoSQL.tables.base_table import BaseTable
+from StructNoSQL.models import FieldPathSetter, DatabasePathElement
 
 
 class InoftVocalEngineTableConnectors:
@@ -51,7 +49,7 @@ class InoftVocalEngineTableConnectors:
             return success
         return None
 
-    def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[DynamoDBMapObjectSetter]):
+    def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[FieldPathSetter]):
         serialized_setters = [item.serialize() for item in setters]
         return self._success_api_handler(payload={
             'operationType': 'setUpdateMultipleDataElementsToMap',

@@ -1,7 +1,7 @@
-from typing import Optional, List, Any, Set, _GenericAlias
+from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict
 from copy import copy
 
-from StructNoSQL.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement, FieldRemover
 from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
@@ -58,6 +58,14 @@ class BaseTable:
     @property
     def internal_mapping(self) -> dict:
         return self._internal_mapping
+
+    @staticmethod
+    def _async_field_removers_executor(task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
+        # This function is used both to run delete_field and remove_field operations asynchronously
+        if not len(removers) > 0:
+            return {}
+        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
+            return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
 
 
 def make_dict_key_var_name(key_name: str) -> str:

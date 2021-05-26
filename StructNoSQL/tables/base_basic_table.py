@@ -1,8 +1,6 @@
-from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, List, Dict, Any, Tuple, Callable
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, DynamoDBMapObjectSetter
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
@@ -137,10 +135,10 @@ class BaseBasicTable(BaseTable):
         return False
 
     def _update_multiple_fields(
-            self, middleware: Callable[[List[DynamoDBMapObjectSetter]], Any],
+            self, middleware: Callable[[List[FieldPathSetter]], Any],
             setters: List[FieldSetter or UnsafeFieldSetter]
     ) -> bool:
-        dynamodb_setters: List[DynamoDBMapObjectSetter] = list()
+        dynamodb_setters: List[FieldPathSetter] = list()
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
                 validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -148,7 +146,7 @@ class BaseBasicTable(BaseTable):
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
                 if valid is True:
-                    dynamodb_setters.append(DynamoDBMapObjectSetter(
+                    dynamodb_setters.append(FieldPathSetter(
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     ))
             elif isinstance(current_setter, UnsafeFieldSetter):
@@ -171,7 +169,7 @@ class BaseBasicTable(BaseTable):
                     database_path_elements=field_path_elements,
                     query_kwargs=current_setter.query_kwargs
                 )
-                dynamodb_setters.append(DynamoDBMapObjectSetter(
+                dynamodb_setters.append(FieldPathSetter(
                     field_path_elements=rendered_field_path_elements,
                     value_to_set=processed_value_to_set
                 ))"""
@@ -226,18 +224,6 @@ class BaseBasicTable(BaseTable):
                 return removed_items_values
         return None
 
-    """def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        return {key: self.remove_field(
-            key_value=key_value, index_name=index_name,
-            field_path=item.field_path, query_kwargs=item.query_kwargs
-        ) for key, item in removers.items()}"""
-
-    def _remove_multiple_fields(self, task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
-        if not len(removers) > 0:
-            return {}
-        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
-            return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
-
     def _delete_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
             field_path: str, query_kwargs: Optional[dict] = None
@@ -246,18 +232,6 @@ class BaseBasicTable(BaseTable):
             middleware=middleware, field_path=field_path, query_kwargs=query_kwargs
         )
         return True if response_attributes is not None else False
-
-    """def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        return {key: self.delete_field(
-            key_value=key_value, index_name=index_name,
-            field_path=item.field_path, query_kwargs=item.query_kwargs
-        ) for key, item in removers.items()}"""
-
-    def _delete_multiple_fields(self, task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, bool]:
-        if not len(removers) > 0:
-            return {}
-        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
-            return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
 
     def _grouped_remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: Dict[str, FieldRemover]

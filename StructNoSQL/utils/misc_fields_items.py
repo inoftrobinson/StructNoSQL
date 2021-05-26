@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 
 from StructNoSQL.utils.types import TYPED_TYPES_TO_PRIMITIVES
 

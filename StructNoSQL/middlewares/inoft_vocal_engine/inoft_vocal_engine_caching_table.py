@@ -5,11 +5,6 @@ from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
 
 
-# todo: move out to somewhere unique
-def join_field_path_elements(field_path_elements) -> str:
-    return '.'.join((f'{item.element_key}' for item in field_path_elements))
-
-
 class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnectors):
     def __init__(
             self, engine_account_id: str, engine_project_id: str, engine_api_key: str,

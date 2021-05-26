@@ -4,12 +4,7 @@ from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, Un
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
-from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, process_validate_data_and_make_single_rendered_database_path
-
-
-def join_field_path_elements(field_path_elements) -> str:
-    return '.'.join((f'{item.element_key}' for item in field_path_elements))
+from StructNoSQL.utils.process_render_fields_paths import join_field_path_elements
 
 
 class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):

@@ -156,3 +156,7 @@ def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> L
                     ))
                 fields_paths[i] = f"{field_key[0:start_variable_first_char_index]}{variable_matching_kwarg}{field_key[end_variable_last_char_index:0]}"
     return fields_paths
+
+
+def join_field_path_elements(field_path_elements: List[DatabasePathElement]) -> str:
+    return '.'.join((f'{item.element_key}' for item in field_path_elements))

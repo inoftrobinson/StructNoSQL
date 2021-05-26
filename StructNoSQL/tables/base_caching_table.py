@@ -155,16 +155,13 @@ class BaseCachingTable(BaseTable):
                     field_path_elements=item_field_path_elements_value
                 )
 
-    def put_record(self, record_dict_data: dict) -> bool:
+    def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         # todo: integrate with caching
         self.model_virtual_map_field.populate(value=record_dict_data)
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
-        if is_valid is True:
-            return self.dynamodb_client.put_record(item_dict=validated_data)
-        else:
-            return False
+        return middleware(validated_data) if is_valid is True else False
 
-    def delete_record(self, indexes_keys_selectors: dict) -> bool:
+    def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         # todo: integrate with caching
         found_all_indexes = True
         for index_key, index_target_value in indexes_keys_selectors.items():
@@ -173,13 +170,9 @@ class BaseCachingTable(BaseTable):
                 found_all_indexes = False
                 print(message_with_vars(
                     message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
-                    vars_dict={"index_key": index_key, "index_target_value": index_target_value, "index_matching_field": index_matching_field, "table.model": self.model}
+                    vars_dict={'index_key': index_key, 'index_target_value': index_target_value, 'index_matching_field': index_matching_field, 'table.model': self.model}
                 ))
-
-        if found_all_indexes is True:
-            return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys_selectors)
-        else:
-            return False
+        return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
@@ -308,37 +301,6 @@ class BaseCachingTable(BaseTable):
                     container_data[child_item_key] = child_item_value if self.debug is not True else {'value': child_item_value, 'fromCache': False}
                 output_data[container_key] = container_data if container_key not in output_data else {**container_data, **output_data[container_key]}
             return output_data if self.debug is not True else {'value': output_data, 'fromCache': None}
-
-    """def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
-        # raise Exception("Not implemented with caching table")
-        getters_database_paths = self._getters_to_database_paths(getters=getters)
-
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-        )
-        if has_multiple_fields_path is not True:
-            field_path_elements: List[DatabasePathElement]
-
-            found_in_cache, field_value_from_cache = CachingTable._cache_get_data(
-                index_cached_data=index_cached_data, field_path_elements=field_path_elements
-            )
-            if found_in_cache is True:
-                return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
-
-            response_data = self.dynamodb_client.get_value_in_path_target(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=field_path_elements
-            )
-            CachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
-            return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
-
-        response_data = self.dynamodb_client.get_values_in_multiple_path_target(
-            index_name=index_name or self.primary_index_name,
-            key_value=key_value, fields_path_elements=getters_database_paths,
-        )
-        return response_data
-    """
 
     def _update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(

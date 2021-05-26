@@ -42,14 +42,26 @@ class InoftVocalEngineTableConnectors:
                 raise Exception(exception)"""
         return None
 
-    def _success_api_handler(self, payload: dict) -> Optional[Any]:
+    def _success_api_handler(self, payload: dict) -> bool:
         response_data: Optional[dict] = self._base_api_handler(payload=payload)
         if response_data is not None:
             success: bool = response_data.get('success', False)
             return success
-        return None
+        return False
 
-    def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[FieldPathSetter]):
+    def _put_record_request(self, record_item_data: dict) -> bool:
+        return self._success_api_handler(payload={
+            'operationType': 'putRecord',
+            'recordItemData': record_item_data,
+        })
+
+    def _delete_record_request(self, indexes_keys_selectors: Dict[str, Any]) -> bool:
+        return self._success_api_handler(payload={
+            'operationType': 'deleteRecord',
+            'indexesKeysSelectors': indexes_keys_selectors,
+        })
+
+    def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[FieldPathSetter]) -> bool:
         serialized_setters = [item.serialize() for item in setters]
         return self._success_api_handler(payload={
             'operationType': 'setUpdateMultipleDataElementsToMap',
@@ -57,7 +69,7 @@ class InoftVocalEngineTableConnectors:
             'setters': serialized_setters
         })
 
-    def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]):
+    def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:
         serialized_fields_path_elements = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements
@@ -68,7 +80,7 @@ class InoftVocalEngineTableConnectors:
             'fieldsPathElements': serialized_fields_path_elements
         })
 
-    def _delete_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]):
+    def _delete_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:
         serialized_fields_path_elements = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements
@@ -79,7 +91,7 @@ class InoftVocalEngineTableConnectors:
             'fieldsPathElements': serialized_fields_path_elements
         })
 
-    def _get_single_value_in_path_target(self, key_value: str, field_path_elements: List[DatabasePathElement]):
+    def _get_single_value_in_path_target(self, key_value: str, field_path_elements: List[DatabasePathElement]) -> Optional[Any]:
         serialized_field_path_elements = [item.serialize() for item in field_path_elements]
         return self._data_api_handler(payload={
             'operationType': 'getSingleValueInPathTarget',
@@ -87,7 +99,7 @@ class InoftVocalEngineTableConnectors:
             'fieldPathElements': serialized_field_path_elements
         })
 
-    def _get_values_in_multiple_path_target(self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]):
+    def _get_values_in_multiple_path_target(self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Optional[Any]:
         serialized_fields_path_elements = {
             field_key: [item.serialize() for item in field_path_elements_items]
             for field_key, field_path_elements_items in fields_path_elements.items()
@@ -98,7 +110,7 @@ class InoftVocalEngineTableConnectors:
             'fieldsPathElements': serialized_fields_path_elements
         })
 
-    def _get_or_query_single_item(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]):
+    def _get_or_query_single_item(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Any]:
         serialized_fields_path_elements = [
             [item.serialize() for item in items_container]
             for items_container in fields_path_elements

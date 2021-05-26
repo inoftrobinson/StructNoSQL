@@ -12,15 +12,12 @@ class BaseBasicTable(BaseTable):
     def __init__(self, data_model):
         super().__init__(data_model=data_model)
 
-    def put_record(self, record_dict_data: dict) -> bool:
+    def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
-        if is_valid is True:
-            return self.dynamodb_client.put_record(item_dict=validated_data)
-        else:
-            return False
+        return middleware(validated_data) if is_valid is True else False
 
-    def delete_record(self, indexes_keys_selectors: dict) -> bool:
+    def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         found_all_indexes = True
         for index_key, index_target_value in indexes_keys_selectors.items():
             index_matching_field = getattr(self.model, index_key, None)
@@ -28,13 +25,9 @@ class BaseBasicTable(BaseTable):
                 found_all_indexes = False
                 print(message_with_vars(
                     message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
-                    vars_dict={"index_key": index_key, "index_target_value": index_target_value, "index_matching_field": index_matching_field, "table.model": self.model}
+                    vars_dict={'index_key': index_key, 'index_target_value': index_target_value, 'index_matching_field': index_matching_field, 'table.model': self.model}
                 ))
-
-        if found_all_indexes is True:
-            return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys_selectors)
-        else:
-            return False
+        return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],

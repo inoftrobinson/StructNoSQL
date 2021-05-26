@@ -23,28 +23,14 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         )
 
     def put_record(self, record_dict_data: dict) -> bool:
-        self.model_virtual_map_field.populate(value=record_dict_data)
-        validated_data, is_valid = self.model_virtual_map_field.validate_data()
-        if is_valid is True:
-            return self.dynamodb_client.put_record(item_dict=validated_data)
-        else:
-            return False
+        def middleware(validated_record_item: dict) -> bool:
+            return self.dynamodb_client.put_record(item_dict=validated_record_item)
+        return self._put_record(middleware=middleware, record_dict_data=record_dict_data)
 
     def delete_record(self, indexes_keys_selectors: dict) -> bool:
-        found_all_indexes = True
-        for index_key, index_target_value in indexes_keys_selectors.items():
-            index_matching_field = getattr(self.model, index_key, None)
-            if index_matching_field is None:
-                found_all_indexes = False
-                print(message_with_vars(
-                    message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
-                    vars_dict={"index_key": index_key, "index_target_value": index_target_value, "index_matching_field": index_matching_field, "table.model": self.model}
-                ))
-
-        if found_all_indexes is True:
-            return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys_selectors)
-        else:
-            return False
+        def middleware(indexes_keys: dict) -> bool:
+            return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys)
+        return self._delete_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):

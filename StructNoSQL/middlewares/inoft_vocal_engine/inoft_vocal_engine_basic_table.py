@@ -67,7 +67,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_paths, fields_switch=self.fields_switch
         )
-        query_field_path_elements: List[List[DatabasePathElement]] = list()
+        query_field_path_elements: List[List[DatabasePathElement]] = []
         for field_path in fields_paths:
             field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs

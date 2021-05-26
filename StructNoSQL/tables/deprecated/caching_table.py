@@ -21,9 +21,9 @@ class CachingTable(BaseTable):
             primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
             billing_mode=billing_mode, auto_create_table=auto_create_table
         )
-        self._cached_data = dict()
-        self._pending_update_operations: Dict[str, Dict[str, FieldPathSetter]] = dict()
-        self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
+        self._cached_data = {}
+        self._pending_update_operations: Dict[str, Dict[str, FieldPathSetter]] = {}
+        self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
         self._debug = False
 
     @property
@@ -37,19 +37,19 @@ class CachingTable(BaseTable):
     def _index_cached_data(self, index_name: Optional[str], key_value: str) -> dict:
         index_name = f"{index_name or self.primary_index_name}|{key_value}"
         if index_name not in self._cached_data:
-            self._cached_data[index_name] = dict()
+            self._cached_data[index_name] = {}
         return self._cached_data[index_name]
 
     def _index_pending_update_operations(self, index_name: Optional[str], key_value: str) -> dict:
         index_name = f"{index_name or self.primary_index_name}|{key_value}"
         if index_name not in self._pending_update_operations:
-            self._pending_update_operations[index_name] = dict()
+            self._pending_update_operations[index_name] = {}
         return self._pending_update_operations[index_name]
 
     def _index_pending_remove_operations(self, index_name: Optional[str], key_value: str) -> dict:
         index_name = f"{index_name or self.primary_index_name}|{key_value}"
         if index_name not in self._pending_remove_operations:
-            self._pending_remove_operations[index_name] = dict()
+            self._pending_remove_operations[index_name] = {}
         return self._pending_remove_operations[index_name]
 
     def commit_update_operations(self) -> bool:
@@ -87,7 +87,7 @@ class CachingTable(BaseTable):
                 # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
 
                 if stringed_element_key not in navigated_cached_data:
-                    navigated_cached_data[stringed_element_key] = dict()
+                    navigated_cached_data[stringed_element_key] = {}
                 navigated_cached_data = navigated_cached_data[stringed_element_key]
 
             last_field_path_element = field_path_elements[-1]
@@ -208,9 +208,9 @@ class CachingTable(BaseTable):
             return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
-            response_items_values: Dict[str, Any] = dict()
+            response_items_values: Dict[str, Any] = {}
 
-            keys_fields_already_cached_to_pop: List[str] = list()
+            keys_fields_already_cached_to_pop: List[str] = []
             for item_key, item_field_path_elements in field_path_elements.items():
                 found_item_value_in_cache, field_item_value_from_cache = CachingTable._cache_get_data(
                     index_cached_data=index_cached_data, field_path_elements=item_field_path_elements
@@ -240,13 +240,13 @@ class CachingTable(BaseTable):
             return response_items_values if self.debug is not True else {'value': response_items_values, 'fromCache': None}
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
-        output_data: Dict[str, Any] = dict()
+        output_data: Dict[str, Any] = {}
         index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
 
-        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
-        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
+        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
 
-        getters_database_paths: List[List[DatabasePathElement]] = list()
+        getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
             field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
@@ -263,8 +263,8 @@ class CachingTable(BaseTable):
                     getters_database_paths.append(field_path_elements)
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
-                container_data: Dict[str, Any] = dict()
+                current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+                container_data: Dict[str, Any] = {}
 
                 for child_item_key, child_item_field_path_elements in field_path_elements.items():
                     found_item_value_in_cache, field_item_value_from_cache = CachingTable._cache_get_data(
@@ -295,7 +295,7 @@ class CachingTable(BaseTable):
                 output_data[item_key] = item_data if self.debug is not True else {'value': item_data, 'fromCache': False}
 
             for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
-                container_data: Dict[str, Any] = dict()
+                container_data: Dict[str, Any] = {}
                 for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                     child_item_value = navigate_into_data_with_field_path_elements(
                         data=response_data, field_path_elements=child_item_field_path_elements,
@@ -435,8 +435,8 @@ class CachingTable(BaseTable):
                     return None if self.debug is not True else {'value': None, 'fromCache': False}
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
-            target_path_elements: List[List[DatabasePathElement]] = list()
-            container_output_data: Dict[str, Any] = dict()
+            target_path_elements: List[List[DatabasePathElement]] = []
+            container_output_data: Dict[str, Any] = {}
 
             for item_field_path_elements_value in field_path_elements.values():
                 item_last_path_element = item_field_path_elements_value[-1]
@@ -508,10 +508,10 @@ class CachingTable(BaseTable):
         else:
             index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
 
-            removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = dict()
-            grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = dict()
+            removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+            grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
 
-            removers_database_paths: List[List[DatabasePathElement]] = list()
+            removers_database_paths: List[List[DatabasePathElement]] = []
             for remover_key, remover_item in removers.items():
                 field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                     field_path=remover_item.field_path, fields_switch=self.fields_switch,
@@ -544,7 +544,7 @@ class CachingTable(BaseTable):
             if response_attributes is None:
                 return None
             else:
-                output_data: Dict[str, Any] = dict()
+                output_data: Dict[str, Any] = {}
                 for item_key, item_field_path_elements in removers_field_paths_elements.items():
                     removed_item_data = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=item_field_path_elements,
@@ -553,7 +553,7 @@ class CachingTable(BaseTable):
                     output_data[item_key] = removed_item_data
 
                 for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
-                    container_data: Dict[str, Any] = dict()
+                    container_data: Dict[str, Any] = {}
                     for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                         container_data[child_item_key] = navigate_into_data_with_field_path_elements(
                             data=response_attributes, field_path_elements=child_item_field_path_elements,

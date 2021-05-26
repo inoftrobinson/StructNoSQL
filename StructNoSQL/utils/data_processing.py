@@ -4,7 +4,7 @@ from StructNoSQL.models import DatabasePathElement
 
 
 def remove_null_elements_from_dict(dict_instance: dict) -> dict:
-    output_clean_dict = dict()
+    output_clean_dict = {}
     for key, value in dict_instance.items():
         if isinstance(value, dict):
             nested = remove_null_elements_from_dict(value)

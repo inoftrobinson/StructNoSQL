@@ -94,7 +94,7 @@ class DynamoDBUtils:
                     return DynamoDBToPythonValuesConvertor.convert(first_key=first_key, dynamodb_item=first_item)
 
             # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
-            keys_to_pop: List[str] = list()
+            keys_to_pop: List[str] = []
             for key, item in dynamodb_object.items():
                 item_value = DynamoDBUtils.dynamodb_to_python(dynamodb_object=item)
                 if item_value is not None:

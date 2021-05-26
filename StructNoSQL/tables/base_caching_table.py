@@ -82,7 +82,7 @@ class BaseCachingTable(BaseTable):
                 # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
 
                 if stringed_element_key not in navigated_cached_data:
-                    navigated_cached_data[stringed_element_key] = dict()
+                    navigated_cached_data[stringed_element_key] = {}
                 navigated_cached_data = navigated_cached_data[stringed_element_key]
 
             last_field_path_element = field_path_elements[-1]
@@ -203,9 +203,9 @@ class BaseCachingTable(BaseTable):
             return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
-            response_items_values: Dict[str, Any] = dict()
+            response_items_values: Dict[str, Any] = {}
 
-            keys_fields_already_cached_to_pop: List[str] = list()
+            keys_fields_already_cached_to_pop: List[str] = []
             for item_key, item_field_path_elements in field_path_elements.items():
                 found_item_value_in_cache, field_item_value_from_cache = BaseCachingTable._cache_get_data(
                     index_cached_data=index_cached_data, field_path_elements=item_field_path_elements
@@ -299,7 +299,7 @@ class BaseCachingTable(BaseTable):
                 output_data[item_key] = item_data if self.debug is not True else {'value': item_data, 'fromCache': False}
 
             for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
-                container_data: Dict[str, Any] = dict()
+                container_data: Dict[str, Any] = {}
                 for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                     child_item_value = navigate_into_data_with_field_path_elements(
                         data=response_data, field_path_elements=child_item_field_path_elements,
@@ -451,8 +451,8 @@ class BaseCachingTable(BaseTable):
                     )
         else:
             field_path_elements: Dict[str, List[DatabasePathElement]]
-            target_path_elements: List[List[DatabasePathElement]] = list()
-            container_output_data: Dict[str, Any] = dict()
+            target_path_elements: List[List[DatabasePathElement]] = []
+            container_output_data: Dict[str, Any] = {}
 
             for item_field_path_elements_value in field_path_elements.values():
                 item_last_path_element = item_field_path_elements_value[-1]

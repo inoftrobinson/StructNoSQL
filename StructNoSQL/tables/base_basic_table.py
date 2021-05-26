@@ -51,7 +51,7 @@ class BaseBasicTable(BaseTable):
         single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
         grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
 
-        getters_database_paths: List[List[DatabasePathElement]] = list()
+        getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
             field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
@@ -94,7 +94,7 @@ class BaseBasicTable(BaseTable):
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_paths, fields_switch=self.fields_switch
         )
-        query_field_path_elements: List[List[DatabasePathElement]] = list()
+        query_field_path_elements: List[List[DatabasePathElement]] = []
         for field_path in fields_paths:
             field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
@@ -138,7 +138,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[FieldPathSetter]], Any],
             setters: List[FieldSetter or UnsafeFieldSetter]
     ) -> bool:
-        dynamodb_setters: List[FieldPathSetter] = list()
+        dynamodb_setters: List[FieldPathSetter] = []
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
                 validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -212,7 +212,7 @@ class BaseBasicTable(BaseTable):
                 )
                 return removed_item_data
             else:
-                removed_items_values: Dict[str, Any] = dict()
+                removed_items_values: Dict[str, Any] = {}
                 for field_path_elements in all_fields_items_path_elements:
                     # Even the remove_field function can potentially remove multiple
                     # field_path_elements if the field_path expression is selecting multiple fields.

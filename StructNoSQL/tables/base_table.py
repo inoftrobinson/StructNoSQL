@@ -29,7 +29,7 @@ class FieldsSwitch(dict):
 class BaseTable:
     def __init__(self, data_model):
         self.fields_switch = FieldsSwitch()
-        self._internal_mapping = dict()
+        self._internal_mapping = {}
 
         if not isinstance(data_model, type):
             self._model = data_model
@@ -75,9 +75,9 @@ class Processor:
             self, class_type: Optional[type], variable_item: Any, current_field_path: str,
             current_path_elements: Optional[List[DatabasePathElement]] = None, is_nested: bool = False
     ) -> list:
-        required_fields = list()
+        required_fields = []
         if current_path_elements is None:
-            current_path_elements = list()
+            current_path_elements = []
 
         try:
             if isinstance(variable_item, DictModel):

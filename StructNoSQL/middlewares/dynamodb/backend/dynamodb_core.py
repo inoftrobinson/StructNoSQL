@@ -114,7 +114,7 @@ class DynamoDbCoreAdapter:
         if fields_path_elements is not None:
             kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
         else:
-            kwargs = dict()
+            kwargs = {}
         kwargs["Key"] = {index_name: key_value}
         kwargs["ConsistentRead"] = True
 
@@ -188,13 +188,13 @@ class DynamoDbCoreAdapter:
             retrieve_removed_elements: bool = False
     ) -> Optional[Dict[str, Any]]:
 
-        consumed_targets_path_elements: List[List[DatabasePathElement]] = list()
-        expression_attribute_names_dict = dict()
+        consumed_targets_path_elements: List[List[DatabasePathElement]] = []
+        expression_attribute_names_dict = {}
         update_expression = "REMOVE "
 
         for i_target, target in enumerate(targets_path_elements):
             current_target_num_path_elements = len(target)
-            current_setter_attribute_names = dict()
+            current_setter_attribute_names = {}
             current_remover_update_expression = ""
 
             for i_path_element, path_element in enumerate(target):
@@ -254,7 +254,7 @@ class DynamoDbCoreAdapter:
     ) -> Tuple[str, Dict[str, str]]:
 
         output_string: str = base_string or str()
-        output_expression_attribute_names: Dict[str, str] = dict()
+        output_expression_attribute_names: Dict[str, str] = {}
 
         if isinstance(database_path_element.element_key, str):
             if len(output_string) > 0:
@@ -342,7 +342,7 @@ class DynamoDbCoreAdapter:
             self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
     ) -> dict:
 
-        expression_attribute_names_dict = dict()
+        expression_attribute_names_dict = {}
         update_expression = "SET "
 
         for i, path_element in enumerate(field_path_elements):
@@ -387,8 +387,8 @@ class DynamoDbCoreAdapter:
 
     @staticmethod
     def _setters_to_tidied_initializers(setters: List[FieldPathSetter]) -> Dict[str, MapItemInitializerContainer]:
-        root_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
-        all_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
+        root_initializers_containers: Dict[str, MapItemInitializerContainer] = {}
+        all_initializers_containers: Dict[str, MapItemInitializerContainer] = {}
 
         for setter in setters:
             current_absolute_target_path = str()
@@ -497,12 +497,12 @@ class DynamoDbCoreAdapter:
             "ReturnValues": "UPDATED_NEW"
         }
         update_expression = "SET "
-        expression_attribute_names_dict, expression_attribute_values_dict = dict(), dict()
+        expression_attribute_names_dict, expression_attribute_values_dict = {}, dict()
 
-        consumed_setters: List[FieldPathSetter] = list()
+        consumed_setters: List[FieldPathSetter] = []
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
-            current_setter_attribute_names, current_setter_attribute_values = dict(), dict()
+            current_setter_attribute_names, current_setter_attribute_values = {}, dict()
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
                 current_setter_update_expression, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
@@ -568,7 +568,7 @@ class DynamoDbCoreAdapter:
         if fields_path_elements is not None:
             kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
         else:
-            kwargs = dict()
+            kwargs = {}
         if additional_kwargs is not None:
             kwargs = {**kwargs, **additional_kwargs}
 

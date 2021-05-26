@@ -5,13 +5,11 @@ from copy import copy
 from StructNoSQL.models import DatabasePathElement, FieldRemover
 from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item, make_dict_key_var_name
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
 
 
 # todo: add ability to add or remove items from list's
-
-class DatabaseKey(str):
-    pass
 
 
 class FieldsSwitch(dict):
@@ -67,23 +65,6 @@ class BaseTable:
             return {}
         with ThreadPoolExecutor(max_workers=len(removers)) as executor:
             return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
-
-
-def make_dict_key_var_name(key_name: str) -> str:
-    return f"$key$:{key_name}"
-
-def try_to_get_primitive_default_type_of_item(item_type: Any):
-    item_default_primitive_type: Optional[type] = getattr(item_type, '_default_primitive_type', None)
-    if item_default_primitive_type is not None:
-        return item_default_primitive_type
-
-    item_type_name: Optional[str] = getattr(item_type, '_name', None)
-    if item_type_name is not None:
-        primitive_from_typed: Optional[type] = TYPED_TYPES_TO_PRIMITIVES.get(item_type_name, None)
-        if primitive_from_typed is not None:
-            return primitive_from_typed
-
-    return item_type
 
 
 class Processor:
@@ -276,7 +257,7 @@ class Processor:
                         custom_setup_class_variables[key] = item
                 class_variables = custom_setup_class_variables
 
-        required_fields: List[BaseField] = list()
+        required_fields: List[BaseField] = []
         for variable_item in class_variables.values():
             current_field_path = "" if nested_field_path is None else nested_field_path
             required_fields.extend(self.process_item(
@@ -287,6 +268,6 @@ class Processor:
                 is_nested=is_nested
             ))
 
-        setattr(class_type, "required_fields", required_fields)
+        setattr(class_type, 'required_fields', required_fields)
         # We need to set the attribute, because when we go the required_fields with the get_attr
         # function, we did not get a reference to the attribute, but a copy of the attribute value.

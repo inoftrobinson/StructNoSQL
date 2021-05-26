@@ -137,7 +137,6 @@ def process_validate_data_and_make_single_rendered_database_path(
         return None, False, None
 
 
-
 def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> List[str]:
     for i, field_key in enumerate(fields_paths):
         start_variable_first_char_index = field_key.find("{{")
@@ -157,4 +156,3 @@ def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> L
                     ))
                 fields_paths[i] = f"{field_key[0:start_variable_first_char_index]}{variable_matching_kwarg}{field_key[end_variable_last_char_index:0]}"
     return fields_paths
-

@@ -7,6 +7,7 @@ from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetE
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 from StructNoSQL.utils.types import ACCEPTABLE_KEY_TYPES
+from StructNoSQL.utils.misc_fields_items import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
 
 
 FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')', '|']
@@ -356,7 +357,6 @@ class MapItem(BaseField):
         super().__init__(name=None, field_type=field_type, custom_default_value=BaseItem.instantiate_default_value_type(field_type))
         self.map_model = model_type
 
-        from StructNoSQL.tables.base_table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
         element_key = make_dict_key_var_name(parent_field.key_name)
         default_type = try_to_get_primitive_default_type_of_item(parent_field.items_excepted_type)
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)

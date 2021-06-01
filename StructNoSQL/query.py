@@ -1,7 +1,7 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 
-from StructNoSQL.dynamodb.dynamodb_core import Response
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import Response
+from StructNoSQL.models import DatabasePathElement
 
 
 class Query:

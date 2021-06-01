@@ -1,9 +1,10 @@
 import re
 from typing import List, Dict, Any, Optional, Tuple
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.exceptions import MissingQueryKwarg
 
 MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(\()(.*)(\))'
 
@@ -26,7 +27,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
             attributes_selectors_string: str = match[1]
             attributes_selector_list = attributes_selectors_string.replace(' ', '').split(',')
 
-            attributes_fields_objets: List[BaseItem] = list()
+            attributes_fields_objets: List[BaseItem] = []
             for attribute_selector in attributes_selector_list:
                 current_attribute_field_path = field_path_key.replace(selected_string, attribute_selector)
                 """if len(current_attribute_field_path) > 0 and current_attribute_field_path[0] == ".":
@@ -52,7 +53,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
     return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 
 def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[str], fields_switch: dict) -> Dict[str, BaseItem]:
-    fields_objects_to_get = dict()
+    fields_objects_to_get = {}
     for field_key in fields_paths:
         field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
             field_path_key=field_key, fields_switch=fields_switch
@@ -63,7 +64,7 @@ def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[st
 
 
 def make_rendered_database_path(database_path_elements: List[DatabasePathElement], query_kwargs: dict) -> List[DatabasePathElement]:
-    output_database_path_elements: List[DatabasePathElement] = list()
+    output_database_path_elements: List[DatabasePathElement] = []
     for path_element in database_path_elements:
         if "$key$:" not in path_element.element_key:
             # If the path_element do not contains a key that need to be modified, we can use the current
@@ -86,14 +87,14 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
                         custom_default_value=path_element.custom_default_value
                     ))
                 else:
-                    raise Exception(message_with_vars(
+                    raise MissingQueryKwarg(message_with_vars(
                         message="A variable was required but not found in the query_kwargs dict passed to the make_rendered_database_path function.",
                         vars_dict={"keyVariableName": variable_name, "matchingKwarg": matching_kwarg,
                                    "queryKwargs": query_kwargs, "databasePathElements": database_path_elements}
                     ))
             else:
                 raise Exception(message_with_vars(
-                    message="A variable was required but not query_kwargs have been passed to the make_rendered_database_path function.",
+                    message="A variable was required but no query_kwargs have been passed to the make_rendered_database_path function.",
                     vars_dict={"keyVariableName": variable_name, "queryKwargs": query_kwargs, "databasePathElements": database_path_elements}
                 ))
     return output_database_path_elements
@@ -111,7 +112,7 @@ def process_and_make_single_rendered_database_path(
         )
         return rendered_database_path_elements, False
     else:
-        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = dict()
+        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = {}
         for single_field_path_object in field_path_object:
             fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
                 database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
@@ -137,9 +138,9 @@ def process_validate_data_and_make_single_rendered_database_path(
         return None, False, None
 
 
-
 def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> List[str]:
     for i, field_key in enumerate(fields_paths):
+        # todo: refactor to use a single regex
         start_variable_first_char_index = field_key.find("{{")
         if not start_variable_first_char_index == -1:
             end_variable_first_char_index = field_key.find("}}")
@@ -152,9 +153,14 @@ def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> L
                 if variable_matching_kwarg is None:
                     raise Exception(message_with_vars(
                         message="A key was required in a field to get, but no matching query kwarg was found.",
-                        vars_dict={"fieldsPaths": fields_paths, "fieldKey": field_key, "variableKeyName": variable_key_name,
-                                   "queryKwargs": query_kwargs, "variableMatchingKwarg": variable_matching_kwarg}
+                        vars_dict={
+                            'fields_paths': fields_paths, "field_key": field_key, "variable_key_name": variable_key_name,
+                            "query_kwargs": query_kwargs, "variable_matching_kwarg": variable_matching_kwarg
+                        }
                     ))
                 fields_paths[i] = f"{field_key[0:start_variable_first_char_index]}{variable_matching_kwarg}{field_key[end_variable_last_char_index:0]}"
     return fields_paths
 
+
+def join_field_path_elements(field_path_elements: List[DatabasePathElement]) -> str:
+    return '.'.join((f'{item.element_key}' for item in field_path_elements))

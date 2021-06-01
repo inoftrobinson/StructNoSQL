@@ -15,6 +15,15 @@ class DatabasePathElement:
             return None
         return self.default_type()
 
+    def serialize(self) -> dict:
+        output: dict = {
+            'elementKey': self.element_key,
+            'defaultType': self.default_type.__name__,
+        }
+        if self.custom_default_value is not None:
+            output['customDefaultValue'] = self.custom_default_value
+        return output
+
 
 @dataclass
 class FieldSetter:
@@ -43,9 +52,17 @@ class FieldRemover:
 
 
 @dataclass
-class DynamoDBMapObjectSetter:
+class FieldPathSetter:
     field_path_elements: List[DatabasePathElement]
     value_to_set: Any
+
+    def serialize(self) -> dict:
+        return {
+            'valueToSet': self.value_to_set,
+            'fieldPathElements': [
+                item.serialize() for item in self.field_path_elements
+            ]
+        }
 
 
 @dataclass

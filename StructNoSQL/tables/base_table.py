@@ -1,17 +1,15 @@
-from typing import Optional, List, Any, Set, _GenericAlias
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict
 from copy import copy
 
-from StructNoSQL.dynamodb.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.dynamodb.models import DatabasePathElement
-from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
+from StructNoSQL.models import DatabasePathElement, FieldRemover
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item, make_dict_key_var_name
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
 
 
 # todo: add ability to add or remove items from list's
-
-class DatabaseKey(str):
-    pass
 
 
 class FieldsSwitch(dict):
@@ -29,21 +27,9 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(
-        self, table_name: str, region_name: str,
-        data_model, primary_index: PrimaryIndex,
-        billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
-        global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-        auto_create_table: bool = True
-    ):
+    def __init__(self, data_model):
         self.fields_switch = FieldsSwitch()
-        self._internal_mapping = dict()
-        self._dynamodb_client = DynamoDbCoreAdapter(
-            table_name=table_name, region_name=region_name, billing_mode=billing_mode,
-            primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
-            create_table=auto_create_table
-        )
-        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
+        self._internal_mapping = {}
 
         if not isinstance(data_model, type):
             self._model = data_model
@@ -53,10 +39,6 @@ class BaseTable:
 
         self.processed_class_types: Set[type] = set()
         Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
-
-    @property
-    def primary_index_name(self) -> str:
-        return self._primary_index_name
 
     @property
     def model(self) -> TableDataModel:
@@ -76,26 +58,13 @@ class BaseTable:
     def internal_mapping(self) -> dict:
         return self._internal_mapping
 
-    @property
-    def dynamodb_client(self) -> DynamoDbCoreAdapter:
-        return self._dynamodb_client
-
-
-def make_dict_key_var_name(key_name: str) -> str:
-    return f"$key$:{key_name}"
-
-def try_to_get_primitive_default_type_of_item(item_type: Any):
-    item_default_primitive_type: Optional[type] = getattr(item_type, '_default_primitive_type', None)
-    if item_default_primitive_type is not None:
-        return item_default_primitive_type
-
-    item_type_name: Optional[str] = getattr(item_type, '_name', None)
-    if item_type_name is not None:
-        primitive_from_typed: Optional[type] = TYPED_TYPES_TO_PRIMITIVES.get(item_type_name, None)
-        if primitive_from_typed is not None:
-            return primitive_from_typed
-
-    return item_type
+    @staticmethod
+    def _async_field_removers_executor(task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
+        # This function is used both to run delete_field and remove_field operations asynchronously
+        if not len(removers) > 0:
+            return {}
+        with ThreadPoolExecutor(max_workers=len(removers)) as executor:
+            return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
 
 
 class Processor:
@@ -106,9 +75,9 @@ class Processor:
             self, class_type: Optional[type], variable_item: Any, current_field_path: str,
             current_path_elements: Optional[List[DatabasePathElement]] = None, is_nested: bool = False
     ) -> list:
-        required_fields = list()
+        required_fields = []
         if current_path_elements is None:
-            current_path_elements = list()
+            current_path_elements = []
 
         try:
             if isinstance(variable_item, DictModel):
@@ -180,20 +149,27 @@ class Processor:
                                         break
                                     else:
                                         nested_variable_item = variable_item.copy()
+                                        item_rendered_key_name: str = nested_variable_item.key_name.replace("{i}", f"{i}")
                                         nested_variable_item._database_path = [*current_nested_database_path]
-                                        item_rendered_key_name = nested_variable_item.key_name.replace("{i}", f"{i}")
+                                        nested_variable_item._key_name = item_rendered_key_name
+                                        # We create a copy of the variable_item unpon which we render the key_name and add
+                                        # the appropriate database_path_elements into to prepare the creation of the MapItem.
 
                                         map_item = MapItem(
                                             parent_field=nested_variable_item,
                                             field_type=nested_variable_item.default_field_type,
                                             model_type=nested_variable_item.items_excepted_type
                                         )
+                                        # The MapItem will retrieve the key_name of its parent_field when initialized.
+                                        # Hence, it is important to do the modifications on the nested_variable_item
+                                        # before the initialization of the MapItem.
+
                                         if i > 0:
                                             current_nested_field_path += f".{variable_item.field_name}"
-                                        current_nested_field_path += ".{{" + item_rendered_key_name + "}}"
+                                        current_nested_field_path += ".{{" + map_item.key_name + "}}"
 
                                         current_nested_database_path.append(DatabasePathElement(
-                                            element_key=make_dict_key_var_name(item_rendered_key_name),
+                                            element_key=make_dict_key_var_name(map_item.key_name),
                                             default_type=nested_variable_item.default_field_type,
                                             custom_default_value=nested_variable_item.custom_default_value
                                         ))
@@ -288,7 +264,7 @@ class Processor:
                         custom_setup_class_variables[key] = item
                 class_variables = custom_setup_class_variables
 
-        required_fields: List[BaseField] = list()
+        required_fields: List[BaseField] = []
         for variable_item in class_variables.values():
             current_field_path = "" if nested_field_path is None else nested_field_path
             required_fields.extend(self.process_item(
@@ -299,6 +275,6 @@ class Processor:
                 is_nested=is_nested
             ))
 
-        setattr(class_type, "required_fields", required_fields)
+        setattr(class_type, 'required_fields', required_fields)
         # We need to set the attribute, because when we go the required_fields with the get_attr
         # function, we did not get a reference to the attribute, but a copy of the attribute value.

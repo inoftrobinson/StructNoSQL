@@ -1,6 +1,7 @@
 import unittest
 from typing import Dict
-from StructNoSQL import BaseField, MapModel, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, ActiveSelf, BasicTable
+from StructNoSQL import BaseField, MapModel, TableDataModel, PrimaryIndex, GlobalSecondaryIndex, ActiveSelf, \
+    DynamoDBBasicTable
 
 
 class NestedFieldTableModel(TableDataModel):
@@ -11,7 +12,7 @@ class NestedFieldTableModel(TableDataModel):
     properties = BaseField(name="properties", field_type=Dict[str, PropertyModel], key_name="propertyKey", required=False)
 
 
-class Table(BasicTable):
+class Table(DynamoDBBasicTable):
     def __init__(self):
         primary_index = PrimaryIndex(hash_key_name="accountId", hash_key_variable_python_type=str)
         globals_secondary_indexes = [

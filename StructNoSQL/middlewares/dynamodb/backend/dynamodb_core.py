@@ -1,189 +1,40 @@
+import logging
 from sys import getsizeof
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 from boto3.exceptions import ResourceNotExistsError
 from boto3.session import Session
 from typing import List, Optional, Type, Any, Dict, Tuple
 
 from botocore.exceptions import ClientError
-from pydantic import BaseModel, validate_arguments
 
-from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils, PythonToDynamoDBTypesConvertor
-from StructNoSQL.dynamodb.models import DatabasePathElement, DynamoDBMapObjectSetter, MapItemInitializer, \
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
+    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
+from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.static_logger import logger
-
-HASH_KEY_TYPE = "HASH"
-SORT_KEY_TYPE = "RANGE"
-EXPRESSION_MAX_BYTES_SIZE = 4000  # DynamoDB max expression size is 4kb
-
-
-class GetItemResponse(BaseModel):
-    item: Optional[dict]
-    success: bool
-
-
-class Response:
-    def __init__(self, response_dict: dict):
-        self.items: Optional[List[dict]] = response_dict.get('Items', None)
-        self.attributes: Optional[dict] = response_dict.get('Attributes', None)
-        self.count: Optional[int] = response_dict.get('Count', None)
-        self.scanned_count: Optional[int] = response_dict.get('ScannedCount', None)
-        self.last_evaluated_key: Optional[dict] = response_dict.get('LastEvaluatedKey', None)
-        self.has_reached_end = False if self.last_evaluated_key is not None else True
-
-
-class Index(BaseModel):
-    hash_key_name: str
-    hash_key_variable_python_type: Type
-    sort_key_name: Optional[str]
-    sort_key_variable_python_type: Optional[Type]
-    index_custom_name: Optional[str]
-
-
-class PrimaryIndex(Index):
-    pass
-
-
-class GlobalSecondaryIndex(Index):
-    # todo: add pydantic to this class
-    PROJECTION_TYPE_USE_ALL = "ALL"
-    PROJECTION_TYPE_KEYS_ONLY = "KEYS_ONLY"
-    PROJECTION_TYPE_INCLUDE = "INCLUDE"
-    ALL_PROJECTIONS_TYPES = [PROJECTION_TYPE_USE_ALL, PROJECTION_TYPE_KEYS_ONLY, PROJECTION_TYPE_INCLUDE]
-
-    projection_type: str
-    non_key_attributes: Optional[List[str]]
-
-    def __init__(self, hash_key_name: str, hash_key_variable_python_type: Type,
-                 projection_type: str, non_key_attributes: Optional[List[str]] = None,
-                 sort_key_name: Optional[str] = None, sort_key_variable_python_type: Optional[Type] = None,
-                 index_custom_name: Optional[str] = None):
-
-        super().__init__(
-            hash_key_name=hash_key_name, hash_key_variable_python_type=hash_key_variable_python_type,
-            sort_index_name=sort_key_name, sort_key_variable_python_type=sort_key_variable_python_type,
-            projection_type=projection_type, non_key_attributes=non_key_attributes
-        )
-
-        if projection_type not in self.ALL_PROJECTIONS_TYPES:
-            raise Exception(f"{projection_type} has not been found in the available projection_types : {self.ALL_PROJECTIONS_TYPES}")
-        if non_key_attributes is not None:
-            if projection_type == self.PROJECTION_TYPE_INCLUDE:
-                self.non_key_attributes = non_key_attributes
-            else:
-                raise Exception(f"In order to use non_key_attributes, you must specify the projection_type as {self.PROJECTION_TYPE_INCLUDE}")
-        else:
-            self.non_key_attributes = None
-
-        self.projection_type = projection_type
-
-    def to_dict(self):
-        if self.index_custom_name is not None:
-            index_name = self.index_custom_name
-        else:
-            if self.sort_key_name is None:
-                index_name = self.hash_key_name
-            else:
-                index_name = f"{self.hash_key_name}-{self.sort_key_name}"
-
-        output_dict = {
-            "IndexName": index_name,
-            "KeySchema": [
-                {
-                    "AttributeName": self.hash_key_name,
-                    "KeyType": HASH_KEY_TYPE
-                },
-            ],
-            "Projection": {
-                "ProjectionType": self.projection_type
-            }
-        }
-        if self.non_key_attributes is not None:
-            output_dict["Projection"]["NonKeyAttributes"] = self.non_key_attributes
-
-        if self.sort_key_name is not None and self.sort_key_variable_python_type is not None:
-            output_dict["KeySchema"].append({
-                "AttributeName": self.sort_key_name,
-                "KeyType": SORT_KEY_TYPE
-            })
-        return output_dict
-
-
-class CreateTableQueryKwargs:
-    @validate_arguments
-    def __init__(self, table_name: str, billing_mode: str):
-        self._names_already_defined_attributes: List[str] = list()
-        self.data = {
-            "TableName": table_name,
-            "KeySchema": list(),
-            "AttributeDefinitions": list(),
-            "BillingMode": billing_mode,
-        }
-
-    def _add_key(self, key_name: str, key_python_variable_type: Type, key_type: str):
-        self.data["KeySchema"].append({
-            "AttributeName": key_name,
-            "KeyType": key_type
-        })
-        self.data["AttributeDefinitions"].append({
-            "AttributeName": key_name,
-            "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
-        })
-
-    @validate_arguments
-    def add_hash_key(self, key_name: str, key_python_variable_type: Type):
-        self._add_key(key_name=key_name, key_python_variable_type=key_python_variable_type, key_type=HASH_KEY_TYPE)
-
-    @validate_arguments
-    def add_sort_key(self, key_name: str, key_python_variable_type: Type):
-        self._add_key(key_name=key_name, key_python_variable_type=key_python_variable_type, key_type=SORT_KEY_TYPE)
-
-    def _add_global_secondary_index(self, key_name: str, key_python_variable_type: Type):
-        if key_name not in self._names_already_defined_attributes:
-            self.data["AttributeDefinitions"].append({
-                "AttributeName": key_name,
-                "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)
-            })
-            self._names_already_defined_attributes.append(key_name)
-
-    @validate_arguments
-    def add_global_secondary_index(self, global_secondary_index: GlobalSecondaryIndex):
-        if "GlobalSecondaryIndexes" not in self.data:
-            self.data["GlobalSecondaryIndexes"] = list()
-
-        self._add_global_secondary_index(key_name=global_secondary_index.hash_key_name,
-                                         key_python_variable_type=global_secondary_index.hash_key_variable_python_type)
-
-        if global_secondary_index.sort_key_name is not None and global_secondary_index.sort_key_variable_python_type is not None:
-            self._add_global_secondary_index(key_name=global_secondary_index.sort_key_name,
-                                             key_python_variable_type=global_secondary_index.sort_key_variable_python_type)
-
-        self.data["GlobalSecondaryIndexes"].append(global_secondary_index.to_dict())
-
-    @validate_arguments
-    def add_all_global_secondary_indexes(self, global_secondary_indexes: List[GlobalSecondaryIndex]):
-        for global_secondary_index in global_secondary_indexes:
-            self.add_global_secondary_index(global_secondary_index=global_secondary_index)
+from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 
 
 class DynamoDbCoreAdapter:
-    _EXISTING_DATABASE_CLIENTS = dict()
+    _EXISTING_DATABASE_CLIENTS = {}
     PAY_PER_REQUEST = "PAY_PER_REQUEST"
     PROVISIONED = "PROVISIONED"
 
-    def __init__(self, table_name: str, region_name: str, primary_index: PrimaryIndex,
-                 create_table: bool = True, billing_mode: str = PAY_PER_REQUEST,
-                 global_secondary_indexes: List[GlobalSecondaryIndex] = None):
+    def __init__(
+            self, table_name: str, region_name: str, primary_index: PrimaryIndex,
+            create_table: bool = True, billing_mode: str = PAY_PER_REQUEST,
+            global_secondary_indexes: List[GlobalSecondaryIndex] = None
+    ):
         self.table_name = table_name
         self.primary_index = primary_index
         self.create_table = create_table
         self.billing_mode = billing_mode
         self.global_secondary_indexes = global_secondary_indexes
-        self._global_secondary_indexes_hash_keys = list()
+        self._global_secondary_indexes_hash_keys = []
         if self.global_secondary_indexes is not None:
             for secondary_index in self.global_secondary_indexes:
                 self._global_secondary_indexes_hash_keys.append(secondary_index.hash_key_name)
@@ -200,15 +51,15 @@ class DynamoDbCoreAdapter:
             # print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
             #       f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
-            dynamodb_regions = Session().get_available_regions("dynamodb")
+            dynamodb_regions = Session().get_available_regions('dynamodb')
             if region_name in dynamodb_regions:
-                self.dynamodb = boto3.resource("dynamodb", region_name=region_name)
+                self.dynamodb = boto3.resource('dynamodb', region_name=region_name)
                 self._EXISTING_DATABASE_CLIENTS[region_name] = self.dynamodb
             else:
-                self.dynamodb = boto3.resource("dynamodb")
-                self._EXISTING_DATABASE_CLIENTS["default"] = self.dynamodb
-                logger.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
-                             f"The dynamodb client has been initialized without specifying the region.")
+                self.dynamodb = boto3.resource('dynamodb')
+                self._EXISTING_DATABASE_CLIENTS['default'] = self.dynamodb
+                logging.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
+                              f"The dynamodb client has been initialized without specifying the region.")
 
         self._create_table_if_not_exists()
 
@@ -259,11 +110,11 @@ class DynamoDbCoreAdapter:
             print(e)
         return False
 
-    def get_item_by_primary_key(self, index_name: str, key_value: any, fields_paths_elements: Optional[List[List[DatabasePathElement]]]) -> Optional[GetItemResponse]:
-        if fields_paths_elements is not None:
-            kwargs = self._fields_paths_elements_to_expressions(fields_paths_elements=fields_paths_elements)
+    def get_item_by_primary_key(self, index_name: str, key_value: any, fields_path_elements: Optional[List[List[DatabasePathElement]]]) -> Optional[GetItemResponse]:
+        if fields_path_elements is not None:
+            kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
         else:
-            kwargs = dict()
+            kwargs = {}
         kwargs["Key"] = {index_name: key_value}
         kwargs["ConsistentRead"] = True
 
@@ -281,7 +132,7 @@ class DynamoDbCoreAdapter:
             print(f"Failed to retrieve attributes from DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
 
-    def check_if_item_exist_by_primary_key(self, index_name: str, key_value: str, fields_paths_elements: Optional[List[str]]) -> Optional[bool]:
+    def check_if_item_exist_by_primary_key(self, index_name: str, key_value: str, fields_path_elements: Optional[List[str]]) -> Optional[bool]:
         raise Exception("Not implemented")  # todo: implement
 
     def _execute_update_query(self, query_kwargs_dict: dict, allow_validation_exception: bool = False) -> Optional[Response]:
@@ -337,13 +188,13 @@ class DynamoDbCoreAdapter:
             retrieve_removed_elements: bool = False
     ) -> Optional[Dict[str, Any]]:
 
-        consumed_targets_path_elements: List[List[DatabasePathElement]] = list()
-        expression_attribute_names_dict = dict()
+        consumed_targets_path_elements: List[List[DatabasePathElement]] = []
+        expression_attribute_names_dict = {}
         update_expression = "REMOVE "
 
         for i_target, target in enumerate(targets_path_elements):
             current_target_num_path_elements = len(target)
-            current_setter_attribute_names = dict()
+            current_setter_attribute_names = {}
             current_remover_update_expression = ""
 
             for i_path_element, path_element in enumerate(target):
@@ -403,7 +254,7 @@ class DynamoDbCoreAdapter:
     ) -> Tuple[str, Dict[str, str]]:
 
         output_string: str = base_string or str()
-        output_expression_attribute_names: Dict[str, str] = dict()
+        output_expression_attribute_names: Dict[str, str] = {}
 
         if isinstance(database_path_element.element_key, str):
             if len(output_string) > 0:
@@ -491,7 +342,7 @@ class DynamoDbCoreAdapter:
             self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
     ) -> dict:
 
-        expression_attribute_names_dict = dict()
+        expression_attribute_names_dict = {}
         update_expression = "SET "
 
         for i, path_element in enumerate(field_path_elements):
@@ -523,7 +374,7 @@ class DynamoDbCoreAdapter:
         )
         return self._execute_update_query_with_initialization_if_missing(
             index_name=index_name, key_value=key_value, update_query_kwargs=update_query_kwargs,
-            setters=[DynamoDBMapObjectSetter(field_path_elements=field_path_elements, value_to_set=value)]
+            setters=[FieldPathSetter(field_path_elements=field_path_elements, value_to_set=value)]
         )
 
     def set_update_data_element_to_map_without_default_initialization(
@@ -535,9 +386,9 @@ class DynamoDbCoreAdapter:
         return self._execute_update_query(query_kwargs_dict=update_query_kwargs)
 
     @staticmethod
-    def _setters_to_tidied_initializers(setters: List[DynamoDBMapObjectSetter]) -> Dict[str, MapItemInitializerContainer]:
-        root_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
-        all_initializers_containers: Dict[str, MapItemInitializerContainer] = dict()
+    def _setters_to_tidied_initializers(setters: List[FieldPathSetter]) -> Dict[str, MapItemInitializerContainer]:
+        root_initializers_containers: Dict[str, MapItemInitializerContainer] = {}
+        all_initializers_containers: Dict[str, MapItemInitializerContainer] = {}
 
         for setter in setters:
             current_absolute_target_path = str()
@@ -572,7 +423,7 @@ class DynamoDbCoreAdapter:
                     last_map_initializer_container = current_map_initializer_container
                 else:
                     last_map_initializer_container = existing_container
-                    logger.info(message_with_vars(
+                    logging.info(message_with_vars(
                         message="Successfully tidied duplicate DatabasePathElement initializer",
                         vars_dict={
                             'trimmedPathElementKey': path_element.element_key,
@@ -592,7 +443,7 @@ class DynamoDbCoreAdapter:
             is_last_path_element=is_last_path_element
         )
         if initialization_response is None:
-            logger.error(message_with_vars(
+            logging.error(message_with_vars(
                 message="Initialized a field after a set/update multiple data elements in map request had failed.",
                 vars_dict={'initializer_container': initializer_container}
             ))
@@ -614,7 +465,7 @@ class DynamoDbCoreAdapter:
         return results
 
     def _execute_update_query_with_initialization_if_missing(
-            self, index_name: str, key_value: Any, update_query_kwargs: dict, setters: List[DynamoDBMapObjectSetter]
+            self, index_name: str, key_value: Any, update_query_kwargs: dict, setters: List[FieldPathSetter]
     ) -> Optional[Response]:
 
         response = self._execute_update_query(query_kwargs_dict=update_query_kwargs)
@@ -632,7 +483,7 @@ class DynamoDbCoreAdapter:
         return response
 
     def set_update_multiple_data_elements_to_map(
-            self, index_name: str, key_value: Any, setters: List[DynamoDBMapObjectSetter]
+            self, index_name: str, key_value: Any, setters: List[FieldPathSetter]
     ) -> Optional[Response]:
 
         if not len(setters) > 0:
@@ -646,12 +497,12 @@ class DynamoDbCoreAdapter:
             "ReturnValues": "UPDATED_NEW"
         }
         update_expression = "SET "
-        expression_attribute_names_dict, expression_attribute_values_dict = dict(), dict()
+        expression_attribute_names_dict, expression_attribute_values_dict = {}, dict()
 
-        consumed_setters: List[DynamoDBMapObjectSetter] = list()
+        consumed_setters: List[FieldPathSetter] = []
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
-            current_setter_attribute_names, current_setter_attribute_values = dict(), dict()
+            current_setter_attribute_names, current_setter_attribute_values = {}, dict()
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
                 current_setter_update_expression, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
@@ -711,13 +562,13 @@ class DynamoDbCoreAdapter:
 
     def query_by_key(
             self, index_name: str, key_value: Any,
-            fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
+            fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
             filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
     ) -> Response:
-        if fields_paths_elements is not None:
-            kwargs = self._fields_paths_elements_to_expressions(fields_paths_elements=fields_paths_elements)
+        if fields_path_elements is not None:
+            kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
         else:
-            kwargs = dict()
+            kwargs = {}
         if additional_kwargs is not None:
             kwargs = {**kwargs, **additional_kwargs}
 
@@ -746,7 +597,7 @@ class DynamoDbCoreAdapter:
 
     def query_single_item_by_key(
             self, index_name: str, key_value: Any,
-            fields_paths_elements: Optional[List[List[DatabasePathElement]]] = None,
+            fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
             filter_expression: Optional[Any] = None
     ) -> Optional[dict]:
         # Yes, a query request is heavier than a get request that we could do with the _get_item_by_primary_key function.
@@ -754,7 +605,7 @@ class DynamoDbCoreAdapter:
         # used when we want to get an item based on another index that the primary one. Otherwise, use _get_item_by_primary_key
         response = self.query_by_key(
             index_name=index_name, key_value=key_value,
-            fields_paths_elements=fields_paths_elements,
+            fields_path_elements=fields_path_elements,
             filter_expression=filter_expression, query_limit=1
         )
         if response.count == 1:
@@ -766,10 +617,10 @@ class DynamoDbCoreAdapter:
             print("More than one item has been found. Returning first item.")
             return response.items[0]
 
-    def get_or_query_single_item(self, index_name: str, key_value: str, fields_paths_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
+    def get_or_query_single_item(self, index_name: str, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
         if self.primary_index.hash_key_name == index_name:
             response_item: Optional[dict] = self.get_item_by_primary_key(
-                index_name=index_name, key_value=key_value, fields_paths_elements=fields_paths_elements
+                index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements
             ).item
             return response_item
         else:
@@ -780,14 +631,14 @@ class DynamoDbCoreAdapter:
                     vars_dict={
                         'primary_index.hash_key_name': self.primary_index.hash_key_name,
                         '_global_secondary_indexes_hash_keys': self._global_secondary_indexes_hash_keys,
-                        'index_name': index_name, 'key_value': key_value, "fields_paths_elements": fields_paths_elements
+                        'index_name': index_name, 'key_value': key_value, "fields_path_elements": fields_path_elements
                     }
                 ))
                 return None
             else:
                 response_items: Optional[List[dict]] = self.query_by_key(
                     index_name=index_name, key_value=key_value,
-                    fields_paths_elements=fields_paths_elements, query_limit=1
+                    fields_path_elements=fields_path_elements, query_limit=1
                 ).items
                 if isinstance(response_items, list) and len(response_items) > 0:
                     return response_items[0]
@@ -802,9 +653,9 @@ class DynamoDbCoreAdapter:
 
         response_item = self.get_or_query_single_item(
             index_name=index_name, key_value=key_value,
-            fields_paths_elements=[field_path_elements]
+            fields_path_elements=[field_path_elements]
         )
-        return self.navigate_into_data_with_field_path_elements(
+        return navigate_into_data_with_field_path_elements(
             data=response_item, field_path_elements=field_path_elements,
             num_keys_to_navigation_into=num_keys_to_navigation_into
         )
@@ -824,74 +675,74 @@ class DynamoDbCoreAdapter:
         )
 
     def get_data_from_multiple_fields_in_path_target(
-            self, key_value: str, fields_paths_elements: Dict[str, List[DatabasePathElement]],
+            self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]],
             num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None,
             metadata: bool = False
     ) -> Optional[Dict[str, Any]]:
 
-        response_item = self.get_or_query_single_item(
+        response_item: Optional[dict] = self.get_or_query_single_item(
             index_name=index_name, key_value=key_value,
-            fields_paths_elements=list(fields_paths_elements.values())
+            fields_path_elements=list(fields_path_elements.values())
         )
-        if response_item is not None:
-            output_dict: Dict[str, Any] = dict()
+        if response_item is None:
+            return None
 
-            for path_elements_key, path_elements_item in fields_paths_elements.items():
-                if len(path_elements_item) > 0:
-                    num_keys_to_navigation_into = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
-                    first_path_element_item_element_key = path_elements_item[0].element_key
+        output_dict: Dict[str, Any] = {}
+        for path_elements_key, path_elements_item in fields_path_elements.items():
+            if len(path_elements_item) > 0:
+                num_keys_to_navigation_into: int = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
+                first_path_element_item_element_key: str = path_elements_item[0].element_key
 
-                    current_navigated_response_item_value = response_item.get(first_path_element_item_element_key)
-                    if current_navigated_response_item_value is not None:
-                        current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
-                        # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
-                        # get the response_items, they will be all put in the same dict, which means that the response_items dict has
-                        # values and items that might have nothing to do with the current target field. Of course, its not an issue,
-                        # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
-                        # function and that we queried a base field that does not require any validation), we need to isolate the item
-                        # from the other response_items, otherwise, we would return the entire response instead of only the item that
-                        # was found in the field that was queried.
+                current_navigated_response_item_value: Optional[Any] = response_item.get(first_path_element_item_element_key, None)
+                if current_navigated_response_item_value is not None:
+                    current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
+                    # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
+                    # get the response_items, they will be all put in the same dict, which means that the response_items dict has
+                    # values and items that might have nothing to do with the current target field. Of course, its not an issue,
+                    # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
+                    # function and that we queried a base field that does not require any validation), we need to isolate the item
+                    # from the other response_items, otherwise, we would return the entire response instead of only the item that
+                    # was found in the field that was queried.
 
-                        for i, path_element in enumerate(path_elements_item):
-                            if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
-                                break
+                    for i, path_element in enumerate(path_elements_item):
+                        if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
+                            break
 
-                            current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
-                            if current_navigated_response_item is None:
-                                # If the current_navigated_response_item is None, it means that one key has not been
-                                # found, so we need to break the loop in order to try to call get on a None object,
-                                # and then we will return the response_item, so we will return None.
-                                break
+                        current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
+                        if current_navigated_response_item is None:
+                            # If the current_navigated_response_item is None, it means that one key has not been
+                            # found, so we need to break the loop in order to try to call get on a None object,
+                            # and then we will return the response_item, so we will return None.
+                            break
 
-                        if metadata is not True:
-                            output_dict[path_elements_key] = current_navigated_response_item
-                        else:
-                            output_dict[path_elements_key] = {
-                                'value': current_navigated_response_item,
-                                'field_path_elements': path_elements_item
-                            }
-            return output_dict
-        return None
+                    if metadata is not True:
+                        output_dict[path_elements_key] = current_navigated_response_item
+                    else:
+                        output_dict[path_elements_key] = {
+                            'value': current_navigated_response_item,
+                            'field_path_elements': path_elements_item
+                        }
+        return output_dict
 
     def get_values_in_multiple_path_target(
             self, index_name: str, key_value: str,
-            fields_paths_elements: Dict[str, List[DatabasePathElement]],
+            fields_path_elements: Dict[str, List[DatabasePathElement]],
             metadata: bool = False
     ):
         return self.get_data_from_multiple_fields_in_path_target(
             index_name=index_name, key_value=key_value,
-            fields_paths_elements=fields_paths_elements,
+            fields_path_elements=fields_path_elements,
             num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=metadata
         )
 
     def get_items_in_multiple_path_target(
             self, index_name: str, key_value: str,
-            fields_paths_elements: Dict[str, List[DatabasePathElement]],
+            fields_path_elements: Dict[str, List[DatabasePathElement]],
             metadata: bool = False
     ):
         return self.get_data_from_multiple_fields_in_path_target(
             index_name=index_name, key_value=key_value,
-            fields_paths_elements=fields_paths_elements,
+            fields_path_elements=fields_path_elements,
             num_keys_to_stop_at_before_reaching_end_of_item=1, metadata=metadata
         )
 
@@ -902,7 +753,7 @@ class DynamoDbCoreAdapter:
         return expression & condition
 
     @staticmethod
-    def _fields_paths_elements_to_expressions(fields_paths_elements: List[List[DatabasePathElement]]) -> dict:
+    def _fields_paths_elements_to_expressions(fields_path_elements: List[List[DatabasePathElement]]) -> dict:
         output_kwargs = {}
         expression_attribute_names = {}
         projection_expression = ""
@@ -915,7 +766,7 @@ class DynamoDbCoreAdapter:
         # otherwise it will not work. So, we define an 'id' for each path of each attribute name
         # (f"#f{i_field}_{i_path}") we add our path as the dict value, and then we build the condition
         # expression to use the ids of our attributes names.
-        for i_field, field_elements in enumerate(fields_paths_elements):
+        for i_field, field_elements in enumerate(fields_path_elements):
             for i_path_element, path_element in enumerate(field_elements):
                 if i_path_element > 0:
                     last_field_path_element = field_elements[i_path_element - 1]
@@ -933,7 +784,7 @@ class DynamoDbCoreAdapter:
                 expression_attribute_names[current_field_path_expression_name] = path_element.element_key
                 projection_expression += f'{"." if i_path_element > 0 else ""}{current_field_path_expression_name}'
 
-            if i_field + 1 < len(fields_paths_elements):
+            if i_field + 1 < len(fields_path_elements):
                 projection_expression += ", "
 
         if len(expression_attribute_names) > 0:
@@ -943,27 +794,3 @@ class DynamoDbCoreAdapter:
 
         return output_kwargs
 
-    @staticmethod
-    def navigate_into_data_with_field_path_elements(data: Any, field_path_elements: List[DatabasePathElement], num_keys_to_navigation_into: int) -> Optional[Any]:
-        if data is not None:
-            num_field_path_elements = len(field_path_elements)
-            for i, path_element in enumerate(field_path_elements):
-                if i + 1 > num_keys_to_navigation_into:
-                    break
-                elif i > 0 and field_path_elements[i - 1].default_type == list:
-                    data = data[0]
-                else:
-                    if not isinstance(data, dict):
-                        break
-
-                    if path_element.default_type == set and data == {} and num_field_path_elements > i + 1:
-                        data = field_path_elements[i + 1].element_key
-                        break
-
-                    data = data.get(path_element.element_key, None)
-                    if data is None:
-                        # If the response_item is None, it means that one key has not been found,
-                        # so we need to break the loop in order to try to call get on a None object,
-                        # and then we will return the response_item, so we will return None.
-                        break
-        return data

@@ -1,12 +1,13 @@
 import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
-from StructNoSQL.dynamodb.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.query import Query
 from StructNoSQL.utils.types import ACCEPTABLE_KEY_TYPES
+from StructNoSQL.utils.misc_fields_items import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
 
 
 FIELD_NAME_RESTRICTED_CHARS_LIST = ['[', ']', '{', '}', '(', ')', '|']
@@ -183,7 +184,7 @@ class BaseItem:
         # self.validate_data()
         # print("Finished data validation.")
 
-    def query(self, key_value: str, fields_paths_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
+    def query(self, key_value: str, fields_path_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
         """for path_element in self._database_path:
             if "$key$:" in path_element.element_key:
                 variable_name = path_element.element_key.replace("$key$:", "")
@@ -356,7 +357,12 @@ class MapItem(BaseField):
         super().__init__(name=None, field_type=field_type, custom_default_value=BaseItem.instantiate_default_value_type(field_type))
         self.map_model = model_type
 
-        from StructNoSQL.tables.base_table import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
+        self._key_name = parent_field.key_name
+        # The _key_name will be initialized by the call to the super().__init__, but since a MapItem is special and does
+        # not include a name, the key_name that the BaseField will create will be invalid. For MapItem's, we just want
+        # to re-use the key_name of the parent_field (which will have been already prepared and processed in cases of
+        # nested recursive fields), and override the existing _key_name value.
+
         element_key = make_dict_key_var_name(parent_field.key_name)
         default_type = try_to_get_primitive_default_type_of_item(parent_field.items_excepted_type)
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)

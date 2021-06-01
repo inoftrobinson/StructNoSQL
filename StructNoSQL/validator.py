@@ -1,6 +1,6 @@
-from typing import Optional, _GenericAlias, Tuple, List, Any
+from typing import Optional, Tuple, List, Any
 
-from StructNoSQL.dynamodb.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serializer
@@ -53,12 +53,12 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
         value: dict
         # todo: fix a bug, where for some reasons, when calling the get_field function, if what
         #  we get is a dict that has only key and one item, instead of returning the dict, we will return the value in the dict
-        item_keys_to_pop: List[str] = list()
+        item_keys_to_pop: List[str] = []
         if item_type_to_return_to is not None:
             if item_type_to_return_to.map_model is not None:
-                populated_required_fields: List[BaseField] = list()
+                populated_required_fields: List[BaseField] = []
 
-                item_keys_to_pop: List[str] = list()
+                item_keys_to_pop: List[str] = []
                 for key, item in value.items():
                     item_matching_validation_model_variable: Optional[BaseField] = getattr(item_type_to_return_to.map_model, key, None)
                     if item_matching_validation_model_variable is not None:
@@ -79,9 +79,13 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                             vars_dict={"key": key, "item": item}
                         ))
 
-                if len(item_type_to_return_to.map_model.required_fields) != len(populated_required_fields):
-                    missing_required_fields_database_paths: List[List[DatabasePathElement]] = list()
-                    for current_required_field in item_type_to_return_to.map_model.required_fields:
+                map_model_required_fields: Optional[List[BaseField]] = getattr(item_type_to_return_to.map_model, 'required_fields', None)
+                if map_model_required_fields is None:
+                    raise Exception("Missing required_fields")
+
+                if len(map_model_required_fields) != len(populated_required_fields):
+                    missing_required_fields_database_paths: List[List[DatabasePathElement]] = []
+                    for current_required_field in map_model_required_fields:
                         if current_required_field not in populated_required_fields:
                             missing_required_fields_database_paths.append(current_required_field.database_path)
 
@@ -106,7 +110,7 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                         if hasattr(item_type_to_return_to.items_excepted_type, '__bases__') and MapModel in item_type_to_return_to.items_excepted_type.__bases__:
                             # We check if the items_excepted_type contains the __bases__ attributes, because form values (like the Any value that is assigned both when
                             # using an untyped dict or when using Any in a typed Dict) will not contain the __bases__ attribute and will raise if trying to access it.
-                            element_item_keys_to_pop: List[str] = list()
+                            element_item_keys_to_pop: List[str] = []
 
                             item_type = type(item)
                             if not _types_match(type_to_check=item_type, expected_type=dict):
@@ -177,7 +181,7 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
     elif value_type == list:
         value: list
         if True:  # list_items_models is not None:  # todo: add type checking fo list models
-            indexes_to_pop: List[int] = list()
+            indexes_to_pop: List[int] = []
             for i, item in enumerate(value):
                 if item_type_to_return_to.map_model is not None:
                     item, valid = validate_data(value=item, expected_value_type=item_type_to_return_to.map_model)
@@ -204,7 +208,7 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
         value: set
 
         if item_type_to_return_to.items_excepted_type is not None:
-            items_keys_values_to_remove = list()
+            items_keys_values_to_remove = []
             for set_item in value:
                 item_type = type(set_item)
                 if not _types_match(type_to_check=item_type, expected_type=item_type_to_return_to.items_excepted_type):

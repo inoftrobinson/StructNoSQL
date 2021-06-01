@@ -149,20 +149,27 @@ class Processor:
                                         break
                                     else:
                                         nested_variable_item = variable_item.copy()
+                                        item_rendered_key_name: str = nested_variable_item.key_name.replace("{i}", f"{i}")
                                         nested_variable_item._database_path = [*current_nested_database_path]
-                                        item_rendered_key_name = nested_variable_item.key_name.replace("{i}", f"{i}")
+                                        nested_variable_item._key_name = item_rendered_key_name
+                                        # We create a copy of the variable_item unpon which we render the key_name and add
+                                        # the appropriate database_path_elements into to prepare the creation of the MapItem.
 
                                         map_item = MapItem(
                                             parent_field=nested_variable_item,
                                             field_type=nested_variable_item.default_field_type,
                                             model_type=nested_variable_item.items_excepted_type
                                         )
+                                        # The MapItem will retrieve the key_name of its parent_field when initialized.
+                                        # Hence, it is important to do the modifications on the nested_variable_item
+                                        # before the initialization of the MapItem.
+
                                         if i > 0:
                                             current_nested_field_path += f".{variable_item.field_name}"
-                                        current_nested_field_path += ".{{" + item_rendered_key_name + "}}"
+                                        current_nested_field_path += ".{{" + map_item.key_name + "}}"
 
                                         current_nested_database_path.append(DatabasePathElement(
-                                            element_key=make_dict_key_var_name(item_rendered_key_name),
+                                            element_key=make_dict_key_var_name(map_item.key_name),
                                             default_type=nested_variable_item.default_field_type,
                                             custom_default_value=nested_variable_item.custom_default_value
                                         ))

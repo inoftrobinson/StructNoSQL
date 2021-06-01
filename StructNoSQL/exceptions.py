@@ -5,6 +5,9 @@ class DataValidationException(Exception):
 class FieldTargetNotFoundException(Exception):
     pass
 
+class MissingQueryKwarg(Exception):
+    pass
+
 class InvalidFieldNameException(Exception):
     pass
 

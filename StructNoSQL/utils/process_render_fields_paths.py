@@ -4,6 +4,7 @@ from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
 from StructNoSQL.fields import BaseItem
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.exceptions import MissingQueryKwarg
 
 MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(\()(.*)(\))'
 
@@ -86,14 +87,14 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
                         custom_default_value=path_element.custom_default_value
                     ))
                 else:
-                    raise Exception(message_with_vars(
+                    raise MissingQueryKwarg(message_with_vars(
                         message="A variable was required but not found in the query_kwargs dict passed to the make_rendered_database_path function.",
                         vars_dict={"keyVariableName": variable_name, "matchingKwarg": matching_kwarg,
                                    "queryKwargs": query_kwargs, "databasePathElements": database_path_elements}
                     ))
             else:
                 raise Exception(message_with_vars(
-                    message="A variable was required but not query_kwargs have been passed to the make_rendered_database_path function.",
+                    message="A variable was required but no query_kwargs have been passed to the make_rendered_database_path function.",
                     vars_dict={"keyVariableName": variable_name, "queryKwargs": query_kwargs, "databasePathElements": database_path_elements}
                 ))
     return output_database_path_elements

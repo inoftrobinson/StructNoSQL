@@ -1,6 +1,7 @@
 import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
+from StructNoSQL.utils.objects import NoneType
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
@@ -117,8 +118,9 @@ class BaseItem:
         self._default_field_type = field_type
 
         if isinstance(self._field_type, (list, tuple)):
-            if len(self._field_type) > 0:
-                self._default_field_type = self._field_type[0]
+            if not len(self._field_type) > 0:
+                raise Exception("At least one field_type must be specified in a list or tuple of field types")
+            self._default_field_type = self._field_type[0]
 
         elif isinstance(self._field_type, _GenericAlias):
             alias_variable_name: Optional[str] = self._field_type.__dict__.get('_name', None)
@@ -153,6 +155,8 @@ class BaseItem:
                     if isinstance(self._items_excepted_type, _GenericAlias):
                         self._items_excepted_type = _alias_to_model(alias=self._items_excepted_type)
                     # todo: rename the _items_excepted_type variable
+                else:
+                    raise Exception(f"Unsupported GenericAlias : {alias_variable_name}")
 
         elif MapModel in getattr(self._field_type, '__mro__', ()):
             self.map_model = self._field_type
@@ -272,6 +276,18 @@ class BaseField(BaseItem):
             _raise_if_field_name_is_invalid(field_name=self._name)
         self._required = required
         self._key_name = None
+
+        if self._required is not True:
+            # If the field is not required, we add the NoneType to the field_type
+            if isinstance(self._field_type, list):
+                # If it's a list, we just a need to append the NoneType
+                self._field_type.append(NoneType)
+            elif isinstance(self._field_type, tuple):
+                # If it's a tuple, we combine the existing tuple with a tuple containing the NoneType
+                self._field_type = self._field_type + (NoneType,)
+            else:
+                # And it it's any other type, we create a new tuple with the field_type and the NoneType
+                self._field_type = (self._field_type, NoneType)
 
         if max_nested_depth is not None and max_nested_depth > 32:
             raise Exception(f"DynamoDB support a maximum depth of nested of items of 32. This is not imposed by StructNoSQL but a platform limitation.\n"

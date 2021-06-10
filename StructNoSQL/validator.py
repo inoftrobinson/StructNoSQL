@@ -4,16 +4,13 @@ from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serializer
-
-NoneType = type(None)
-class ActiveSelf:
-    pass
-class Undefined:
-    pass
+from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item
 
 
 def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: Optional[BaseItem] = None) -> Tuple[Any, bool]:
     value_type = type(value)
+    # We do not try_to_get_primitive_default_type_of_item here, because depending on the value_type, we might trigger different behaviors.
+    # For example, a list or tuple will be considered as collection of multiple fields types that needs to be looked at individually.
 
     if expected_value_type == Any:
         return float_to_decimal_serializer(value), True
@@ -240,8 +237,12 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
 
 
 def _types_match(type_to_check: type, expected_type: type) -> bool:
-    if expected_type is Any:
+    processed_expected_type: type = try_to_get_primitive_default_type_of_item(expected_type)
+    # The type_to_check will always be a primitive Python type, where as the expected_type can also be a StructNoSQL
+    # model type. In which case, we try_to_get_primitive_default_type_of_item. If the type was not a StructNoSQL
+    # model type and did not had a primitive_default_type, the returned type will be the source type we passed.
+    if processed_expected_type is Any:
         return True
-    elif type_to_check != expected_type:
+    elif type_to_check != processed_expected_type:
         return False
     return True

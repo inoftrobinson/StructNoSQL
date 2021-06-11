@@ -674,6 +674,27 @@ class DynamoDbCoreAdapter:
             num_keys_to_navigation_into=len(field_path_elements) - 1
         )
 
+    @staticmethod
+    def _unpack_multiple_retrieved_fields(
+        item_data: dict, fields_path_elements: Dict[str, List[DatabasePathElement]],
+        num_keys_to_stop_at_before_reaching_end_of_item: int, metadata: bool = False
+    ):
+        output: Dict[str, Any] = {}
+        for field_path_key, field_item_path_elements in fields_path_elements.items():
+            # All the values of each requested items will be inside the response_item dict. We just need
+            # to navigate inside of the response_item with the field_path_elements for each requested
+            # item, and package that in an output dict that will use the key of the requested items.
+            if len(field_item_path_elements) > 0:
+                num_keys_to_navigation_into: int = len(field_item_path_elements) - num_keys_to_stop_at_before_reaching_end_of_item
+                navigated_item: Optional[Any] = navigate_into_data_with_field_path_elements(
+                    data=item_data, field_path_elements=field_item_path_elements,
+                    num_keys_to_navigation_into=num_keys_to_navigation_into
+                )
+                output[field_path_key] = navigated_item if metadata is not True else {
+                    'value': navigated_item, 'field_path_elements': field_item_path_elements
+                }
+        return output
+
     def get_data_from_multiple_fields_in_path_target(
             self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]],
             num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None,
@@ -687,21 +708,11 @@ class DynamoDbCoreAdapter:
         if response_item is None:
             return None
 
-        output: Dict[str, Any] = {}
-        for field_path_key, field_item_path_elements in fields_path_elements.items():
-            # All the values of each requested items will be inside the response_item dict. We just need
-            # to navigate inside of the response_item with the field_path_elements for each requested
-            # item, and package that in an output dict that will use the key of the requested items.
-            if len(field_item_path_elements) > 0:
-                num_keys_to_navigation_into: int = len(field_item_path_elements) - num_keys_to_stop_at_before_reaching_end_of_item
-                navigated_item: Optional[Any] = navigate_into_data_with_field_path_elements(
-                    data=response_item, field_path_elements=field_item_path_elements,
-                    num_keys_to_navigation_into=num_keys_to_navigation_into
-                )
-                output[field_path_key] = navigated_item if metadata is not True else {
-                    'value': navigated_item, 'field_path_elements': field_item_path_elements
-                }
-        return output
+        return self._unpack_multiple_retrieved_fields(
+            item_data=response_item, fields_path_elements=fields_path_elements,
+            num_keys_to_stop_at_before_reaching_end_of_item=num_keys_to_stop_at_before_reaching_end_of_item,
+            metadata=metadata
+        )
 
     def get_values_in_multiple_path_target(
             self, index_name: str, key_value: str,

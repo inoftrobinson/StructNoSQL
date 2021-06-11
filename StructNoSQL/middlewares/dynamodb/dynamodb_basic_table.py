@@ -90,25 +90,40 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                         num_keys_to_navigation_into=len(field_path_elements)
                     ))
                 else:
-                    item_output: Dict[str, Any] = {}
-                    for field_path_key, field_item_path_elements in field_path_elements.items():
-                        # All the values of each requested items will be inside the response_item dict. We just need
-                        # to navigate inside of the response_item with the field_path_elements for each requested
-                        # item, and package that in an output dict that will use the key of the requested items.
-                        if len(field_item_path_elements) > 0:
-                            num_keys_to_navigation_into: int = len(field_item_path_elements)
-                            navigated_item: Optional[Any] = navigate_into_data_with_field_path_elements(
-                                data=record_item_data, field_path_elements=field_item_path_elements,
-                                num_keys_to_navigation_into=num_keys_to_navigation_into
-                            )
-                            item_output[field_path_key] = navigated_item
-                    output.append(item_output)
+                    output.append(self.dynamodb_client._unpack_multiple_retrieved_fields(
+                        item_data=record_item_data, fields_path_elements=field_path_elements,
+                        num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
+                    ))
                 # todo: add data validation
         return output
 
-    """def query_fields(self, key_value: str, fields_paths: List[str], query_kwargs: Optional[dict] = None, limit: Optional[int] = None,
-              filter_expression: Optional[Any] = None,  index_name: Optional[str] = None, **additional_kwargs) -> Optional[List[Any]]:
-        fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
+    def query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ) -> Optional[List[Dict[str, Any]]]:
+
+        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
+        response = self.dynamodb_client.query_by_key(
+            index_name=index_name or self.primary_index_name, key_value=key_value,
+            fields_path_elements=getters_database_paths,
+            query_limit=records_query_limit, filter_expression=filter_expression,
+            **additional_kwargs
+        )
+        if response is None:
+            return None
+
+        output: List[Dict[str, Any]] = []
+        for record_item_data in response.items:
+            if isinstance(record_item_data, dict):
+                output.append(self._unpack_getters_response_item(
+                    response_item=record_item_data,
+                    single_getters_database_paths_elements=single_getters_database_paths_elements,
+                    grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+                ))
+                # todo: add data validation
+        return output
+
+        """fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_paths, fields_switch=self.fields_switch
         )
         query_field_path_elements: List[List[DatabasePathElement]] = []
@@ -138,7 +153,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return response.items
         else:
             return None
-    """
+        """
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
         def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):

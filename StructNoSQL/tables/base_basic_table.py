@@ -38,13 +38,15 @@ class BaseBasicTable(BaseTable):
         )
         return middleware(field_path_elements, has_multiple_fields_path)
 
-    def _get_multiple_fields(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any], getters: Dict[str, FieldGetter]
-    ) -> Optional[dict]:
+    def _prepare_getters(self, getters: Dict[str, FieldGetter]) -> Tuple[
+        List[List[DatabasePathElement]],
+        Dict[str, List[DatabasePathElement]],
+        Dict[str, Dict[str, List[DatabasePathElement]]]
+    ]:
+        getters_database_paths: List[List[DatabasePathElement]] = []
         single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
         grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
 
-        getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
             field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
@@ -58,14 +60,17 @@ class BaseBasicTable(BaseTable):
                 grouped_getters_database_paths_elements[getter_key] = field_path_elements
                 getters_database_paths.extend(field_path_elements.values())
 
-        response_data = middleware(getters_database_paths)
-        if response_data is None:
-            return None
+        return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements
 
+    def _unpack_getters_response_item(
+            self, response_item: dict,
+            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
+            grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
+    ) -> Dict[str, Any]:
         output_data: Dict[str, Any] = {}
         for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
             retrieved_item_data = navigate_into_data_with_field_path_elements(
-                data=response_data, field_path_elements=item_field_path_elements,
+                data=response_item, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
             output_data[item_key] = retrieved_item_data
@@ -74,47 +79,27 @@ class BaseBasicTable(BaseTable):
             container_data: Dict[str, Any] = {}
             for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
                 container_data[child_item_key] = navigate_into_data_with_field_path_elements(
-                    data=response_data, field_path_elements=child_item_field_path_elements,
+                    data=response_item, field_path_elements=child_item_field_path_elements,
                     num_keys_to_navigation_into=len(child_item_field_path_elements)
                 )
             output_data[container_key] = container_data
         return output_data
 
-    # todo: deprecated
-    """
-    def query(self, key_value: str, fields_paths: List[str], query_kwargs: Optional[dict] = None, limit: Optional[int] = None,
-              filter_expression: Optional[Any] = None,  index_name: Optional[str] = None, **additional_kwargs) -> Optional[List[Any]]:
-        fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
-            fields_paths=fields_paths, fields_switch=self.fields_switch
-        )
-        query_field_path_elements: List[List[DatabasePathElement]] = []
-        for field_path in fields_paths:
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-            )
-            query_field_path_elements.append(field_path_elements)
+    def _get_multiple_fields(
+            self, middleware: Callable[[List[List[DatabasePathElement]]], Any], getters: Dict[str, FieldGetter]
+    ) -> Optional[dict]:
 
-        response = self.dynamodb_client.query_by_key(
-            index_name=index_name or self.primary_index_name,
-            index_name=key_name, key_value=key_value,
-            fields_path_elements=query_field_path_elements,
-            query_limit=limit, filter_expression=filter_expression, 
-            **additional_kwargs
-        )
-        if response is not None:
-            for current_item in response.items:
-                if isinstance(current_item, dict):
-                    for current_item_key, current_item_value in current_item.items():
-                        matching_field_path_object = fields_paths_objects.get(current_item_key, None)
-                        if matching_field_path_object is not None:
-                            if matching_field_path_object.database_path is not None:
-                                matching_field_path_object.populate(value=current_item_value)
-                                current_item[current_item_key], valid = matching_field_path_object.validate_data()
-                                # todo: remove this non centralized response validation system
-            return response.items
-        else:
+        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
+
+        response_data = middleware(getters_database_paths)
+        if response_data is None:
             return None
-    """
+
+        return self._unpack_getters_response_item(
+            response_item=response_data,
+            single_getters_database_paths_elements=single_getters_database_paths_elements,
+            grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+        )
 
     def _update_field(
             self, middleware: Callable[[List[DatabasePathElement], Any], Any],

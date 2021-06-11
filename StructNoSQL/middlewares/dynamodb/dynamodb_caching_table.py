@@ -61,10 +61,11 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                return self.dynamodb_client.get_value_in_path_target(
+                response_data = self.dynamodb_client.get_value_in_path_target(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, field_path_elements=field_path_elements
                 )
+                return response_data
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
                 response_data = self.dynamodb_client.get_values_in_multiple_path_target(

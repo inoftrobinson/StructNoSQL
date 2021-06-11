@@ -58,9 +58,55 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._get_multiple_fields(middleware=middleware, getters=getters)
 
-    # todo: deprecated
-    """
-    def query(self, key_value: str, fields_paths: List[str], query_kwargs: Optional[dict] = None, limit: Optional[int] = None,
+    def query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ) -> Optional[List[Any]]:
+
+        from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        )
+        final_fields_path_elements: List[List[DatabasePathElement]] = (
+            [field_path_elements] if has_multiple_fields_path is not True else list(field_path_elements.values())
+        )
+
+        response = self.dynamodb_client.query_by_key(
+            index_name=index_name or self.primary_index_name, key_value=key_value,
+            fields_path_elements=final_fields_path_elements,
+            query_limit=records_query_limit, filter_expression=filter_expression,
+            **additional_kwargs
+        )
+        if response is None:
+            return None
+
+        output: List[Any] = []
+        for record_item_data in response.items:
+            if isinstance(record_item_data, dict):
+                from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+                if has_multiple_fields_path is not True:
+                    output.append(navigate_into_data_with_field_path_elements(
+                        data=record_item_data, field_path_elements=field_path_elements,
+                        num_keys_to_navigation_into=len(field_path_elements)
+                    ))
+                else:
+                    item_output: Dict[str, Any] = {}
+                    for field_path_key, field_item_path_elements in field_path_elements.items():
+                        # All the values of each requested items will be inside the response_item dict. We just need
+                        # to navigate inside of the response_item with the field_path_elements for each requested
+                        # item, and package that in an output dict that will use the key of the requested items.
+                        if len(field_item_path_elements) > 0:
+                            num_keys_to_navigation_into: int = len(field_item_path_elements)
+                            navigated_item: Optional[Any] = navigate_into_data_with_field_path_elements(
+                                data=record_item_data, field_path_elements=field_item_path_elements,
+                                num_keys_to_navigation_into=num_keys_to_navigation_into
+                            )
+                            item_output[field_path_key] = navigated_item
+                    output.append(item_output)
+                # todo: add data validation
+        return output
+
+    """def query_fields(self, key_value: str, fields_paths: List[str], query_kwargs: Optional[dict] = None, limit: Optional[int] = None,
               filter_expression: Optional[Any] = None,  index_name: Optional[str] = None, **additional_kwargs) -> Optional[List[Any]]:
         fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
             fields_paths=fields_paths, fields_switch=self.fields_switch

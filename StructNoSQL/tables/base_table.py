@@ -227,7 +227,7 @@ class Processor:
         return required_fields
 
     def assign_internal_mapping_from_class(
-        self, class_instance: Optional[Any] = None, class_type: Optional[Any] = None,
+        self, class_instance: Optional[Any] = None, class_type: Optional[type] = None,
         current_path_elements: Optional[List[DatabasePathElement]] = None,
         nested_field_path: Optional[str] = None, is_nested: Optional[bool] = False
     ):
@@ -248,24 +248,29 @@ class Processor:
         else:
             pass
 
-        class_variables = class_type.__dict__
+        deep_class_variables: dict = {}
+        for component_class in class_type.__mro__:
+            deep_class_variables.update(component_class.__dict__)
+        # Instead of just retrieving the __dict__ of the current class_type, we retrieve the __dict__'s of all the
+        # classes  in the __mro__ of the class_type (hence, the class type itself, and all of the types it inherited).
+        # If we did not do that, fields inherited from a parent class would not be detected and not be indexed.
 
-        setup_function: Optional[callable] = class_variables.get('__setup__', None)
+        setup_function: Optional[callable] = deep_class_variables.get('__setup__', None)
         if setup_function is not None:
-            custom_setup_class_variables: dict = class_type.__setup__()
-            if len(custom_setup_class_variables) > 0:
-                # The class_variables gotten from calling the __dict__ attribute is a mappingproxy, which cannot be modify.
-                # In order to combine the custom_setup_class_variables and the class_variables variables we will iterate
-                # over all the class_variables attributes, add them to the dict create by the __setup__ function (only if
-                # they are not found in the custom_setup_class_variables dict, since the custom setup override any default
-                # class attribute), and assign the class_variables variable to our newly create and setup dict.
-                for key, item in class_variables.items():
-                    if key not in custom_setup_class_variables:
-                        custom_setup_class_variables[key] = item
-                class_variables = custom_setup_class_variables
+            custom_setup_deep_class_variables: dict = class_type.__setup__()
+            if len(custom_setup_deep_class_variables) > 0:
+                # The deep_class_variables gotten from calling the __dict__ attribute is a mappingproxy, which cannot be modify.
+                # In order to combine the custom_setup_deep_class_variables and the deep_class_variables variables we will iterate
+                # over all the deep_class_variables attributes, add them to the dict create by the __setup__ function (only if
+                # they are not found in the custom_setup_deep_class_variables dict, since the custom setup override any default
+                # class attribute), and assign the deep_class_variables variable to our newly create and setup dict.
+                for key, item in deep_class_variables.items():
+                    if key not in custom_setup_deep_class_variables:
+                        custom_setup_deep_class_variables[key] = item
+                deep_class_variables = custom_setup_deep_class_variables
 
         required_fields: List[BaseField] = []
-        for variable_item in class_variables.values():
+        for variable_item in deep_class_variables.values():
             current_field_path = "" if nested_field_path is None else nested_field_path
             required_fields.extend(self.process_item(
                 class_type=class_type,

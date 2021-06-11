@@ -29,8 +29,25 @@ class BaseCachingTable(BaseTable):
     def debug(self, debug: bool):
         self._debug = debug
 
+    def clear_cached_data(self):
+        self._cached_data = {}
+
+    def clear_pending_update_operations(self):
+        self._pending_update_operations = {}
+
+    def clear_pending_remove_operations(self):
+        self._pending_remove_operations = {}
+
+    def clear_pending_operations(self):
+        self.clear_pending_update_operations()
+        self.clear_pending_remove_operations()
+
+    def clear_cached_data_and_pending_operations(self):
+        self.clear_cached_data()
+        self.clear_pending_operations()
+
     def _index_cached_data(self, index_name: Optional[str], key_value: str) -> dict:
-        index_name = f"{index_name or self.primary_index_name}|{key_value}"
+        index_name: str = f"{index_name or self.primary_index_name}|{key_value}"
         if index_name not in self._cached_data:
             self._cached_data[index_name] = {}
         return self._cached_data[index_name]
@@ -47,25 +64,26 @@ class BaseCachingTable(BaseTable):
             self._pending_remove_operations[index_name] = {}
         return self._pending_remove_operations[index_name]
 
+    def has_pending_update_operations(self) -> bool:
+        for index_operations in self._pending_update_operations.values():
+            if len(index_operations) > 0:
+                return True
+        return False
+
+    def has_pending_remove_operations(self) -> bool:
+        for index_operations in self._pending_remove_operations.values():
+            if len(index_operations) > 0:
+                return True
+        return False
+
+    def has_pending_operations(self) -> bool:
+        return self.has_pending_update_operations() or self.has_pending_remove_operations()
+
     def commit_update_operations(self) -> bool:
-        for formatted_index_key_value, dynamodb_setters in self._pending_update_operations.items():
-            index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
-                index_name=index_name, key_value=key_value, setters=list(dynamodb_setters.values())
-            )
-            print(response)
-        return True  # todo: create a real success status instead of always True
+        raise Exception("commit_update_operations not implemented")
 
     def commit_remove_operations(self) -> bool:
-        for formatted_index_key_value, dynamodb_setters in self._pending_remove_operations.items():
-            index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            response = self.dynamodb_client.remove_data_elements_from_map(
-                index_name=index_name, key_value=key_value,
-                targets_path_elements=list(dynamodb_setters.values())
-            )
-            # delete operations can be cached, where as remove operations need to be executed immediately
-            print(response)
-        return True  # todo: create a real success status instead of always True
+        raise Exception("commit_remove_operations not implemented")
 
     def commit_operations(self):
         self.commit_update_operations()

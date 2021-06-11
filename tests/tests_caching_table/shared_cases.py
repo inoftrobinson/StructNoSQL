@@ -33,13 +33,11 @@ class AbstractContainer:
         def __init__(self, method_name: str, table_factory: Callable[[], DynamoDBCachingTable or InoftVocalEngineCachingTable]):
             super().__init__(methodName=method_name)
             self.table_factory = table_factory
-
-        def reset_table(self):
             self.users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable = self.table_factory()
             self.users_table.debug = True
 
         def test_simple_get_field(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
 
             first_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
             self.assertEqual(first_response_data['fromCache'], False)
@@ -48,7 +46,7 @@ class AbstractContainer:
             self.assertEqual(second_response_data['fromCache'], True)
 
         def test_set_then_get_field_from_cache(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value = random.randint(0, 100)
 
             update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue', value_to_set=random_field_value)
@@ -58,7 +56,8 @@ class AbstractContainer:
             self.assertEqual(retrieve_response_data['fromCache'], True)
 
         def test_set_then_get_multiple_fields(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
+
             random_field_one_value = random.randint(0, 99)
             random_field_two_value = random.randint(100, 199)
 
@@ -77,7 +76,8 @@ class AbstractContainer:
             self.assertEqual(retrieve_response_data['value'].get('two', None), {'value': random_field_two_value, 'fromCache': True})
 
         def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
+
             random_field_one_value = random.randint(0, 99)
             random_field_two_value = random.randint(100, 199)
 
@@ -88,7 +88,7 @@ class AbstractContainer:
             self.assertTrue(update_success)
 
             self.users_table.commit_operations()
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
 
             # Caching the simpleValue field
             first_retrieved_first_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
@@ -100,7 +100,7 @@ class AbstractContainer:
             self.assertEqual({'value': random_field_one_value, 'fromCache': True}, get_field_response_data['value'].get('simpleValue', None))
             self.assertEqual({'value': random_field_two_value, 'fromCache': False}, get_field_response_data['value'].get('simpleValue2', None))
 
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             # Caching the simpleValue field
             second_retrieved_first_value = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
             self.assertFalse(second_retrieved_first_value['fromCache'])
@@ -116,7 +116,7 @@ class AbstractContainer:
             self.assertEqual(get_multiple_fields_response_data['value'].get('two', None), {'value': random_field_two_value, 'fromCache': False})
 
         def test_debug_simple_set_commit_then_get_field_from_database(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value = random.randint(0, 100)
 
             update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue', value_to_set=random_field_value)
@@ -124,13 +124,13 @@ class AbstractContainer:
             commit_success = self.users_table.commit_operations()
             self.assertTrue(commit_success)
 
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             retrieve_response_data = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
             self.assertEqual(retrieve_response_data['value'], random_field_value)
             self.assertEqual(retrieve_response_data['fromCache'], False)
 
         def test_update_multiple_fields(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_one_value = random.randint(0, 99)
             random_field_two_value = random.randint(100, 199)
 
@@ -146,7 +146,7 @@ class AbstractContainer:
             self.assertEqual(retrieved_data['value'].get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': True})
 
         def test_set_delete_field(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value = random.randint(0, 100)
 
             update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToDelete', value_to_set=random_field_value)
@@ -163,13 +163,13 @@ class AbstractContainer:
             self.assertTrue(retrieved_expected_empty_value_from_cache['fromCache'])
             self.assertIsNone(retrieved_expected_empty_value_from_cache['value'])
 
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             retrieved_expected_empty_value_from_database = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToDelete')
             self.assertFalse(retrieved_expected_empty_value_from_database['fromCache'])
             self.assertIsNone(retrieved_expected_empty_value_from_database['value'])
 
         def test_set_remove_field(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value = random.randint(0, 100)
 
             update_success = self.users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove', value_to_set=random_field_value)
@@ -186,7 +186,7 @@ class AbstractContainer:
             self.assertIsNone(retrieved_expected_empty_value_from_cache['value'])
 
             self.users_table.commit_operations()
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
 
             retrieved_expected_empty_value_from_database = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
             self.assertFalse(retrieved_expected_empty_value_from_database['fromCache'])
@@ -199,7 +199,7 @@ class AbstractContainer:
             one field of packed data. We want to be handle to retrieve data that was packed in bigger object, which means
             that we cannot use a simple flatten indexation of the inserted/updated data to then later access it in the cache.
             """
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_one_value = f"field_one_{uuid4()}"
             random_field_two_value = f"field_two_{uuid4()}"
 
@@ -227,7 +227,7 @@ class AbstractContainer:
             one field of packed data. We want to be handle to retrieve data that was packed in bigger object, which means
             that we cannot use a simple flatten indexation of the inserted/updated data to then later access it in the cache.
             """
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_one_value = f"field_one_{uuid4()}"
             random_field_two_value = f"field_two_{uuid4()}"
 
@@ -256,7 +256,7 @@ class AbstractContainer:
             self.assertEqual(removed_value['value'].get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
 
         def test_set_remove_multi_selector_field_and_field_unpacking(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_one_value = f"field_one_{uuid4()}"
             random_field_two_value = f"field_two_{uuid4()}"
             random_field_three_value = f"field_three_{uuid4()}"
@@ -273,14 +273,14 @@ class AbstractContainer:
             self.assertEqual(removed_value['value'].get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
             self.assertEqual(removed_value['value'].get('fieldThree', {}), {'value': random_field_three_value, 'fromCache': True})
 
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             removed_value = self.users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
             self.assertIsNone(removed_value['fromCache'])
             self.assertEqual({'value': random_field_one_value, 'fromCache': False}, removed_value['value'].get('fieldOne', {}))
             self.assertEqual({'value': random_field_three_value, 'fromCache': False}, removed_value['value'].get('fieldThree', {}))
 
         def test_set_delete_multiple_fields(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value_one = random.randint(0, 100)
             random_field_value_two = random.randint(100, 200)
 
@@ -312,7 +312,7 @@ class AbstractContainer:
             self.assertIsNone(retrieved_expected_empty_value_two_from_cache['value'])
 
             self.users_table.commit_operations()
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
 
             retrieved_expected_empty_value_one_from_database = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToDelete')
             self.assertFalse(retrieved_expected_empty_value_one_from_database['fromCache'])
@@ -322,7 +322,7 @@ class AbstractContainer:
             self.assertIsNone(retrieved_expected_empty_value_two_from_database['value'])
 
         def test_set_remove_multiple_fields(self):
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
             random_field_value_one = random.randint(0, 100)
             random_field_value_two = random.randint(100, 200)
 
@@ -353,7 +353,7 @@ class AbstractContainer:
             self.assertIsNone(retrieved_expected_empty_value_two_from_cache['value'])
 
             self.users_table.commit_operations()
-            self.reset_table()
+            self.users_table.clear_cached_data_and_pending_operations()
 
             retrieved_expected_empty_value_one_from_database = self.users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
             self.assertFalse(retrieved_expected_empty_value_one_from_database['fromCache'])

@@ -60,7 +60,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             )
             query_field_path_elements.append(field_path_elements)
 
-        response = self.dynamodb_client.query_by_key(
+        response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name,
             index_name=key_name, key_value=key_value,
             fields_path_elements=query_field_path_elements,
@@ -91,25 +91,25 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             return True if response is not None else False
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
-    def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter], index_name: Optional[str] = None) -> bool:
+    def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         def middleware(dynamodb_setters: List[FieldPathSetter]):
             return self._set_update_multiple_data_elements_to_map(
                 key_value=key_value, setters=dynamodb_setters
             )
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 
-    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Optional[Any]:
+    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self._remove_data_elements_from_map(
                 key_value=key_value, fields_path_elements=fields_path_elements,
             )
         return self._remove_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None) -> Dict[str, Any]:
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
         def task_executor(remover_item: FieldRemover):
             return self.remove_field(
-                key_value=key_value, index_name=index_name,
-                field_path=remover_item.field_path,
+                key_value=key_value,
+field_path=remover_item.field_path,
                 query_kwargs=remover_item.query_kwargs
             )
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)

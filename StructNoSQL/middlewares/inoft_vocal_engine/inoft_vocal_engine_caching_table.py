@@ -1,4 +1,6 @@
 from typing import Optional, List, Dict, Any
+
+from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
@@ -10,7 +12,9 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             self, engine_account_id: str, engine_project_id: str, engine_api_key: str,
             table_id: str, region_name: str, data_model
     ):
-        super().__init__(data_model=data_model, primary_index=None)
+        super().__init__(data_model=data_model, primary_index=PrimaryIndex(
+            hash_key_name='accountProjectUserId', hash_key_variable_python_type=str
+        ))
         self.__setup_connectors__(
             engine_account_id=engine_account_id,
             engine_project_id=engine_project_id,
@@ -19,13 +23,12 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         )
 
     def commit_update_operations(self) -> bool:
-        for formatted_index_key_value, dynamodb_setters in self._pending_update_operations.items():
-            index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            return self._set_update_multiple_data_elements_to_map(key_value=key_value, setters=list(dynamodb_setters.values()))
+        for primary_key_value, dynamodb_setters in self._pending_update_operations_per_primary_key.items():
+            return self._set_update_multiple_data_elements_to_map(key_value=primary_key_value, setters=list(dynamodb_setters.values()))
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
-        for formatted_index_key_value, fields_path_elements in self._pending_remove_operations.items():
+        for formatted_index_key_value, fields_path_elements in self._pending_remove_operations_per_primary_key.items():
             index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
             return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=list(fields_path_elements.values()))
         return True  # todo: create a real success status instead of always True

@@ -9,12 +9,12 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 
 class BaseCachingTable(BaseTable):
-    def __init__(self, data_model, primary_index: Optional[PrimaryIndex] = None):
+    def __init__(self, data_model, primary_index: PrimaryIndex):
         super().__init__(data_model=data_model)
-        self._primary_index_name = "" if primary_index is None else (primary_index.index_custom_name or primary_index.hash_key_name)
-        self._cached_data = {}
-        self._pending_update_operations: Dict[str, Dict[str, FieldPathSetter]] = {}
-        self._pending_remove_operations: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
+        self._cached_data_per_primary_key: Dict[str, Any] = {}
+        self._pending_update_operations_per_primary_key: Dict[str, Dict[str, FieldPathSetter]] = {}
+        self._pending_remove_operations_per_primary_key: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
         self._debug = False
 
     @property
@@ -30,13 +30,16 @@ class BaseCachingTable(BaseTable):
         self._debug = debug
 
     def clear_cached_data(self):
-        self._cached_data = {}
+        self._cached_data_per_primary_key = {}
+
+    def clear_cached_data_for_record(self, record_primary_key: str):
+        self._cached_data_per_primary_key.pop(record_primary_key, None)
 
     def clear_pending_update_operations(self):
-        self._pending_update_operations = {}
+        self._pending_update_operations_per_primary_key = {}
 
     def clear_pending_remove_operations(self):
-        self._pending_remove_operations = {}
+        self._pending_remove_operations_per_primary_key = {}
 
     def clear_pending_operations(self):
         self.clear_pending_update_operations()
@@ -46,32 +49,29 @@ class BaseCachingTable(BaseTable):
         self.clear_cached_data()
         self.clear_pending_operations()
 
-    def _index_cached_data(self, index_name: Optional[str], key_value: str) -> dict:
-        index_name: str = f"{index_name or self.primary_index_name}|{key_value}"
-        if index_name not in self._cached_data:
-            self._cached_data[index_name] = {}
-        return self._cached_data[index_name]
+    def _index_cached_data(self, primary_key_value: str) -> dict:
+        if primary_key_value not in self._cached_data_per_primary_key:
+            self._cached_data_per_primary_key[primary_key_value] = {}
+        return self._cached_data_per_primary_key[primary_key_value]
 
-    def _index_pending_update_operations(self, index_name: Optional[str], key_value: str) -> dict:
-        index_name = f"{index_name or self.primary_index_name}|{key_value}"
-        if index_name not in self._pending_update_operations:
-            self._pending_update_operations[index_name] = {}
-        return self._pending_update_operations[index_name]
+    def _index_pending_update_operations(self, primary_key_value: str) -> dict:
+        if primary_key_value not in self._pending_update_operations_per_primary_key:
+            self._pending_update_operations_per_primary_key[primary_key_value] = {}
+        return self._pending_update_operations_per_primary_key[primary_key_value]
 
-    def _index_pending_remove_operations(self, index_name: Optional[str], key_value: str) -> dict:
-        index_name = f"{index_name or self.primary_index_name}|{key_value}"
-        if index_name not in self._pending_remove_operations:
-            self._pending_remove_operations[index_name] = {}
-        return self._pending_remove_operations[index_name]
+    def _index_pending_remove_operations(self, primary_key_value: str) -> dict:
+        if primary_key_value not in self._pending_remove_operations_per_primary_key:
+            self._pending_remove_operations_per_primary_key[primary_key_value] = {}
+        return self._pending_remove_operations_per_primary_key[primary_key_value]
 
     def has_pending_update_operations(self) -> bool:
-        for index_operations in self._pending_update_operations.values():
+        for index_operations in self._pending_update_operations_per_primary_key.values():
             if len(index_operations) > 0:
                 return True
         return False
 
     def has_pending_remove_operations(self) -> bool:
-        for index_operations in self._pending_remove_operations.values():
+        for index_operations in self._pending_remove_operations_per_primary_key.values():
             if len(index_operations) > 0:
                 return True
         return False
@@ -127,24 +127,25 @@ class BaseCachingTable(BaseTable):
                 return True, retrieved_item_value
         return False, None
 
-    def _cache_delete_field(self, index_cached_data: dict, index_name: str, key_value: str, field_path_elements: List[DatabasePathElement]) -> str:
+    def _cache_delete_field(self, index_cached_data: dict, primary_key_value: str, field_path_elements: List[DatabasePathElement]) -> str:
         """Will remove the element value from the cache, and remove any update operations associated with the same field in the same index and key_value"""
         BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=None)
 
-        pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
-        item_joined_field_path = join_field_path_elements(field_path_elements)
+        pending_update_operations: dict = self._index_pending_update_operations(primary_key_value=primary_key_value)
+        item_joined_field_path: str = join_field_path_elements(field_path_elements)
 
         if item_joined_field_path in pending_update_operations:
             pending_update_operations.pop(item_joined_field_path)
         return item_joined_field_path
 
-    def _cache_remove_field(self, index_cached_data: dict, index_name: str, key_value: str, field_path_elements: List[DatabasePathElement]):
+    def _cache_remove_field(self, index_cached_data: dict, primary_key_value: str, field_path_elements: List[DatabasePathElement]):
         """Unlike the _cache_delete_field, this must be used when a remove operation to the database will be performed right away"""
         item_joined_field_path = self._cache_delete_field(
-            index_cached_data=index_cached_data, index_name=index_name,
-            key_value=key_value, field_path_elements=field_path_elements
+            index_cached_data=index_cached_data,
+            primary_key_value=primary_key_value,
+            field_path_elements=field_path_elements
         )
-        pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+        pending_remove_operations = self._index_pending_remove_operations(primary_key_value=primary_key_value)
         if item_joined_field_path in pending_remove_operations:
             pending_remove_operations.pop(item_joined_field_path)
 
@@ -192,15 +193,40 @@ class BaseCachingTable(BaseTable):
                 ))
         return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
+    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
+        from StructNoSQL.fields import BaseItem
+        primary_key_field_object: Optional[BaseItem] = self.fields_switch.get(self.primary_index_name, None)
+        # todo: replace primary_index_name by primary_key_name
+        if primary_key_field_object is None:
+            raise Exception("e")
+        return primary_key_field_object.database_path
+
+    def _add_primary_key_to_path_elements(self, source_path_elements: List[List[DatabasePathElement]]) -> List[List[DatabasePathElement]]:
+        for item_path_elements in source_path_elements:
+            if len(item_path_elements) > 0:
+                first_path_element = item_path_elements[0]
+                if first_path_element.element_key == self.primary_index_name:
+                    return source_path_elements
+
+        return [self._get_primary_key_database_path(), *source_path_elements]
+
+    def _has_primary_key_in_path_elements(self, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Tuple[bool, Optional[str]]:
+        for client_key, item_path_elements in fields_path_elements.items():
+            if len(item_path_elements) > 0:
+                first_path_element = item_path_elements[0]
+                if first_path_element.element_key == self.primary_index_name:
+                    return True, client_key
+        return False, None
+
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-            key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
+            key_value: str, field_path: str, query_kwargs: Optional[dict] = None
     ) -> Any:
 
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
         if has_multiple_fields_path is not True:
             field_path_elements: List[DatabasePathElement]
             found_in_cache, field_value_from_cache = BaseCachingTable._cache_get_data(
@@ -241,18 +267,189 @@ class BaseCachingTable(BaseTable):
                         item_key: str = item['key']
                         index_cached_data[key] = item_value
                         response_items_values[item_key] = (
-                            item_value
-                            if self.debug is not True else
+                            item_value if self.debug is not True else
                             {'value': item_value, 'fromCache': False}
                         )
             return response_items_values if self.debug is not True else {'value': response_items_values, 'fromCache': None}
 
+    def _inner_query_fields_secondary_index(
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+    ):
+        if has_multiple_fields_path is not True:
+            field_path_elements: List[DatabasePathElement]
+            if field_path_elements[0].element_key == self.primary_index_name:
+                # If the specified field is the primary key
+                retrieved_records_items_data: List[Any] = middleware(field_path_elements, False)
+                output: dict = {}
+                for record_primary_key_value in retrieved_records_items_data:
+                    output[record_primary_key_value] = (
+                        record_primary_key_value if self.debug is not True else
+                        {'value': record_primary_key_value, 'fromCache': False}
+                    )
+                    record_cached_data: dict = self._index_cached_data(primary_key_value=record_primary_key_value)
+                    BaseCachingTable._cache_put_data(
+                        index_cached_data=record_cached_data,
+                        field_path_elements=field_path_elements,
+                        data=record_primary_key_value
+                    )
+                return output
+            else:
+                # If a single field is requested, but the primary_key is not being requested and needs to be artificially added
+                super_target_path_elements = {'__VALUE__': field_path_elements, '__PRIMARY_KEY__': self._get_primary_key_database_path()}
+                retrieved_records_items_data: Optional[List[Any]] = middleware(super_target_path_elements, True)
+                if retrieved_records_items_data is None:
+                    return None
+
+                output: dict = {}
+                for record_item_data in retrieved_records_items_data:
+                    record_client_requested_value_data: Optional[Any] = record_item_data.get('__VALUE__', None)
+                    record_primary_key_value: Optional[Any] = record_item_data.get('__PRIMARY_KEY__', None)
+                    output[record_primary_key_value] = (
+                        record_client_requested_value_data if self.debug is not True else
+                        {'value': record_client_requested_value_data, 'fromCache': False}
+                    )
+                    record_cached_data: dict = self._index_cached_data(primary_key_value=record_primary_key_value)
+                    BaseCachingTable._cache_put_data(
+                        index_cached_data=record_cached_data,
+                        field_path_elements=field_path_elements,
+                        data=record_client_requested_value_data
+                    )
+                return output
+        else:
+            # If multiple fields are requested
+            field_path_elements: Dict[str, List[DatabasePathElement]]
+            primary_key_is_being_requested_by_client, primary_key_client_retrieval_key = (
+                self._has_primary_key_in_path_elements(fields_path_elements=field_path_elements)
+            )
+            if primary_key_is_being_requested_by_client is True:
+                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, True)
+                if retrieved_records_items_data is None:
+                    return None
+
+                output: dict = {}
+                for record_item_data in retrieved_records_items_data:
+                    items_values_by_real_keys: Dict[str, Any] = {}
+                    for indexable_key, item in record_item_data.items():
+                        item_value: Any = item['value']
+                        item_key: str = item['key']
+                        items_values_by_real_keys[item_key] = (
+                            item_value if self.debug is not True else
+                            {'value': item_value, 'fromCache': False}
+                        )
+
+                    record_primary_key_value: Optional[Any] = record_item_data.get(primary_key_client_retrieval_key, None)
+                    if record_primary_key_value is not None:
+                        record_cached_data: dict = self._index_cached_data(primary_key_value=record_primary_key_value)
+                        for item_key, item_field_path_elements in field_path_elements.values():
+                            record_matching_item_data: Optional[Any] = items_values_by_real_keys.get(item_key, None)
+                            BaseCachingTable._cache_put_data(
+                                index_cached_data=record_cached_data,
+                                field_path_elements=item_field_path_elements,
+                                data=record_matching_item_data
+                            )
+                    output[record_primary_key_value] = items_values_by_real_keys
+                return output
+            else:
+                final_fields_path_elements = {**field_path_elements, '__PRIMARY_KEY__': self._get_primary_key_database_path()}
+                retrieved_records_items_data: Optional[List[dict]] = middleware(final_fields_path_elements, True)
+                if retrieved_records_items_data is None:
+                    return None
+
+                output: dict = {}
+                for record_item_data in retrieved_records_items_data:
+                    record_primary_key_value: Optional[Any] = record_item_data.pop('__PRIMARY_KEY__', None)
+
+                    items_values_by_real_keys: Dict[str, Any] = {}
+                    for indexable_key, item in record_item_data.items():
+                        item_value: Any = item['value']
+                        item_key: str = item['key']
+                        items_values_by_real_keys[item_key] = (
+                            item_value if self.debug is not True else
+                            {'value': item_value, 'fromCache': False}
+                        )
+
+                    if record_primary_key_value is not None:
+                        record_cached_data: dict = self._index_cached_data(primary_key_value=record_primary_key_value)
+                        for item_key, item_field_path_elements in field_path_elements.values():
+                            record_matching_item_data: Optional[Any] = items_values_by_real_keys.get(item_key, None)
+                            BaseCachingTable._cache_put_data(
+                                index_cached_data=record_cached_data,
+                                field_path_elements=item_field_path_elements,
+                                data=record_matching_item_data
+                            )
+                    return items_values_by_real_keys
+                return output
+
+    def _query_field(
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], List[Any]],
+            key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
+    ) -> dict:
+
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        )
+        if index_name is not None and index_name != self.primary_index_name:
+            return self._inner_query_fields_secondary_index(
+                middleware=middleware, field_path_elements=field_path_elements, has_multiple_fields_path=has_multiple_fields_path,
+            )
+        else:
+            # If requested index is primary index
+            index_cached_data = self._index_cached_data(primary_key_value=key_value)
+            if has_multiple_fields_path is not True:
+                field_path_elements: List[DatabasePathElement]
+                found_in_cache, field_value_from_cache = BaseCachingTable._cache_get_data(
+                    index_cached_data=index_cached_data, field_path_elements=field_path_elements
+                )
+                if found_in_cache is True:
+                    return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
+
+                retrieved_records_items_data: List[Any] = middleware(field_path_elements, has_multiple_fields_path)
+                output: dict = {}
+                for record_primary_key_value in retrieved_records_items_data:
+                    output[record_primary_key_value] = record_primary_key_value
+                    index_cached_data: dict = self._index_cached_data(primary_key_value=record_primary_key_value)
+                    BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=record_primary_key_value)
+                return output if self.debug is not True else {'value': output, 'fromCache': False}
+            else:
+                field_path_elements: Dict[str, List[DatabasePathElement]]
+                response_items_values: Dict[str, Any] = {}
+
+                keys_fields_already_cached_to_pop: List[str] = []
+                for item_key, item_field_path_elements in field_path_elements.items():
+                    found_item_value_in_cache, field_item_value_from_cache = BaseCachingTable._cache_get_data(
+                        index_cached_data=index_cached_data, field_path_elements=item_field_path_elements
+                    )
+                    if found_item_value_in_cache is True:
+                        # We do not use a .get('key', None), because None can be a valid value for a field
+                        response_items_values[item_key] = (
+                            field_item_value_from_cache if self.debug is not True else
+                            {'value': field_item_value_from_cache, 'fromCache': True}
+                        )
+                        keys_fields_already_cached_to_pop.append(item_key)
+
+                for key_to_pop in keys_fields_already_cached_to_pop:
+                    field_path_elements.pop(key_to_pop)
+
+                if len(field_path_elements) > 0:
+                    response_data: Optional[dict] = middleware(field_path_elements, has_multiple_fields_path)
+                    if response_data is not None:
+                        for key, item in response_data.items():
+                            item_value: Any = item['value']
+                            item_key: str = item['key']
+                            index_cached_data[key] = item_value
+                            response_items_values[item_key] = (
+                                item_value if self.debug is not True else
+                                {'value': item_value, 'fromCache': False}
+                            )
+                return response_items_values if self.debug is not True else {'value': response_items_values, 'fromCache': None}
+
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None
+            key_value: str, getters: Dict[str, FieldGetter]
     ) -> Optional[dict]:
         output_data: Dict[str, Any] = {}
-        index_cached_data: dict = self._index_cached_data(index_name=index_name, key_value=key_value)
+        index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
 
         single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
         grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
@@ -320,24 +517,24 @@ class BaseCachingTable(BaseTable):
                 output_data[container_key] = container_data if container_key not in output_data else {**container_data, **output_data[container_key]}
             return output_data if self.debug is not True else {'value': output_data, 'fromCache': None}
 
-    def _update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
+    def _update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
         if valid is True and field_path_elements is not None:
-            index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+            index_cached_data = self._index_cached_data(primary_key_value=key_value)
             BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
 
             joined_field_path = join_field_path_elements(field_path_elements)
-            pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
+            pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
             pending_update_operations[joined_field_path] = FieldPathSetter(
                 field_path_elements=field_path_elements, value_to_set=validated_data
             )
             return True
         return False
 
-    def _update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter], index_name: Optional[str] = None) -> bool:
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+    def _update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
                 validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -347,7 +544,7 @@ class BaseCachingTable(BaseTable):
                 if valid is True:
                     BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
                     joined_field_path = join_field_path_elements(field_path_elements)
-                    pending_update_operations = self._index_pending_update_operations(index_name=index_name, key_value=key_value)
+                    pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
                     pending_update_operations[joined_field_path] = FieldPathSetter(
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     )
@@ -378,13 +575,14 @@ class BaseCachingTable(BaseTable):
 
     def _remove_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
+            key_value: str, field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
 
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         if has_multiple_fields_path is not True:
             field_path_elements: List[DatabasePathElement]
@@ -392,7 +590,7 @@ class BaseCachingTable(BaseTable):
                 index_cached_data=index_cached_data, field_path_elements=field_path_elements
             )
             if found_value_in_cache is True:
-                pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+                pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)
                 self._cache_add_delete_operation(
                     index_cached_data=index_cached_data,
                     pending_remove_operations=pending_remove_operations,
@@ -409,8 +607,9 @@ class BaseCachingTable(BaseTable):
             else:
                 target_path_elements: List[List[DatabasePathElement]] = [field_path_elements]
                 self._cache_remove_field(
-                    index_cached_data=index_cached_data, index_name=index_name,
-                    key_value=key_value, field_path_elements=field_path_elements
+                    index_cached_data=index_cached_data,
+                    primary_key_value=key_value,
+                    field_path_elements=field_path_elements
                 )
                 response_attributes = middleware(target_path_elements)
                 if response_attributes is not None:
@@ -441,7 +640,7 @@ class BaseCachingTable(BaseTable):
                     index_cached_data=index_cached_data, field_path_elements=item_field_path_elements_value
                 )
                 if found_item_value_in_cache is True:
-                    pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+                    pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)
                     self._cache_add_delete_operation(
                         index_cached_data=index_cached_data,
                         pending_remove_operations=pending_remove_operations,
@@ -455,8 +654,9 @@ class BaseCachingTable(BaseTable):
                 else:
                     target_path_elements.append(item_field_path_elements_value)
                     self._cache_remove_field(
-                        index_cached_data=index_cached_data, index_name=index_name,
-                        key_value=key_value, field_path_elements=item_field_path_elements_value
+                        index_cached_data=index_cached_data,
+                        primary_key_value=key_value,
+                        field_path_elements=item_field_path_elements_value
                     )
 
             if len(target_path_elements) > 0:
@@ -481,17 +681,17 @@ class BaseCachingTable(BaseTable):
 
     def _remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None
+            key_value: str, removers: Dict[str, FieldRemover]
     ) -> Optional[Dict[str, Any]]:
 
         return {key: self._remove_field(
-            middleware=middleware, key_value=key_value, index_name=index_name,
+            middleware=middleware, key_value=key_value,
             field_path=item.field_path, query_kwargs=item.query_kwargs
         ) for key, item in removers.items()}
 
-    def _delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> bool:
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-        pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+    def _delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
+        pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)
         self._cache_process_add_delete_operation(
             index_cached_data=index_cached_data,
             pending_remove_operations=pending_remove_operations,
@@ -501,7 +701,7 @@ class BaseCachingTable(BaseTable):
 
     def _grouped_remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, removers: Dict[str, FieldRemover], index_name: Optional[str] = None
+            key_value: str, removers: Dict[str, FieldRemover]
     ) -> Optional[Dict[str, Any]]:
         # todo: do not perform the operation but store it as pending if a matching value exists in the cache
         if not len(removers) > 0:
@@ -509,7 +709,7 @@ class BaseCachingTable(BaseTable):
             # operation, and since no value has been removed, we return None.
             return None
         else:
-            index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
+            index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
             removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = {}
             grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
@@ -525,8 +725,9 @@ class BaseCachingTable(BaseTable):
                     removers_field_paths_elements[remover_key] = field_path_elements
                     removers_database_paths.append(field_path_elements)
                     self._cache_remove_field(
-                        index_cached_data=index_cached_data, index_name=index_name,
-                        key_value=key_value, field_path_elements=field_path_elements
+                        index_cached_data=index_cached_data,
+                        primary_key_value=key_value,
+                        field_path_elements=field_path_elements
                     )
                 else:
                     field_path_elements: Dict[str, List[DatabasePathElement]]
@@ -535,8 +736,9 @@ class BaseCachingTable(BaseTable):
                     for item_field_path_elements_values in field_path_elements_values:
                         removers_database_paths.append(item_field_path_elements_values)
                         self._cache_remove_field(
-                            index_cached_data=index_cached_data, index_name=index_name,
-                            key_value=key_value, field_path_elements=item_field_path_elements_values
+                            index_cached_data=index_cached_data,
+                            primary_key_value=key_value,
+                            field_path_elements=item_field_path_elements_values
                         )
 
             response_attributes = middleware(removers_database_paths)
@@ -561,9 +763,9 @@ class BaseCachingTable(BaseTable):
                     output_data[container_key] = container_data
                 return output_data
 
-    def _grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover], index_name: Optional[str] = None) -> bool:
-        index_cached_data = self._index_cached_data(index_name=index_name, key_value=key_value)
-        pending_remove_operations = self._index_pending_remove_operations(index_name=index_name, key_value=key_value)
+    def _grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover]) -> bool:
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
+        pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)
 
         for current_remover in removers:
             self._cache_process_add_delete_operation(

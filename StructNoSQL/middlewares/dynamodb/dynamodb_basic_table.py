@@ -71,7 +71,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             [field_path_elements] if has_multiple_fields_path is not True else list(field_path_elements.values())
         )
 
-        response = self.dynamodb_client.query_by_key(
+        response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name, key_value=key_value,
             fields_path_elements=final_fields_path_elements,
             query_limit=records_query_limit, filter_expression=filter_expression,
@@ -103,7 +103,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
     ) -> Optional[List[Dict[str, Any]]]:
 
         getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
-        response = self.dynamodb_client.query_by_key(
+        response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name, key_value=key_value,
             fields_path_elements=getters_database_paths,
             query_limit=records_query_limit, filter_expression=filter_expression,
@@ -133,7 +133,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
             query_field_path_elements.append(field_path_elements)
 
-        response = self.dynamodb_client.query_by_key(
+        response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name,
             index_name=key_name, key_value=key_value,
             fields_path_elements=query_field_path_elements,
@@ -165,11 +165,10 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return True if response is not None else False
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
-    def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter], index_name: Optional[str] = None) -> bool:
+    def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         def middleware(dynamodb_setters: List[FieldPathSetter]):
             return self.dynamodb_client.set_update_multiple_data_elements_to_map(
-                index_name=index_name or self.primary_index_name,
-                key_value=key_value, setters=dynamodb_setters
+                index_name=self.primary_index_name, key_value=key_value, setters=dynamodb_setters
             )
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 

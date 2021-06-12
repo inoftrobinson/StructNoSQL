@@ -560,7 +560,7 @@ class DynamoDbCoreAdapter:
                 setters.remove(setter)
             return self.set_update_multiple_data_elements_to_map(index_name=index_name, key_value=key_value, setters=setters)
 
-    def query_by_key(
+    def query_response_by_key(
             self, index_name: str, key_value: Any,
             fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
             filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
@@ -595,6 +595,39 @@ class DynamoDbCoreAdapter:
             raise Exception(f"Failed to retrieve attributes from DynamoDb table."
                             f"Exception of type {type(e).__name__} occurred: {str(e)}")
 
+    def query_items_by_key(
+            self, index_name: str, key_value: Any,
+            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+            filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
+    ) -> Optional[List[Any]]:
+        fields_path_elements_list: List[List[DatabasePathElement]] = (
+            [field_path_elements] if has_multiple_fields_path is not True else [*field_path_elements.values()]
+        )
+        response = self.query_response_by_key(
+            index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements_list,
+            filter_expression=filter_expression, query_limit=query_limit, **additional_kwargs
+        )
+        if response is None:
+            return None
+
+        output: List[Any] = []
+        for record_item_data in response.items:
+            if isinstance(record_item_data, dict):
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    output.append(navigate_into_data_with_field_path_elements(
+                        data=record_item_data, field_path_elements=field_path_elements,
+                        num_keys_to_navigation_into=len(field_path_elements)
+                    ))
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    output.append(self._unpack_multiple_retrieved_fields(
+                        item_data=record_item_data, fields_path_elements=field_path_elements,
+                        num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
+                    ))
+                # todo: add data validation
+        return output
+
     def query_single_item_by_key(
             self, index_name: str, key_value: Any,
             fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
@@ -603,7 +636,7 @@ class DynamoDbCoreAdapter:
         # Yes, a query request is heavier than a get request that we could do with the _get_item_by_primary_key function.
         # Yet, in a get request, we cannot specify an index_name to query on. So, the _query_single_item_by_key should be
         # used when we want to get an item based on another index that the primary one. Otherwise, use _get_item_by_primary_key
-        response = self.query_by_key(
+        response = self.query_response_by_key(
             index_name=index_name, key_value=key_value,
             fields_path_elements=fields_path_elements,
             filter_expression=filter_expression, query_limit=1
@@ -636,7 +669,7 @@ class DynamoDbCoreAdapter:
                 ))
                 return None
             else:
-                response_items: Optional[List[dict]] = self.query_by_key(
+                response_items: Optional[List[dict]] = self.query_response_by_key(
                     index_name=index_name, key_value=key_value,
                     fields_path_elements=fields_path_elements, query_limit=1
                 ).items

@@ -151,8 +151,7 @@ class DynamoDbCoreAdapter:
             print(f"Failed to update attributes in DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
 
-    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str,
-                                  element_values: List[dict]) -> Optional[Response]:
+    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
         kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},

@@ -60,7 +60,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
-    ):
+    ) -> Optional[dict]:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool) -> List[dict]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
@@ -71,32 +71,34 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             )
         return self._query_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, index_name=index_name)
 
+    def query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ):
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+            return self.dynamodb_client.query_items_by_key(
+                index_name=index_name or self.primary_index_name,
+                key_value=key_value, field_path_elements=fields_path_elements,
+                has_multiple_fields_path=True,
+                query_limit=records_query_limit, filter_expression=filter_expression,
+                **additional_kwargs
+            )
+        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters, index_name=index_name)
+
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                response_data = self.dynamodb_client.get_value_in_path_target(
+                return self.dynamodb_client.get_value_in_path_target(
                     index_name=self.primary_index_name,
                     key_value=key_value, field_path_elements=field_path_elements
                 )
-                return response_data
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+                return self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=self.primary_index_name,
                     key_value=key_value, fields_path_elements=field_path_elements,
-                    metadata=True
                 )
-                if response_data is not None:
-                    output: Dict[str, Any] = {}
-                    for key, item in response_data.items():
-                        # We access the item attributes with brackets, because the attributes
-                        # are required, and we should cause an exception if they are missing.
-                        item_value: Any = item['value']
-                        item_field_path_elements: List[DatabasePathElement] = item['field_path_elements']
-                        output[join_field_path_elements(item_field_path_elements)] = {'value': item_value, 'key': key}
-                    return output
-                return None
         return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
@@ -120,7 +122,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 key_value=key_value, targets_path_elements=fields_path_elements,
                 retrieve_removed_elements=True
             )
-        return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, index_name=index_name)
+        return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
         def task_executor(remover_item: FieldRemover):

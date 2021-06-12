@@ -62,7 +62,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
-    ) -> Optional[List[Any]]:
+    ) -> Optional[dict]:
 
         from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(

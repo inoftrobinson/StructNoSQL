@@ -28,9 +28,8 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
-        for formatted_index_key_value, fields_path_elements in self._pending_remove_operations_per_primary_key.items():
-            index_name, key_value = formatted_index_key_value.split('|', maxsplit=1)
-            return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=list(fields_path_elements.values()))
+        for primary_key_value, fields_path_elements in self._pending_remove_operations_per_primary_key.items():
+            return self._remove_data_elements_from_map(key_value=primary_key_value, fields_path_elements=list(fields_path_elements.values()))
         return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
@@ -47,6 +46,30 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         def middleware(indexes_keys: dict) -> bool:
             return self._delete_record_request(indexes_keys_selectors=indexes_keys)
         return self._delete_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
+
+    def query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ) -> Optional[dict]:
+        def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool) -> List[dict]:
+            return self._query_items_by_key(
+                key_value=key_value, field_path_elements=field_path_elements,
+                has_multiple_fields_path=has_multiple_fields_path,
+                query_limit=records_query_limit, filter_expression=filter_expression,
+                **additional_kwargs
+            )
+        return self._query_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
+
+    def query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter],
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ):
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+            return self._query_items_by_key(
+                key_value=key_value, field_path_elements=fields_path_elements, has_multiple_fields_path=True,
+                query_limit=records_query_limit, filter_expression=filter_expression, **additional_kwargs
+            )
+        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):

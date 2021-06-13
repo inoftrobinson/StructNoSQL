@@ -66,7 +66,7 @@ class InoftVocalEngineTableConnectors:
             has_multiple_fields_path: bool, query_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
     ):
         serialized_fields_path_elements: List[dict] or Dict[str, dict] = [
-            [item.serialize() for item in field_path_elements]
+            item.serialize() for item in field_path_elements
         ] if has_multiple_fields_path is not True else {
             key: [item.serialize() for item in path_elements]
             for key, path_elements in field_path_elements.items()

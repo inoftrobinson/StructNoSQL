@@ -249,11 +249,13 @@ class Processor:
             pass
 
         deep_class_variables: dict = {}
-        for component_class in class_type.__mro__:
-            deep_class_variables.update(component_class.__dict__)
+        component_classes: Optional[List[type]] = getattr(class_type, '__mro__', None)
         # Instead of just retrieving the __dict__ of the current class_type, we retrieve the __dict__'s of all the
         # classes  in the __mro__ of the class_type (hence, the class type itself, and all of the types it inherited).
         # If we did not do that, fields inherited from a parent class would not be detected and not be indexed.
+        if component_classes is not None:
+            for component_class in component_classes:
+                deep_class_variables.update(component_class.__dict__)
 
         setup_function: Optional[callable] = deep_class_variables.get('__setup__', None)
         if setup_function is not None:

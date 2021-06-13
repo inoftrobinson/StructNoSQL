@@ -24,12 +24,6 @@ class TableModel(TableDataModel):
     containerToRemove = BaseField(name='containerToRemove', field_type=ContainerToRemoveModel, required=False)
     containersListToRemove = BaseField(name='containersListToRemove', field_type=List[ContainerToRemoveModel], key_name='listIndex')
 
-class DynamoDBTableModel(TableModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
-
-class InoftVocalEngineTableModel(TableModel):
-    accountProjectUserId = BaseField(name='accountProjectUserId', field_type=str, required=True)
-
 
 def test_simple_get_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
     users_table.clear_cached_data_and_pending_operations()
@@ -339,48 +333,3 @@ def test_set_remove_multiple_fields(self: unittest.TestCase, users_table: Dynamo
     retrieved_expected_empty_value_two_from_database = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove2')
     self.assertFalse(retrieved_expected_empty_value_two_from_database['fromCache'])
     self.assertIsNone(retrieved_expected_empty_value_two_from_database['value'])
-
-def test_set_get_fields_with_secondary_index(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
-    users_table.clear_cached_data_and_pending_operations()
-    random_field_value_one = random.randint(0, 100)
-    random_field_value_two = random.randint(100, 200)
-
-    update_success_one = users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove', value_to_set=random_field_value_one)
-    self.assertTrue(update_success_one)
-    update_success_two = users_table.update_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove2', value_to_set=random_field_value_two)
-    self.assertTrue(update_success_two)
-    update_commit_success = users_table.commit_operations()
-    self.assertTrue(update_commit_success)
-
-    retrieved_data_one = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
-    self.assertEqual(retrieved_data_one['value'], random_field_value_one)
-    retrieved_data_two = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove2')
-    self.assertEqual(retrieved_data_two['value'], random_field_value_two)
-
-    single_field_not_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='fieldToRemove')
-    self.assertEqual({TEST_ACCOUNT_ID: {'fromCache': False, 'value': random_field_value_one}}, single_field_not_primary_key)
-
-    single_field_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='accountId')
-    self.assertEqual({TEST_ACCOUNT_ID: {'fromCache': False, 'value': TEST_ACCOUNT_ID}}, single_field_primary_key)
-
-    multiple_fields_without_primary_key = users_table.query_field(
-        key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='(fieldToRemove, fieldToRemove2)'
-    )
-    self.assertEqual({
-        TEST_ACCOUNT_ID: {
-            'fieldToRemove': {'fromCache': False, 'value': random_field_value_one},
-            'fieldToRemove2': {'fromCache': False, 'value': random_field_value_two}
-        }}, multiple_fields_without_primary_key
-    )
-
-    multiple_fields_with_primary_key = users_table.query_field(
-        key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='(accountId, fieldToRemove, fieldToRemove2)'
-    )
-    self.assertEqual({
-        TEST_ACCOUNT_ID: {
-            'accountId': {'fromCache': False, 'value': TEST_ACCOUNT_ID},
-            'fieldToRemove': {'fromCache': False, 'value': random_field_value_one},
-            'fieldToRemove2': {'fromCache': False, 'value': random_field_value_two}
-        }}, multiple_fields_with_primary_key
-    )
-

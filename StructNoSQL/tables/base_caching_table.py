@@ -10,16 +10,11 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 class BaseCachingTable(BaseTable):
     def __init__(self, data_model, primary_index: PrimaryIndex):
-        super().__init__(data_model=data_model)
-        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
+        super().__init__(data_model=data_model, primary_index=primary_index)
         self._cached_data_per_primary_key: Dict[str, Any] = {}
         self._pending_update_operations_per_primary_key: Dict[str, Dict[str, FieldPathSetter]] = {}
         self._pending_remove_operations_per_primary_key: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
         self._debug = False
-
-    @property
-    def primary_index_name(self) -> str:
-        return self._primary_index_name
 
     @property
     def debug(self) -> bool:
@@ -197,14 +192,6 @@ class BaseCachingTable(BaseTable):
                 ))
         return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
-    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
-        from StructNoSQL.fields import BaseItem
-        primary_key_field_object: Optional[BaseItem] = self.fields_switch.get(self.primary_index_name, None)
-        # todo: replace primary_index_name by primary_key_name
-        if primary_key_field_object is None:
-            raise Exception("e")
-        return primary_key_field_object.database_path
-
     def _add_primary_key_to_path_elements(self, source_path_elements: List[List[DatabasePathElement]]) -> List[List[DatabasePathElement]]:
         for item_path_elements in source_path_elements:
             if len(item_path_elements) > 0:
@@ -213,14 +200,6 @@ class BaseCachingTable(BaseTable):
                     return source_path_elements
 
         return [self._get_primary_key_database_path(), *source_path_elements]
-
-    def _has_primary_key_in_path_elements(self, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Tuple[bool, Optional[str]]:
-        for client_key, item_path_elements in fields_path_elements.items():
-            if len(item_path_elements) > 0:
-                first_path_element = item_path_elements[0]
-                if first_path_element.element_key == self.primary_index_name:
-                    return True, client_key
-        return False, None
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
@@ -297,80 +276,20 @@ class BaseCachingTable(BaseTable):
             )
         return output
 
-    def _inner_query_fields_secondary_index(
+    def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
             field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
     ) -> Optional[dict]:
-        if has_multiple_fields_path is not True:
-            field_path_elements: List[DatabasePathElement]
-            if field_path_elements[0].element_key == self.primary_index_name:
-                # If the specified field is the primary key
-                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, False)
-                if retrieved_records_items_data is None:
-                    return None
-
-                records_output: dict = {}
-                for record_primary_key_value in retrieved_records_items_data:
-                    records_output[record_primary_key_value] = self._process_cache_record_value(
-                        primary_key_value=record_primary_key_value,
-                        value=record_primary_key_value,
-                        field_path_elements=field_path_elements
-                    )
-                return records_output
-            else:
-                # If a single field is requested, but the primary_key is not being requested and needs to be artificially added
-                super_target_path_elements = {'__VALUE__': field_path_elements, '__PRIMARY_KEY__': self._get_primary_key_database_path()}
-                retrieved_records_items_data: Optional[List[Any]] = middleware(super_target_path_elements, True)
-                if retrieved_records_items_data is None:
-                    return None
-
-                records_output: dict = {}
-                for record_item_data in retrieved_records_items_data:
-                    record_client_requested_value_data: Optional[Any] = record_item_data.get('__VALUE__', None)
-                    record_primary_key_value: Optional[Any] = record_item_data.get('__PRIMARY_KEY__', None)
-                    records_output[record_primary_key_value] = self._process_cache_record_value(
-                        primary_key_value=record_primary_key_value,
-                        value=record_client_requested_value_data,
-                        field_path_elements=field_path_elements
-                    )
-                return records_output
-        else:
-            # If multiple fields are requested
-            field_path_elements: Dict[str, List[DatabasePathElement]]
-            primary_key_is_being_requested_by_client, primary_key_client_retrieval_key = (
-                self._has_primary_key_in_path_elements(fields_path_elements=field_path_elements)
-            )
-            if primary_key_is_being_requested_by_client is True:
-                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, True)
-                if retrieved_records_items_data is None:
-                    return None
-
-                records_output: dict = {}
-                for record_item_data in retrieved_records_items_data:
-                    record_primary_key_value: Optional[Any] = record_item_data.get(primary_key_client_retrieval_key, None)
-                    if record_primary_key_value is not None:
-                        records_output[record_primary_key_value] = self._process_cache_record_item(
-                            record_item_data=record_item_data,
-                            primary_key_value=record_primary_key_value,
-                            fields_path_elements=field_path_elements
-                        )
-                return records_output
-            else:
-                final_fields_path_elements = {**field_path_elements, '__PRIMARY_KEY__': self._get_primary_key_database_path()}
-                retrieved_records_items_data: Optional[List[dict]] = middleware(final_fields_path_elements, True)
-                if retrieved_records_items_data is None:
-                    return None
-
-                records_output: dict = {}
-                for record_item_data in retrieved_records_items_data:
-                    record_primary_key_value: Optional[Any] = record_item_data.pop('__PRIMARY_KEY__', None)
-                    if record_primary_key_value is not None:
-                        records_output[record_primary_key_value] = self._process_cache_record_item(
-                            record_item_data=record_item_data,
-                            primary_key_value=record_primary_key_value,
-                            fields_path_elements=field_path_elements
-                        )
-                return records_output
+        from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
+        return _inner_query_fields_secondary_index(
+            process_record_value=self._process_cache_record_value,
+            process_record_item=self._process_cache_record_item,
+            primary_index_name=self.primary_index_name,
+            get_primary_key_database_path=self._get_primary_key_database_path,
+            middleware=middleware,
+            field_path_elements=field_path_elements,
+            has_multiple_fields_path=has_multiple_fields_path
+        )
 
     def _query_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], List[Any]],
@@ -381,8 +300,10 @@ class BaseCachingTable(BaseTable):
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
-            return self._inner_query_fields_secondary_index(
-                middleware=middleware, field_path_elements=field_path_elements, has_multiple_fields_path=has_multiple_fields_path,
+            return self.inner_query_fields_secondary_index(
+                middleware=middleware,
+                field_path_elements=field_path_elements,
+                has_multiple_fields_path=has_multiple_fields_path
             )
         else:
             # If requested index is primary index
@@ -479,10 +400,11 @@ class BaseCachingTable(BaseTable):
 
                     grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
 
-            response = self._inner_query_fields_secondary_index(
-                middleware=middleware, field_path_elements=getters_database_paths_dict, has_multiple_fields_path=True
+            return self.inner_query_fields_secondary_index(
+                middleware=middleware,
+                field_path_elements=getters_database_paths_dict,
+                has_multiple_fields_path=True
             )
-            return response
         else:
             raise Exception("Primary index query_multiple_fields not yet implemented")
 

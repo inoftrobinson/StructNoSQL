@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict
 from copy import copy
 
+from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldRemover
 from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
@@ -27,7 +28,7 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(self, data_model):
+    def __init__(self, data_model, primary_index: PrimaryIndex):
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 
@@ -36,6 +37,8 @@ class BaseTable:
         else:
             self._model = data_model()
         self._model_virtual_map_field = None
+
+        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
 
         self.processed_class_types: Set[type] = set()
         Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
@@ -58,6 +61,10 @@ class BaseTable:
     def internal_mapping(self) -> dict:
         return self._internal_mapping
 
+    @property
+    def primary_index_name(self) -> str:
+        return self._primary_index_name
+
     @staticmethod
     def _async_field_removers_executor(task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
         # This function is used both to run delete_field and remove_field operations asynchronously
@@ -65,6 +72,14 @@ class BaseTable:
             return {}
         with ThreadPoolExecutor(max_workers=len(removers)) as executor:
             return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
+
+    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
+        from StructNoSQL.fields import BaseItem
+        primary_key_field_object: Optional[BaseItem] = self.fields_switch.get(self.primary_index_name, None)
+        # todo: replace primary_index_name by primary_key_name
+        if primary_key_field_object is None:
+            raise Exception("e")
+        return primary_key_field_object.database_path
 
 
 class Processor:

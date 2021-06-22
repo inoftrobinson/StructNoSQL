@@ -3,11 +3,15 @@ import unittest
 from uuid import uuid4
 from typing import Dict, Any
 
-from StructNoSQL import BaseField, TableDataModel, MapModel, FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable
+from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable, DynamoDBBasicTable
+from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
 from tests.tests_caching_table.caching_users_table import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
 
-def test_set_get_fields_with_primary_index(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable, primary_key_name: str):
+def test_set_get_fields_with_primary_index(
+        self: unittest.TestCase, users_table: DynamoDBBasicTable or DynamoDBCachingTable or InoftVocalEngineBasicTable or InoftVocalEngineCachingTable,
+        primary_key_name: str, is_caching: bool
+):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value_one = random.randint(0, 100)
     random_field_value_two = random.randint(100, 200)
@@ -18,13 +22,20 @@ def test_set_get_fields_with_primary_index(self: unittest.TestCase, users_table:
     ])
     self.assertTrue(set_update_success)
 
-    update_commit_success: bool = users_table.commit_operations()
-    self.assertTrue(update_commit_success)
+    if is_caching is True:
+        update_commit_success: bool = users_table.commit_operations()
+        self.assertTrue(update_commit_success)
 
     retrieved_values = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(simpleValue, simpleValue2)')
     self.assertEqual(retrieved_values, {
-        'simpleValue': {'fromCache': True, 'value': random_field_value_one},
-        'simpleValue2': {'fromCache': True, 'value': random_field_value_two}
+        'simpleValue': (
+            random_field_value_one if is_caching is not True else
+            {'fromCache': True, 'value': random_field_value_one}
+        ),
+        'simpleValue2': (
+            random_field_value_two if is_caching is not True else
+            {'fromCache': True, 'value': random_field_value_two}
+        )
     })
 
     single_field_not_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
@@ -38,8 +49,14 @@ def test_set_get_fields_with_primary_index(self: unittest.TestCase, users_table:
     )
     self.assertEqual({
         TEST_ACCOUNT_ID: {
-            'simpleValue': {'fromCache': True, 'value': random_field_value_one},
-            'simpleValue2': {'fromCache': True, 'value': random_field_value_two}
+            'simpleValue': (
+                random_field_value_one if is_caching is not True else
+                {'fromCache': True, 'value': random_field_value_one}
+            ),
+            'simpleValue2': (
+                random_field_value_two if is_caching is not True else
+                {'fromCache': True, 'value': random_field_value_two}
+            )
         }}, multiple_fields_without_primary_key
     )
 
@@ -48,13 +65,25 @@ def test_set_get_fields_with_primary_index(self: unittest.TestCase, users_table:
     )
     self.assertEqual({
         TEST_ACCOUNT_ID: {
-            f'{primary_key_name}': {'fromCache': True, 'value': TEST_ACCOUNT_ID},
-            'simpleValue': {'fromCache': True, 'value': random_field_value_one},
-            'simpleValue2': {'fromCache': True, 'value': random_field_value_two}
+            f'{primary_key_name}': (
+                TEST_ACCOUNT_ID if is_caching is not True else
+                {'fromCache': True, 'value': TEST_ACCOUNT_ID}
+            ),
+            'simpleValue': (
+                random_field_value_one if is_caching is not True else
+                {'fromCache': True, 'value': random_field_value_one}
+            ),
+            'simpleValue2': (
+                random_field_value_two if is_caching is not True else
+                {'fromCache': True, 'value': random_field_value_two}
+            )
         }}, multiple_fields_with_primary_key
     )
 
-def test_set_get_fields_with_overriding_names(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable, primary_key_name: str):
+def test_set_get_fields_with_overriding_names(
+        self: unittest.TestCase, users_table: DynamoDBBasicTable or DynamoDBCachingTable or InoftVocalEngineBasicTable or InoftVocalEngineCachingTable,
+        primary_key_name: str, is_caching: bool
+):
     item1_field1_random_value: str = f"item1_field1_${uuid4()}"
     item2_field1_random_value: str = f"item2_field1_${uuid4()}"
     set_update_success: bool = users_table.update_multiple_fields(key_value=TEST_ACCOUNT_ID, setters=[
@@ -71,8 +100,9 @@ def test_set_get_fields_with_overriding_names(self: unittest.TestCase, users_tab
     ])
     self.assertTrue(set_update_success)
 
-    commit_success: bool = users_table.commit_operations()
-    self.assertTrue(commit_success)
+    if is_caching is True:
+        commit_success: bool = users_table.commit_operations()
+        self.assertTrue(commit_success)
 
     retrieved_items_values: Dict[str, Any] = users_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username', getters={
@@ -82,7 +112,13 @@ def test_set_get_fields_with_overriding_names(self: unittest.TestCase, users_tab
     )
     self.assertEqual({
         TEST_ACCOUNT_ID: {
-            'item1-value': {'fromCache': False, 'value': item1_field1_random_value},
-            'item2-value': {'fromCache': False, 'value': item2_field1_random_value}
+            'item1-value': (
+                item1_field1_random_value if is_caching is not True else
+                {'fromCache': False, 'value': item1_field1_random_value}
+            ),
+            'item2-value': (
+                item2_field1_random_value if is_caching is not True else
+                {'fromCache': False, 'value': item2_field1_random_value}
+            )
         }}, retrieved_items_values
     )

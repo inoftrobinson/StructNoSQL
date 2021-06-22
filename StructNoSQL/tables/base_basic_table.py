@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any, Tuple, Callable
 
+from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
@@ -9,8 +10,8 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 
 class BaseBasicTable(BaseTable):
-    def __init__(self, data_model):
-        super().__init__(data_model=data_model)
+    def __init__(self, data_model, primary_index: PrimaryIndex):
+        super().__init__(data_model=data_model, primary_index=primary_index)
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
@@ -37,6 +38,105 @@ class BaseBasicTable(BaseTable):
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         return middleware(field_path_elements, has_multiple_fields_path)
+
+    def _process_cache_record_value(self, value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
+        return value
+
+    def _process_cache_record_item(self, record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> dict:
+        return {item_key: record_item_data.get(item_key, None) for item_key in fields_path_elements.keys()}
+
+    def inner_query_fields_secondary_index(
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+    ) -> Optional[dict]:
+        from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
+        return _inner_query_fields_secondary_index(
+            process_record_value=self._process_cache_record_value,
+            process_record_item=self._process_cache_record_item,
+            primary_index_name=self.primary_index_name,
+            get_primary_key_database_path=self._get_primary_key_database_path,
+            middleware=middleware,
+            field_path_elements=field_path_elements,
+            has_multiple_fields_path=has_multiple_fields_path
+        )
+
+    def _query_field(
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], List[Any]],
+            key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
+    ) -> Optional[dict]:
+
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        )
+        if index_name is not None and index_name != self.primary_index_name:
+            return self.inner_query_fields_secondary_index(
+                middleware=middleware,
+                field_path_elements=field_path_elements,
+                has_multiple_fields_path=has_multiple_fields_path
+            )
+        else:
+            # If requested index is primary index
+            if has_multiple_fields_path is not True:
+                field_path_elements: List[DatabasePathElement]
+                found_in_cache, field_value_from_cache = self._cache_get_data(
+                    primary_key_value=key_value, field_path_elements=field_path_elements
+                )
+                if found_in_cache is True:
+                    # A single field was requested from a primary index, which means that only one record will have been
+                    # found for the specified index (primary index values are unique). Since the query_field function needs
+                    # to return a Dict[str, Any] with keys being the primary_key_value of the record, the the item being
+                    # the request data, we need to create a dict that wrap our retrieved value as a record result.
+                    return {key_value: (
+                        field_value_from_cache if self.debug is not True else
+                        {'value': field_value_from_cache, 'fromCache': True}
+                    )}
+
+                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, has_multiple_fields_path)
+                if retrieved_records_items_data is None:
+                    return None
+
+                records_output: dict = {}
+                for record_primary_key_value in retrieved_records_items_data:
+                    records_output[record_primary_key_value] = self._process_cache_record_value(
+                        value=record_primary_key_value,
+                        primary_key_value=record_primary_key_value,
+                        field_path_elements=field_path_elements
+                    )
+                return records_output
+            else:
+                field_path_elements: Dict[str, List[DatabasePathElement]]
+                existing_record_data: dict = {}
+
+                keys_fields_already_cached_to_pop: List[str] = []
+                for item_key, item_field_path_elements in field_path_elements.items():
+                    found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
+                        primary_key_value=key_value, field_path_elements=item_field_path_elements
+                    )
+                    if found_item_value_in_cache is True:
+                        existing_record_data[item_key] = (
+                            field_item_value_from_cache if self.debug is not True else
+                            {'value': field_item_value_from_cache, 'fromCache': True}
+                        )
+                        keys_fields_already_cached_to_pop.append(item_key)
+
+                for key_to_pop in keys_fields_already_cached_to_pop:
+                    field_path_elements.pop(key_to_pop)
+
+                if len(field_path_elements) > 0:
+                    retrieved_records_items_data: Optional[List[dict]] = middleware(field_path_elements, has_multiple_fields_path)
+                    if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                        # Since we query the primary_index, we know for a fact that we will never be returned more than
+                        # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                        # and that we return a dict with the only one record item being the requested key_value.
+                        return {key_value: {
+                            **existing_record_data,
+                            **self._process_cache_record_item(
+                                record_item_data=retrieved_records_items_data[0],
+                                primary_key_value=key_value,
+                                fields_path_elements=field_path_elements
+                            )
+                        }}
+                return {key_value: existing_record_data}
 
     def _prepare_getters(self, getters: Dict[str, FieldGetter]) -> Tuple[
         List[List[DatabasePathElement]],

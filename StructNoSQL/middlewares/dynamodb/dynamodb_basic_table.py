@@ -16,7 +16,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             global_secondary_indexes: List[GlobalSecondaryIndex] = None,
             auto_create_table: bool = True
     ):
-        super().__init__(data_model=data_model)
+        super().__init__(data_model=data_model, primary_index=primary_index)
         super().__setup_connectors__(
             table_name=table_name, region_name=region_name,
             primary_index=primary_index, global_secondary_indexes=global_secondary_indexes,
@@ -59,7 +59,22 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._get_multiple_fields(middleware=middleware, getters=getters)
 
+
     def query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ) -> Optional[dict]:
+        def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool) -> List[dict]:
+            return self.dynamodb_client.query_items_by_key(
+                index_name=index_name or self.primary_index_name,
+                key_value=key_value, field_path_elements=field_path_elements,
+                has_multiple_fields_path=has_multiple_fields_path,
+                query_limit=records_query_limit, filter_expression=filter_expression,
+                **additional_kwargs
+            )
+        return self._query_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, index_name=index_name)
+
+    """def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
     ) -> Optional[dict]:
@@ -96,7 +111,21 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                         num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
                     ))
                 # todo: add data validation
-        return output
+        return output"""
+
+    def query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ):
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+            return self.dynamodb_client.query_items_by_key(
+                index_name=index_name or self.primary_index_name,
+                key_value=key_value, field_path_elements=fields_path_elements,
+                has_multiple_fields_path=True,
+                                query_limit=records_query_limit, filter_expression=filter_expression,
+                **additional_kwargs
+            )
+        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
 
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,

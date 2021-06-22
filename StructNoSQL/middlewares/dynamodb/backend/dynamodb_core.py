@@ -619,10 +619,10 @@ class DynamoDbCoreAdapter:
 
     def get_or_query_single_item(self, index_name: str, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
         if self.primary_index.hash_key_name == index_name:
-            response_item: Optional[dict] = self.get_item_by_primary_key(
+            response: Optional[GetItemResponse] = self.get_item_by_primary_key(
                 index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements
-            ).item
-            return response_item
+            )
+            return response.item if response is not None else None
         else:
             if index_name not in self._global_secondary_indexes_hash_keys:
                 print(message_with_vars(

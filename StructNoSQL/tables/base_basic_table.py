@@ -80,65 +80,34 @@ class BaseBasicTable(BaseTable):
             # If requested index is primary index
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
-                found_in_cache, field_value_from_cache = self._cache_get_data(
-                    primary_key_value=key_value, field_path_elements=field_path_elements
-                )
-                if found_in_cache is True:
-                    # A single field was requested from a primary index, which means that only one record will have been
-                    # found for the specified index (primary index values are unique). Since the query_field function needs
-                    # to return a Dict[str, Any] with keys being the primary_key_value of the record, the the item being
-                    # the request data, we need to create a dict that wrap our retrieved value as a record result.
-                    return {key_value: (
-                        field_value_from_cache if self.debug is not True else
-                        {'value': field_value_from_cache, 'fromCache': True}
-                    )}
-
                 retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, has_multiple_fields_path)
                 if retrieved_records_items_data is None:
                     return None
 
-                records_output: dict = {}
-                for record_primary_key_value in retrieved_records_items_data:
-                    records_output[record_primary_key_value] = self._process_cache_record_value(
-                        value=record_primary_key_value,
-                        primary_key_value=record_primary_key_value,
+                if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                    # Since we query the primary_index, we know for a fact that we will never be returned more than
+                    # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                    # and that we return a dict with the only one record item being the requested key_value.
+                    return {key_value: self._process_cache_record_value(
+                        value=retrieved_records_items_data[0],
+                        primary_key_value=key_value,
                         field_path_elements=field_path_elements
-                    )
-                return records_output
+                    )}
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                existing_record_data: dict = {}
+                if not len(field_path_elements) > 0:
+                    return {key_value: {}}
 
-                keys_fields_already_cached_to_pop: List[str] = []
-                for item_key, item_field_path_elements in field_path_elements.items():
-                    found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
-                        primary_key_value=key_value, field_path_elements=item_field_path_elements
-                    )
-                    if found_item_value_in_cache is True:
-                        existing_record_data[item_key] = (
-                            field_item_value_from_cache if self.debug is not True else
-                            {'value': field_item_value_from_cache, 'fromCache': True}
-                        )
-                        keys_fields_already_cached_to_pop.append(item_key)
-
-                for key_to_pop in keys_fields_already_cached_to_pop:
-                    field_path_elements.pop(key_to_pop)
-
-                if len(field_path_elements) > 0:
-                    retrieved_records_items_data: Optional[List[dict]] = middleware(field_path_elements, has_multiple_fields_path)
-                    if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
-                        # Since we query the primary_index, we know for a fact that we will never be returned more than
-                        # one record item. Hence why we do not have a loop that iterate over the records_items_data,
-                        # and that we return a dict with the only one record item being the requested key_value.
-                        return {key_value: {
-                            **existing_record_data,
-                            **self._process_cache_record_item(
-                                record_item_data=retrieved_records_items_data[0],
-                                primary_key_value=key_value,
-                                fields_path_elements=field_path_elements
-                            )
-                        }}
-                return {key_value: existing_record_data}
+                retrieved_records_items_data: Optional[List[dict]] = middleware(field_path_elements, has_multiple_fields_path)
+                if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                    # Since we query the primary_index, we know for a fact that we will never be returned more than
+                    # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                    # and that we return a dict with the only one record item being the requested key_value.
+                    return {key_value: self._process_cache_record_item(
+                        record_item_data=retrieved_records_items_data[0],
+                        primary_key_value=key_value,
+                        fields_path_elements=field_path_elements
+                    )}
 
     def _query_multiple_fields(
             self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], List[Any]],
@@ -169,8 +138,6 @@ class BaseBasicTable(BaseTable):
                         getters_database_paths.append(child_item_field_path_elements)
 
                     grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
-
-                    # _unpack_getters_response_item
 
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,

@@ -218,6 +218,8 @@ class BaseCachingTable(BaseTable):
                 return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
 
             response_data = middleware(field_path_elements, has_multiple_fields_path)
+
+            index_cached_data = self._index_cached_data(primary_key_value=key_value)
             BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
             return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
         else:
@@ -546,7 +548,6 @@ class BaseCachingTable(BaseTable):
         field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         if has_multiple_fields_path is not True:

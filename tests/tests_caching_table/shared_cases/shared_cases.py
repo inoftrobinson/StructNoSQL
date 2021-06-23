@@ -1,6 +1,6 @@
 import random
 import unittest
-from typing import List, Callable
+from typing import List, Callable, Dict, Optional
 from uuid import uuid4
 from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, FieldSetter, FieldGetter
 from StructNoSQL.middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
@@ -11,8 +11,8 @@ from tests.tests_caching_table.caching_users_table import TEST_ACCOUNT_ID, TEST_
 # todo: add an unit test that make sure that what matter with the field are the field names, not their variable names
 
 class TableModel(TableDataModel):
-    simpleValue = BaseField(name='simpleValue', field_type=int, required=False)
-    simpleValue2 = BaseField(name='simpleValue2', field_type=int, required=False)
+    simpleValue = BaseField(name='fieldOne', field_type=int, required=False)
+    simpleValue2 = BaseField(name='fieldTwo', field_type=int, required=False)
     fieldToDelete = BaseField(name='fieldToDelete', field_type=int, required=False)
     fieldToDelete2 = BaseField(name='fieldToDelete2', field_type=int, required=False)
     fieldToRemove = BaseField(name='fieldToRemove', field_type=int, required=False)
@@ -247,9 +247,11 @@ def test_set_remove_multi_selector_field_and_field_unpacking(self: unittest.Test
     self.assertEqual(removed_value.get('fieldThree', {}), {'fromCache': True, 'value': random_field_three_value})
 
     users_table.clear_cached_data_and_pending_operations()
-    removed_value = users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
-    self.assertEqual(removed_value.get('fieldOne', {}), {'fromCache': False, 'value': random_field_one_value})
-    self.assertEqual(removed_value.get('fieldThree', {}), {'fromCache': False, 'value': random_field_three_value})
+    removed_values: Optional[dict] = users_table.remove_field(key_value=TEST_ACCOUNT_ID, field_path='containerToRemove.(fieldOne, fieldThree)')
+    self.assertEqual(removed_values, {
+        'fieldOne': {'fromCache': False, 'value': random_field_one_value},
+        'fieldThree': {'fromCache': False, 'value': random_field_three_value}
+    })
 
 def test_set_delete_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
     users_table.clear_cached_data_and_pending_operations()

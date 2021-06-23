@@ -12,6 +12,7 @@ class InoftVocalEngineTableModel(QueryOperationsBaseTableModel):
 class TestInoftVocalEngineCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
+        # self.users_table = InoftVocalEngineUsersBasicTable(data_model=InoftVocalEngineTableModel)
         self.users_table = InoftVocalEngineUsersCachingTable(data_model=InoftVocalEngineTableModel)
         self.users_table.debug = True
 

@@ -1,8 +1,6 @@
-import random
 import unittest
 
 from StructNoSQL import BaseField, FieldSetter
-from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_USERNAME, TEST_ACCOUNT_ID
 from tests.tests_caching_table.test_query_operations.table_model import QueryOperationsBaseTableModel
 from tests.users_table import UsersTable
 
@@ -23,6 +21,10 @@ class TestDynamoDBCachingTable(unittest.TestCase):
     def test_set_get_fields_with_overriding_names(self):
         from tests.tests_caching_table.test_query_operations.cases_shared import test_set_get_fields_with_overriding_names
         test_set_get_fields_with_overriding_names(self, users_table=self.users_table, primary_key_name='accountId', is_caching=False)
+
+    def test_set_get_fields_with_multi_selectors(self):
+        from tests.tests_caching_table.test_query_operations.cases_shared import test_set_get_fields_with_multi_selectors
+        test_set_get_fields_with_multi_selectors(self, users_table=self.users_table, primary_key_name='accountId', is_caching=False)
 
     def test_set_get_fields_with_secondary_index(self):
         from tests.tests_caching_table.test_query_operations.cases_dynamodb import test_set_get_fields_with_secondary_index

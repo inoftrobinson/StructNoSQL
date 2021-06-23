@@ -1,6 +1,32 @@
+import string
 from typing import Callable, List, Dict, Optional, Any, Tuple
 
 from StructNoSQL.models import DatabasePathElement
+from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+
+
+def _base_unpack_getters_response_item(
+        item_mutator: Callable[[Any], Any], response_item: dict,
+        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
+        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
+) -> Dict[str, Any]:
+    output_data: Dict[str, Any] = {}
+    for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
+        retrieved_item_data = navigate_into_data_with_field_path_elements(
+            data=response_item, field_path_elements=item_field_path_elements,
+            num_keys_to_navigation_into=len(item_field_path_elements)
+        )
+        output_data[item_key] = item_mutator(retrieved_item_data)
+
+    for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
+        container_data: Dict[str, Any] = {}
+        for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
+            container_data[child_item_key] = navigate_into_data_with_field_path_elements(
+                data=response_item, field_path_elements=child_item_field_path_elements,
+                num_keys_to_navigation_into=len(child_item_field_path_elements)
+            )
+        output_data[container_key] = item_mutator(container_data)
+    return output_data
 
 
 def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Tuple[bool, Optional[str]]:
@@ -13,11 +39,39 @@ def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_eleme
 
 def _inner_query_fields_secondary_index(
         middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-        process_record_value: Callable[[Optional[Any], Any, List[DatabasePathElement]], Any],  # value: Optional[Any], primary_key_value: Any, field_path_elements: List[DatabasePathElement]
-        process_record_item: Callable[[Optional[Any], Any, Dict[str, List[DatabasePathElement]]], Any],  # record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]
+        process_record_value: Callable[[Optional[Any], Any, List[DatabasePathElement]], Any],
+        process_record_item: Callable[[Optional[Any], Any, Dict[str, List[DatabasePathElement]]], Any],
         primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
         field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool
 ) -> Optional[dict]:
+    """
+    This function will force the retrieving of the primary key of the records returned by a secondary index query operations,
+    and retrieve a dict with the primary key of each record as key.
+
+    There is four different behaviors :
+    1 - A single field is requested, and it is the primary key field. No additional field will be requested, and the retrieved
+        values for each record from the middleware function will be use both as the key and value of the output dict.
+    2 - A single field is requested, but it is not the primary key index. We will force the requesting of the primary key's of
+        the records, by constructing a dict of fields to request with both the primary index key, and the field the user is actually
+        requesting. We then force the middleware to request multiple fields, and when we receiving the response containing the records
+        items, we will use the primary key as the key's for each record, and the client requested values as value.
+    3 - Multiple fields are requested, and the primary key field is one of the requested field. We will get the client key of the getter that
+        is tasked to retrieved the primary key field, and once we receive the records items, we can use the value found at the primary key
+        getter, as the key's for the output dict.
+    4 - Multiple fields are requested, and the primary key is not requested. Similarly to the second case, we will force the retrieval of the
+        primary key field. But this time, we add the primary key field getter to the existing field to retrieve, by using the '__PRIMARY_KEY__'
+        key_name. If the key_name is already being used by the client, we will randomly add characters to the key_name, until we find a free to
+        use key_name. Then, the primary key's will be popped from the response items of each records and be used as the keys of the output dict.
+
+    :param middleware:
+    :param process_record_value: Callable[[value: Optional[Any], primary_key_value: Any, field_path_elements: List[DatabasePathElement]], Any]
+    :param process_record_item: Callable[[record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]], Any]
+    :param primary_index_name: str
+    :param get_primary_key_database_path: Callable[[], List[DatabasePathElement]]
+    :param field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]]
+    :param has_multiple_fields_path: bool
+    :return: Optional[dict]
+    """
     if has_multiple_fields_path is not True:
         field_path_elements: List[DatabasePathElement]
         if field_path_elements[0].element_key == primary_index_name:
@@ -67,14 +121,23 @@ def _inner_query_fields_secondary_index(
                     )
             return records_output
         else:
-            super_fields_path_elements = {**field_path_elements, '__PRIMARY_KEY__': get_primary_key_database_path()}
+            free_to_use_getter_key_name: str = '__PRIMARY_KEY__'
+            while True:
+                # If the key_name is already being used by the client, we will randomly
+                # add characters to the key_name, until we find a free to use key_name.
+                if free_to_use_getter_key_name not in field_path_elements:
+                    break
+                import random
+                free_to_use_getter_key_name += random.choice(string.ascii_letters)
+
+            super_fields_path_elements = {**field_path_elements, free_to_use_getter_key_name: get_primary_key_database_path()}
             retrieved_records_items_data: Optional[List[dict]] = middleware(super_fields_path_elements, True)
             if retrieved_records_items_data is None:
                 return None
 
             records_output: dict = {}
             for record_item_data in retrieved_records_items_data:
-                record_primary_key_value: Optional[Any] = record_item_data.pop('__PRIMARY_KEY__', None)
+                record_primary_key_value: Optional[Any] = record_item_data.pop(free_to_use_getter_key_name, None)
                 if record_primary_key_value is not None:
                     records_output[record_primary_key_value] = process_record_item(
                         record_item_data, record_primary_key_value, field_path_elements

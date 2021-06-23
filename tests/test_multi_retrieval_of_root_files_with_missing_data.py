@@ -39,7 +39,7 @@ class TestMultiRetrievalOfRootFilesWithMissingData(unittest.TestCase):
             }
         )
 
-        field_one_random_value = f"fieldOne_{uuid4()}"
+        field_one_random_value = f"field1_{uuid4()}"
         field_one_update_success: bool = self.users_table.update_field(
             key_value=TEST_ACCOUNT_ID, field_path='rootFieldOne', value_to_set=field_one_random_value
         )

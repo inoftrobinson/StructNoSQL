@@ -39,10 +39,12 @@ class BaseBasicTable(BaseTable):
         )
         return middleware(field_path_elements, has_multiple_fields_path)
 
-    def _process_cache_record_value(self, value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
+    @staticmethod
+    def _process_cache_record_value(value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
         return value
 
-    def _process_cache_record_item(self, record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> dict:
+    @staticmethod
+    def _process_cache_record_item(record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> dict:
         return {item_key: record_item_data.get(item_key, None) for item_key in fields_path_elements.keys()}
 
     def inner_query_fields_secondary_index(
@@ -138,6 +140,46 @@ class BaseBasicTable(BaseTable):
                         }}
                 return {key_value: existing_record_data}
 
+    def _query_multiple_fields(
+            self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], List[Any]],
+            key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None
+    ):
+        if index_name is not None and index_name != self.primary_index_name:
+            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+            grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+
+            getters_database_paths: List[List[DatabasePathElement]] = []
+            getters_database_paths_dict: Dict[str, List[DatabasePathElement]] = {}
+            for getter_key, getter_item in getters.items():
+                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                    field_path=getter_item.field_path, fields_switch=self.fields_switch,
+                    query_kwargs=getter_item.query_kwargs
+                )
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    single_getters_database_paths_elements[getter_key] = field_path_elements
+                    getters_database_paths.append(field_path_elements)
+                    getters_database_paths_dict[getter_key] = field_path_elements
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+
+                    for child_item_key, child_item_field_path_elements in field_path_elements.items():
+                        current_getter_grouped_database_paths_elements[child_item_key] = child_item_field_path_elements
+                        getters_database_paths.append(child_item_field_path_elements)
+
+                    grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
+
+                    # _unpack_getters_response_item
+
+            return self.inner_query_fields_secondary_index(
+                middleware=middleware,
+                field_path_elements=getters_database_paths_dict,
+                has_multiple_fields_path=True
+            )
+        else:
+            raise Exception("Primary index query_multiple_fields not yet implemented")
+
     def _prepare_getters(self, getters: Dict[str, FieldGetter]) -> Tuple[
         List[List[DatabasePathElement]],
         Dict[str, List[DatabasePathElement]],
@@ -162,28 +204,21 @@ class BaseBasicTable(BaseTable):
 
         return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements
 
+    @staticmethod
     def _unpack_getters_response_item(
-            self, response_item: dict,
+            response_item: dict,
             single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
             grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
-    ) -> Dict[str, Any]:
-        output_data: Dict[str, Any] = {}
-        for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
-            retrieved_item_data = navigate_into_data_with_field_path_elements(
-                data=response_item, field_path_elements=item_field_path_elements,
-                num_keys_to_navigation_into=len(item_field_path_elements)
-            )
-            output_data[item_key] = retrieved_item_data
+    ):
+        def item_mutator(item: Any):
+            return item
 
-        for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
-            container_data: Dict[str, Any] = {}
-            for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                container_data[child_item_key] = navigate_into_data_with_field_path_elements(
-                    data=response_item, field_path_elements=child_item_field_path_elements,
-                    num_keys_to_navigation_into=len(child_item_field_path_elements)
-                )
-            output_data[container_key] = container_data
-        return output_data
+        from StructNoSQL.tables.shared_table_behaviors import _base_unpack_getters_response_item
+        return _base_unpack_getters_response_item(
+            item_mutator=item_mutator, response_item=response_item,
+            single_getters_database_paths_elements=single_getters_database_paths_elements,
+            grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+        )
 
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], getters: Dict[str, FieldGetter]
@@ -341,23 +376,11 @@ class BaseBasicTable(BaseTable):
             if response_attributes is None:
                 return None
 
-            output_data: Dict[str, Any] = {}
-            for item_key, item_field_path_elements in removers_field_paths_elements.items():
-                removed_item_data = navigate_into_data_with_field_path_elements(
-                    data=response_attributes, field_path_elements=item_field_path_elements,
-                    num_keys_to_navigation_into=len(item_field_path_elements)
-                )
-                output_data[item_key] = removed_item_data
-
-            for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
-                container_data: Dict[str, Any] = {}
-                for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                    container_data[child_item_key] = navigate_into_data_with_field_path_elements(
-                        data=response_attributes, field_path_elements=child_item_field_path_elements,
-                        num_keys_to_navigation_into=len(child_item_field_path_elements)
-                    )
-                output_data[container_key] = container_data
-            return output_data
+            return self._unpack_getters_response_item(
+                response_item=response_attributes,
+                single_getters_database_paths_elements=removers_field_paths_elements,
+                grouped_getters_database_paths_elements=grouped_removers_field_paths_elements
+            )
 
     def _grouped_delete_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: List[FieldRemover],

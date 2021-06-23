@@ -408,6 +408,21 @@ class BaseCachingTable(BaseTable):
         else:
             raise Exception("Primary index query_multiple_fields not yet implemented")
 
+    def _unpack_getters_response_item(
+            self, response_item: dict,
+            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
+            grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
+    ):
+        def item_mutator(item: Any):
+            return item if self.debug is not True else {'value': item, 'fromCache': False}
+
+        from StructNoSQL.tables.shared_table_behaviors import _base_unpack_getters_response_item
+        return _base_unpack_getters_response_item(
+            item_mutator=item_mutator, response_item=response_item,
+            single_getters_database_paths_elements=single_getters_database_paths_elements,
+            grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+        )
+
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
             key_value: str, getters: Dict[str, FieldGetter]
@@ -461,23 +476,11 @@ class BaseCachingTable(BaseTable):
         if response_data is None:
             return None
 
-        for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
-            item_data = navigate_into_data_with_field_path_elements(
-                data=response_data, field_path_elements=item_field_path_elements,
-                num_keys_to_navigation_into=len(item_field_path_elements)
-            )
-            output_data[item_key] = item_data if self.debug is not True else {'value': item_data, 'fromCache': False}
-
-        for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
-            container_data: Dict[str, Any] = {}
-            for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                child_item_value = navigate_into_data_with_field_path_elements(
-                    data=response_data, field_path_elements=child_item_field_path_elements,
-                    num_keys_to_navigation_into=len(child_item_field_path_elements)
-                )
-                container_data[child_item_key] = child_item_value if self.debug is not True else {'value': child_item_value, 'fromCache': False}
-            output_data[container_key] = container_data if container_key not in output_data else {**container_data, **output_data[container_key]}
-        return output_data
+        return self._unpack_getters_response_item(
+            response_item=response_data,
+            single_getters_database_paths_elements=single_getters_database_paths_elements,
+            grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+        )
 
     def _update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -697,24 +700,12 @@ class BaseCachingTable(BaseTable):
             response_attributes = middleware(removers_database_paths)
             if response_attributes is None:
                 return None
-            else:
-                output_data: Dict[str, Any] = {}
-                for item_key, item_field_path_elements in removers_field_paths_elements.items():
-                    removed_item_data = navigate_into_data_with_field_path_elements(
-                        data=response_attributes, field_path_elements=item_field_path_elements,
-                        num_keys_to_navigation_into=len(item_field_path_elements)
-                    )
-                    output_data[item_key] = removed_item_data
 
-                for container_key, container_items_field_path_elements in grouped_removers_field_paths_elements.items():
-                    container_data: Dict[str, Any] = {}
-                    for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
-                        container_data[child_item_key] = navigate_into_data_with_field_path_elements(
-                            data=response_attributes, field_path_elements=child_item_field_path_elements,
-                            num_keys_to_navigation_into=len(child_item_field_path_elements)
-                        )
-                    output_data[container_key] = container_data
-                return output_data
+            return self._unpack_getters_response_item(
+                response_item=response_attributes,
+                single_getters_database_paths_elements=removers_field_paths_elements,
+                grouped_getters_database_paths_elements=grouped_removers_field_paths_elements
+            )
 
     def _grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover]) -> bool:
         index_cached_data = self._index_cached_data(primary_key_value=key_value)

@@ -116,21 +116,20 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
-    ):
+    ) -> Optional[Dict[str, dict]]:
         def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
             return self.dynamodb_client.query_items_by_key(
-                index_name=index_name or self.primary_index_name,
+                index_name=index_name or self.primary_index_name, has_multiple_fields_path=True,
                 key_value=key_value, field_path_elements=fields_path_elements,
-                has_multiple_fields_path=True,
-                                query_limit=records_query_limit, filter_expression=filter_expression,
+                query_limit=records_query_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
-        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
+        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters, index_name=index_name)
 
-    def query_multiple_fields(
+    def lightweight_query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[List[dict]]:
 
         getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
         response = self.dynamodb_client.query_response_by_key(
@@ -142,48 +141,17 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         if response is None:
             return None
 
-        output: List[Dict[str, Any]] = []
-        for record_item_data in response.items:
-            if isinstance(record_item_data, dict):
-                output.append(self._unpack_getters_response_item(
-                    response_item=record_item_data,
-                    single_getters_database_paths_elements=single_getters_database_paths_elements,
-                    grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
-                ))
-                # todo: add data validation
-        return output
-
-        """fields_paths_objects = process_and_get_fields_paths_objects_from_fields_paths(
-            fields_paths=fields_paths, fields_switch=self.fields_switch
-        )
-        query_field_path_elements: List[List[DatabasePathElement]] = []
-        for field_path in fields_paths:
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
+        output: List[Dict[str, Any]] = [
+            self._unpack_getters_response_item(
+                response_item=record_item_data,
+                single_getters_database_paths_elements=single_getters_database_paths_elements,
+                grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
             )
-            query_field_path_elements.append(field_path_elements)
-
-        response = self.dynamodb_client.query_response_by_key(
-            index_name=index_name or self.primary_index_name,
-            index_name=key_name, key_value=key_value,
-            fields_path_elements=query_field_path_elements,
-            query_limit=limit, filter_expression=filter_expression, 
-            **additional_kwargs
-        )
-        if response is not None:
-            for current_item in response.items:
-                if isinstance(current_item, dict):
-                    for current_item_key, current_item_value in current_item.items():
-                        matching_field_path_object = fields_paths_objects.get(current_item_key, None)
-                        if matching_field_path_object is not None:
-                            if matching_field_path_object.database_path is not None:
-                                matching_field_path_object.populate(value=current_item_value)
-                                current_item[current_item_key], valid = matching_field_path_object.validate_data()
-                                # todo: remove this non centralized response validation system
-            return response.items
-        else:
-            return None
-        """
+            # todo: add data validation
+            for record_item_data in response.items
+            if isinstance(record_item_data, dict)
+        ]
+        return output
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):

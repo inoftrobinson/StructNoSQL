@@ -18,11 +18,11 @@ class TestDynamoDBCachingTable(unittest.TestCase):
 
     def test_set_get_fields_with_primary_index(self):
         from tests.tests_caching_table.test_query_operations.cases_shared import test_set_get_fields_with_primary_index
-        test_set_get_fields_with_primary_index(self, users_table=self.users_table, primary_key_name='accountId')
+        test_set_get_fields_with_primary_index(self, users_table=self.users_table, primary_key_name='accountId', is_caching=True)
 
     def test_set_get_fields_with_overriding_names(self):
         from tests.tests_caching_table.test_query_operations.cases_shared import test_set_get_fields_with_overriding_names
-        test_set_get_fields_with_overriding_names(self, users_table=self.users_table, primary_key_name='accountId')
+        test_set_get_fields_with_overriding_names(self, users_table=self.users_table, primary_key_name='accountId', is_caching=True)
 
     def test_set_get_fields_with_secondary_index(self):
         from tests.tests_caching_table.test_query_operations.cases_dynamodb import test_set_get_fields_with_secondary_index

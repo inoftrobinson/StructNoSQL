@@ -1,3 +1,4 @@
+import random
 import unittest
 from typing import Optional, Dict
 
@@ -18,25 +19,24 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
         self.users_table = UsersTable(data_model=TableModel())
 
     def test_initialize_new_nested_object(self):
+        field_random_value: int = random.randint(0, 100)
         project_id = "testFieldInitializationNewProjectId"
         query_kwargs = {'nestedObjectId': project_id}
 
-        set_success = self.users_table.update_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
+        set_success: bool = self.users_table.update_field(
+            key_value=TEST_ACCOUNT_ID,
             field_path='nestedObject.{{nestedObjectId}}.value',
-            query_kwargs=query_kwargs, value_to_set=42
+            query_kwargs=query_kwargs, value_to_set=field_random_value
         )
         self.assertTrue(set_success)
 
-        retrieved_value = self.users_table.get_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
-            field_path='nestedObject.{{nestedObjectId}}.value',
-            query_kwargs=query_kwargs
+        retrieved_value: Optional[int] = self.users_table.get_field(
+            key_value=TEST_ACCOUNT_ID, field_path='nestedObject.{{nestedObjectId}}.value', query_kwargs=query_kwargs
         )
-        self.assertEqual(retrieved_value, 42)
+        self.assertEqual(retrieved_value, field_random_value)
 
-        deletion_success = self.users_table.delete_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
+        deletion_success: bool = self.users_table.delete_field(
+            key_value=TEST_ACCOUNT_ID,
             field_path='nestedObject.{{nestedObjectId}}',
             query_kwargs=query_kwargs
         )

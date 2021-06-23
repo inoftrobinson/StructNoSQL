@@ -43,7 +43,7 @@ class TestTableOperations(unittest.TestCase):
         self.assertTrue(success_put)"""
 
         success_update = self.users_table.update_field(
-            index_name='accountId', key_value='staticId',
+            key_value='staticId',
             field_path='properties.{{propertyKey}}.childProperties.{{childPropertyKey0}}.childProperties.{{childPropertyKey1}}.name',
             value_to_set="theGreatCode", query_kwargs={
                 'propertyKey': 'staticPropertyKey',

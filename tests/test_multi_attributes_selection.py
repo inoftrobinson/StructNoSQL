@@ -37,29 +37,29 @@ class TestDatabaseFieldsInitialization(unittest.TestCase):
         }
         query_kwargs = {'itemKey': randomized_item_key}
 
-        set_success = self.users_table.update_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
+        set_success: bool = self.users_table.update_field(
+            key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}',
             query_kwargs=query_kwargs, value_to_set=randomized_item
         )
         self.assertTrue(set_success)
 
         retrieved_values: dict = self.users_table.get_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
+            key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}.(name, value)',
             query_kwargs=query_kwargs
         )
         self.assertEqual(retrieved_values.get('name'), random_name)
         self.assertEqual(retrieved_values.get('value'), random_value)
 
-        retrieved_values: dict = self.users_table.get_multiple_fields(index_name='accountId', key_value=TEST_ACCOUNT_ID, getters={
+        retrieved_values: dict = self.users_table.get_multiple_fields(key_value=TEST_ACCOUNT_ID, getters={
             'one': FieldGetter(field_path='multiAttributesContainer.{{itemKey}}.(name, value)', query_kwargs=query_kwargs)
         })
         self.assertEqual(retrieved_values['one'].get('name', None), random_name)
         self.assertEqual(retrieved_values['one'].get('value', None), random_value)
 
-        deletion_success = self.users_table.delete_field(
-            index_name='accountId', key_value=TEST_ACCOUNT_ID,
+        deletion_success: bool = self.users_table.delete_field(
+            key_value=TEST_ACCOUNT_ID,
             field_path='multiAttributesContainer.{{itemKey}}',
             query_kwargs=query_kwargs
         )

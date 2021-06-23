@@ -1,12 +1,7 @@
 import unittest
 
-from StructNoSQL import BaseField
-from tests.tests_caching_table.caching_users_table import InoftVocalEngineUsersCachingTable
-from tests.tests_query_operations.table_model import QueryOperationsBaseTableModel
-
-
-class InoftVocalEngineTableModel(QueryOperationsBaseTableModel):
-    accountProjectUserId = BaseField(name='accountProjectUserId', field_type=str, required=True)
+from tests.tests_caching_table.table_models import InoftVocalEngineUsersCachingTable
+from tests.tests_query_operations.table_models import InoftVocalEngineTableModel
 
 
 class TestInoftVocalEngineCachingTable(unittest.TestCase):

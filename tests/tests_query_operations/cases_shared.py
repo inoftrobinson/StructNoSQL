@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable, DynamoDBBasicTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
-from tests.tests_caching_table.caching_users_table import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
+from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
 
 def test_set_get_fields_with_primary_index(

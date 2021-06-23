@@ -2,27 +2,13 @@ import random
 import unittest
 from typing import List, Callable, Dict, Optional
 from uuid import uuid4
-from StructNoSQL import TableDataModel, BaseField, FieldRemover, MapModel, FieldSetter, FieldGetter
+from StructNoSQL import FieldRemover, FieldSetter, FieldGetter
 from StructNoSQL.middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_caching_table import InoftVocalEngineCachingTable
-from tests.tests_caching_table.caching_users_table import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
+from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
 
 # todo: add an unit test that make sure that what matter with the field are the field names, not their variable names
-
-class TableModel(TableDataModel):
-    simpleValue = BaseField(name='fieldOne', field_type=int, required=False)
-    simpleValue2 = BaseField(name='fieldTwo', field_type=int, required=False)
-    fieldToDelete = BaseField(name='fieldToDelete', field_type=int, required=False)
-    fieldToDelete2 = BaseField(name='fieldToDelete2', field_type=int, required=False)
-    fieldToRemove = BaseField(name='fieldToRemove', field_type=int, required=False)
-    fieldToRemove2 = BaseField(name='fieldToRemove2', field_type=int, required=False)
-    class ContainerToRemoveModel(MapModel):
-        fieldOne = BaseField(name='fieldOne', field_type=str, required=False)
-        fieldTwo = BaseField(name='fieldTwo', field_type=str, required=False)
-        fieldThree = BaseField(name='fieldThree', field_type=str, required=False)
-    containerToRemove = BaseField(name='containerToRemove', field_type=ContainerToRemoveModel, required=False)
-    containersListToRemove = BaseField(name='containersListToRemove', field_type=List[ContainerToRemoveModel], key_name='listIndex')
 
 
 def test_simple_get_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
@@ -93,10 +79,12 @@ def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self: unitte
     self.assertEqual({'fromCache': False, 'value': random_field_one_value}, second_retrieved_first_value)
 
     # With get_multiple_fields function
-    get_multiple_fields_response_data = users_table.get_multiple_fields(key_value=TEST_ACCOUNT_ID, getters={
-        'one': FieldGetter(field_path='simpleValue'),
-        'two': FieldGetter(field_path='simpleValue2')
-    })
+    get_multiple_fields_response_data = users_table.get_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='simpleValue'),
+            'two': FieldGetter(field_path='simpleValue2')
+        }
+    )
     self.assertEqual(get_multiple_fields_response_data.get('one', None), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(get_multiple_fields_response_data.get('two', None), {'value': random_field_two_value, 'fromCache': False})
 

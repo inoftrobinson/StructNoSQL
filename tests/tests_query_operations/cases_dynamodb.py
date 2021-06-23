@@ -3,7 +3,7 @@ from typing import Dict, Any
 from uuid import uuid4
 
 from StructNoSQL import FieldSetter, DynamoDBCachingTable, DynamoDBBasicTable, FieldGetter
-from tests.users_table import TEST_ACCOUNT_USERNAME, TEST_ACCOUNT_ID
+from tests.components.playground_table_clients import TEST_ACCOUNT_USERNAME, TEST_ACCOUNT_ID
 
 
 def test_set_get_fields_with_secondary_index(self: unittest.TestCase, users_table: DynamoDBBasicTable or DynamoDBCachingTable, is_caching: bool):

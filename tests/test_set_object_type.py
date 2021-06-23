@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, TableDataModel
 from StructNoSQL.exceptions import UsageOfUntypedSetException
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -16,14 +16,14 @@ class TableModel(TableDataModel):
 class TestsSetObjectType(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_crash_on_untyped_set(self):
         def init_table():
             class TableModel:
                 accountId = BaseField(name='accountId', field_type=str, required=True)
                 untypedSet = BaseField(name='untypedSet', field_type=set, key_name='setKey', required=False)
-            users_table = UsersTable(data_model=TableModel())
+            users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel())
         self.assertRaises(UsageOfUntypedSetException, init_table)
 
     def test_set_retrieve_individual_typed_set_item(self):

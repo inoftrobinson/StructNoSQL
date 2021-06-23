@@ -1,10 +1,9 @@
-import random
 import unittest
 from typing import Dict
 from uuid import uuid4
 
 from StructNoSQL import FieldGetter, FieldSetter, BaseField, MapModel, TableDataModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, TEST_ACCOUNT_EMAIL, TEST_ACCOUNT_USERNAME
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -36,7 +35,7 @@ class TestRequestFailsOnFieldsInitializationButRequireExistingFieldsToBeUpdateD(
 
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_with_string_value_as_target(self):
         random_id = str(uuid4())

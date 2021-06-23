@@ -3,7 +3,7 @@ from typing import Optional, Dict
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel:
@@ -16,7 +16,7 @@ class TableModel:
 class TestFieldKeyWithSpecialChars(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_field_key_with_points(self):
         random_item_id = f".pointBefore.{str(uuid4())}.pointAfter."

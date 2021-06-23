@@ -2,7 +2,7 @@ import unittest
 from typing import Dict
 
 from StructNoSQL import TableDataModel, BaseField, MapModel, FieldSetter, FieldRemover, FieldGetter
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -15,7 +15,7 @@ class TableModel(TableDataModel):
 class InitializeFieldsWithSharedParents(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_initialize_two_items_with_share_parents(self):
         base_field_path = 'containerForItemsWithSharedParents.{{itemId}}'

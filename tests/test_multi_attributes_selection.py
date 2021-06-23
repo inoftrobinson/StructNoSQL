@@ -4,7 +4,7 @@ from typing import Optional, Dict
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, FieldGetter
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel:
@@ -19,7 +19,7 @@ class TableModel:
 class TestDatabaseFieldsInitialization(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_retrieve_multiple_attributes_from_single_object(self):
         """

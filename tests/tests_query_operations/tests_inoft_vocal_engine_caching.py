@@ -1,18 +1,13 @@
 import unittest
 
-from StructNoSQL import BaseField
-from tests.tests_caching_table.caching_users_table import InoftVocalEngineUsersCachingTable
-from tests.tests_query_operations.table_model import QueryOperationsBaseTableModel
-
-
-class InoftVocalEngineTableModel(QueryOperationsBaseTableModel):
-    accountProjectUserId = BaseField(name='accountProjectUserId', field_type=str, required=True)
+from tests.components.playground_table_clients import PlaygroundInoftVocalEngineCachingTable
+from tests.tests_caching_table.tests_inoft_vocal_engine_caching import InoftVocalEngineTableModel
 
 
 class TestInoftVocalEngineCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = InoftVocalEngineUsersCachingTable(data_model=InoftVocalEngineTableModel)
+        self.users_table = PlaygroundInoftVocalEngineCachingTable(data_model=InoftVocalEngineTableModel)
         self.users_table.debug = True
 
         self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectUserId', 'is_caching': True}

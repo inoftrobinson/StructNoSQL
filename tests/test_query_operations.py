@@ -3,8 +3,7 @@ from typing import List, Optional, Dict
 from uuid import uuid4
 
 from StructNoSQL import FieldGetter, FieldSetter, FieldRemover, BaseField, MapModel, TableDataModel
-from StructNoSQL.exceptions import FieldTargetNotFoundException
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID, TEST_ACCOUNT_EMAIL, TEST_ACCOUNT_USERNAME
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -19,7 +18,7 @@ class TableModel(TableDataModel):
 class TestRemoveFieldOperations(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_delete_basic_item_from_path_target(self):
         random_value = f"fieldToRemove_{uuid4()}"
@@ -31,18 +30,18 @@ class TestRemoveFieldOperations(unittest.TestCase):
         )
         self.assertTrue(success_field_set)
 
-        retrieved_field: List[dict] = self.users_table.query_field(
+        retrieved_field: Dict[str, dict] = self.users_table.query_field(
             key_value=TEST_ACCOUNT_ID,
             field_path='fieldToRemove',
         )
-        self.assertEqual(retrieved_field, [random_value])
+        self.assertEqual(retrieved_field, {TEST_ACCOUNT_ID: random_value})
 
-        retrieved_fields: List[dict] = self.users_table.query_multiple_fields(
+        retrieved_fields: Dict[str, dict] = self.users_table.query_multiple_fields(
             key_value=TEST_ACCOUNT_ID, getters={
                 'fieldToRemove': FieldGetter(field_path='fieldToRemove')
             }
         )
-        self.assertEqual(retrieved_fields, [{'fieldToRemove': random_value}])
+        self.assertEqual(retrieved_fields, {TEST_ACCOUNT_ID: {'fieldToRemove': random_value}})
 
         """success_field_remove = self.users_table.delete_field(
             key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove'

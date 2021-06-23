@@ -1,18 +1,13 @@
 import unittest
 
-from StructNoSQL import BaseField, FieldSetter
-from tests.tests_caching_table.caching_users_table import CachingUsersTable, TEST_ACCOUNT_USERNAME, TEST_ACCOUNT_ID
-from tests.tests_query_operations.table_model import QueryOperationsBaseTableModel
-
-
-class DynamoDBTableModel(QueryOperationsBaseTableModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+from tests.components.playground_table_clients import PlaygroundDynamoDBCachingTable
+from tests.tests_query_operations.table_models import DynamoDBTableModel
 
 
 class TestDynamoDBCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = CachingUsersTable(data_model=DynamoDBTableModel)
+        self.users_table = PlaygroundDynamoDBCachingTable(data_model=DynamoDBTableModel)
         self.users_table.debug = True
 
         self.DYNAMODB_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'is_caching': True}

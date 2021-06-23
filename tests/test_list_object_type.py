@@ -3,7 +3,7 @@ from typing import Optional, Dict, Set, List, Any
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, TableDataModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -16,7 +16,7 @@ class TableModel(TableDataModel):
 class TestListObjectType(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_untyped_list(self):
         random_list_values: List[Any] = list(str(uuid4()) for i in range(5))

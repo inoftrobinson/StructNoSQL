@@ -2,7 +2,7 @@ import unittest
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, NoneType
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel:
@@ -15,7 +15,7 @@ class TableModel:
 class TestFieldsWithMultipleTypes(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel)
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_required_model_allowing_none(self):
         random_value_one: str = str(uuid4())

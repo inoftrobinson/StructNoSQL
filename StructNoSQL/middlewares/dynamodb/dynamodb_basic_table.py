@@ -6,6 +6,7 @@ from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, Un
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
+from StructNoSQL.tables.shared_table_behaviors import _prepare_getters
 
 
 class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
@@ -131,7 +132,9 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
     ) -> Optional[List[dict]]:
 
-        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
+        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
+            _prepare_getters(fields_switch=self.fields_switch, getters=getters)
+        )
         response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name, key_value=key_value,
             fields_path_elements=getters_database_paths,

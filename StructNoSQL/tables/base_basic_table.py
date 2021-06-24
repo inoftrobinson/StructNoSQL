@@ -4,6 +4,7 @@ from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
+from StructNoSQL.tables.shared_table_behaviors import _prepare_getters
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path
@@ -110,66 +111,26 @@ class BaseBasicTable(BaseTable):
                     )}
 
     def _query_multiple_fields(
-            self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], List[Any]],
+            self, middleware: Callable[[Dict[str, List[DatabasePathElement]], bool], List[Any]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None
     ):
-        if index_name is not None and index_name != self.primary_index_name:
-            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-            grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
+            _prepare_getters(fields_switch=self.fields_switch, getters=getters)
+        )
+        if len(grouped_getters_database_paths_elements) > 0:
+            raise Exception(f"grouped_getters_database_paths_elements not yet supported")
 
-            getters_database_paths: List[List[DatabasePathElement]] = []
-            getters_database_paths_dict: Dict[str, List[DatabasePathElement]] = {}
-            for getter_key, getter_item in getters.items():
-                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                    field_path=getter_item.field_path, fields_switch=self.fields_switch,
-                    query_kwargs=getter_item.query_kwargs
-                )
-                if has_multiple_fields_path is not True:
-                    field_path_elements: List[DatabasePathElement]
-                    single_getters_database_paths_elements[getter_key] = field_path_elements
-                    getters_database_paths.append(field_path_elements)
-                    getters_database_paths_dict[getter_key] = field_path_elements
-                else:
-                    field_path_elements: Dict[str, List[DatabasePathElement]]
-                    current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-
-                    for child_item_key, child_item_field_path_elements in field_path_elements.items():
-                        current_getter_grouped_database_paths_elements[child_item_key] = child_item_field_path_elements
-                        getters_database_paths.append(child_item_field_path_elements)
-
-                    grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
-
+        if index_name is None or index_name == self.primary_index_name:
+            retrieved_records_items_data: Optional[List[Any]] = middleware(single_getters_database_paths_elements, True)
+            if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                return {key_value: retrieved_records_items_data[0]}
+            return None
+        else:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
-                field_path_elements=getters_database_paths_dict,
+                field_path_elements=single_getters_database_paths_elements,
                 has_multiple_fields_path=True
             )
-        else:
-            raise Exception("Primary index query_multiple_fields not yet implemented")
-
-    def _prepare_getters(self, getters: Dict[str, FieldGetter]) -> Tuple[
-        List[List[DatabasePathElement]],
-        Dict[str, List[DatabasePathElement]],
-        Dict[str, Dict[str, List[DatabasePathElement]]]
-    ]:
-        getters_database_paths: List[List[DatabasePathElement]] = []
-        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
-
-        for getter_key, getter_item in getters.items():
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
-            )
-            if has_multiple_fields_path is not True:
-                getter_field_path_elements: List[DatabasePathElement]
-                single_getters_database_paths_elements[getter_key] = field_path_elements
-                getters_database_paths.append(field_path_elements)
-            else:
-                getter_field_path_elements: Dict[str, List[DatabasePathElement]]
-                grouped_getters_database_paths_elements[getter_key] = field_path_elements
-                getters_database_paths.extend(field_path_elements.values())
-
-        return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements
 
     @staticmethod
     def _unpack_getters_response_item(
@@ -191,8 +152,9 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], getters: Dict[str, FieldGetter]
     ) -> Optional[dict]:
 
-        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = self._prepare_getters(getters=getters)
-
+        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
+            _prepare_getters(fields_switch=self.fields_switch, getters=getters)
+        )
         response_data = middleware(getters_database_paths)
         if response_data is None:
             return None

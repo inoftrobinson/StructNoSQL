@@ -70,13 +70,13 @@ def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self: unitte
 
     # With get_field function and multi selector
     get_field_response_data = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(simpleValue, simpleValue2)')
-    self.assertEqual({'value': random_field_one_value, 'fromCache': True}, get_field_response_data.get('simpleValue', None))
-    self.assertEqual({'value': random_field_two_value, 'fromCache': False}, get_field_response_data.get('simpleValue2', None))
+    self.assertEqual(get_field_response_data.get('simpleValue', None), {'value': random_field_one_value, 'fromCache': True})
+    self.assertEqual(get_field_response_data.get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': False})
 
     users_table.clear_cached_data_and_pending_operations()
     # Caching the simpleValue field
     second_retrieved_first_value = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
-    self.assertEqual({'fromCache': False, 'value': random_field_one_value}, second_retrieved_first_value)
+    self.assertEqual(second_retrieved_first_value, {'fromCache': False, 'value': random_field_one_value})
 
     # With get_multiple_fields function
     get_multiple_fields_response_data = users_table.get_multiple_fields(

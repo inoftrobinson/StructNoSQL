@@ -1,8 +1,10 @@
 import string
 from typing import Callable, List, Dict, Optional, Any, Tuple
 
-from StructNoSQL.models import DatabasePathElement
+from StructNoSQL.models import DatabasePathElement, FieldGetter
+from StructNoSQL.tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 
 
 def _base_unpack_getters_response_item(
@@ -143,3 +145,28 @@ def _inner_query_fields_secondary_index(
                         record_item_data, record_primary_key_value, field_path_elements
                     )
             return records_output
+
+
+def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter]) -> Tuple[
+    List[List[DatabasePathElement]],
+    Dict[str, List[DatabasePathElement]],
+    Dict[str, Dict[str, List[DatabasePathElement]]]
+]:
+    getters_database_paths: List[List[DatabasePathElement]] = []
+    single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+    grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+
+    for getter_key, getter_item in getters.items():
+        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path=getter_item.field_path, fields_switch=fields_switch, query_kwargs=getter_item.query_kwargs
+        )
+        if has_multiple_fields_path is not True:
+            getter_field_path_elements: List[DatabasePathElement]
+            single_getters_database_paths_elements[getter_key] = field_path_elements
+            getters_database_paths.append(field_path_elements)
+        else:
+            getter_field_path_elements: Dict[str, List[DatabasePathElement]]
+            grouped_getters_database_paths_elements[getter_key] = field_path_elements
+            getters_database_paths.extend(field_path_elements.values())
+
+    return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements

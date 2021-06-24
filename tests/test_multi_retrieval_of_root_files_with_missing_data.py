@@ -3,7 +3,7 @@ from typing import Optional, Dict
 from uuid import uuid4
 
 from StructNoSQL import BaseField, FieldRemover
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel:
@@ -29,7 +29,7 @@ class TestMultiRetrievalOfRootFilesWithMissingData(unittest.TestCase):
 
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel)
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_with_two_root_fields(self):
         deletions_successes: Dict[str, bool] = self.users_table.delete_multiple_fields(
@@ -39,7 +39,7 @@ class TestMultiRetrievalOfRootFilesWithMissingData(unittest.TestCase):
             }
         )
 
-        field_one_random_value = f"fieldOne_{uuid4()}"
+        field_one_random_value = f"field1_{uuid4()}"
         field_one_update_success: bool = self.users_table.update_field(
             key_value=TEST_ACCOUNT_ID, field_path='rootFieldOne', value_to_set=field_one_random_value
         )

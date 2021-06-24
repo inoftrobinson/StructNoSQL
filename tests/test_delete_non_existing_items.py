@@ -2,7 +2,7 @@ import unittest
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, TableDataModel, FieldSetter
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -14,7 +14,7 @@ class TableModel(TableDataModel):
 class TestDeleteNonExistingItems(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_delete_nested(self):
         success_delete_item_one = self.users_table.delete_field(key_value=TEST_ACCOUNT_ID, field_path='fieldsToDeleteContainer.existingItemOneToDelete')

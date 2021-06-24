@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict
 from copy import copy
 
+from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldRemover
 from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
@@ -27,7 +28,7 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(self, data_model):
+    def __init__(self, data_model, primary_index: PrimaryIndex):
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 
@@ -36,6 +37,8 @@ class BaseTable:
         else:
             self._model = data_model()
         self._model_virtual_map_field = None
+
+        self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
 
         self.processed_class_types: Set[type] = set()
         Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
@@ -58,6 +61,10 @@ class BaseTable:
     def internal_mapping(self) -> dict:
         return self._internal_mapping
 
+    @property
+    def primary_index_name(self) -> str:
+        return self._primary_index_name
+
     @staticmethod
     def _async_field_removers_executor(task_executor: Callable[[FieldRemover], Any], removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
         # This function is used both to run delete_field and remove_field operations asynchronously
@@ -65,6 +72,14 @@ class BaseTable:
             return {}
         with ThreadPoolExecutor(max_workers=len(removers)) as executor:
             return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
+
+    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
+        from StructNoSQL.fields import BaseItem
+        primary_key_field_object: Optional[BaseItem] = self.fields_switch.get(self.primary_index_name, None)
+        # todo: replace primary_index_name by primary_key_name
+        if primary_key_field_object is None:
+            raise Exception("e")
+        return primary_key_field_object.database_path
 
 
 class Processor:
@@ -227,7 +242,7 @@ class Processor:
         return required_fields
 
     def assign_internal_mapping_from_class(
-        self, class_instance: Optional[Any] = None, class_type: Optional[Any] = None,
+        self, class_instance: Optional[Any] = None, class_type: Optional[type] = None,
         current_path_elements: Optional[List[DatabasePathElement]] = None,
         nested_field_path: Optional[str] = None, is_nested: Optional[bool] = False
     ):
@@ -248,24 +263,31 @@ class Processor:
         else:
             pass
 
-        class_variables = class_type.__dict__
+        deep_class_variables: dict = {}
+        component_classes: Optional[List[type]] = getattr(class_type, '__mro__', None)
+        # Instead of just retrieving the __dict__ of the current class_type, we retrieve the __dict__'s of all the
+        # classes  in the __mro__ of the class_type (hence, the class type itself, and all of the types it inherited).
+        # If we did not do that, fields inherited from a parent class would not be detected and not be indexed.
+        if component_classes is not None:
+            for component_class in component_classes:
+                deep_class_variables.update(component_class.__dict__)
 
-        setup_function: Optional[callable] = class_variables.get('__setup__', None)
+        setup_function: Optional[callable] = deep_class_variables.get('__setup__', None)
         if setup_function is not None:
-            custom_setup_class_variables: dict = class_type.__setup__()
-            if len(custom_setup_class_variables) > 0:
-                # The class_variables gotten from calling the __dict__ attribute is a mappingproxy, which cannot be modify.
-                # In order to combine the custom_setup_class_variables and the class_variables variables we will iterate
-                # over all the class_variables attributes, add them to the dict create by the __setup__ function (only if
-                # they are not found in the custom_setup_class_variables dict, since the custom setup override any default
-                # class attribute), and assign the class_variables variable to our newly create and setup dict.
-                for key, item in class_variables.items():
-                    if key not in custom_setup_class_variables:
-                        custom_setup_class_variables[key] = item
-                class_variables = custom_setup_class_variables
+            custom_setup_deep_class_variables: dict = class_type.__setup__()
+            if len(custom_setup_deep_class_variables) > 0:
+                # The deep_class_variables gotten from calling the __dict__ attribute is a mappingproxy, which cannot be modify.
+                # In order to combine the custom_setup_deep_class_variables and the deep_class_variables variables we will iterate
+                # over all the deep_class_variables attributes, add them to the dict create by the __setup__ function (only if
+                # they are not found in the custom_setup_deep_class_variables dict, since the custom setup override any default
+                # class attribute), and assign the deep_class_variables variable to our newly create and setup dict.
+                for key, item in deep_class_variables.items():
+                    if key not in custom_setup_deep_class_variables:
+                        custom_setup_deep_class_variables[key] = item
+                deep_class_variables = custom_setup_deep_class_variables
 
         required_fields: List[BaseField] = []
-        for variable_item in class_variables.values():
+        for variable_item in deep_class_variables.values():
             current_field_path = "" if nested_field_path is None else nested_field_path
             required_fields.extend(self.process_item(
                 class_type=class_type,

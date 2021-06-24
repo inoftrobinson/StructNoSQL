@@ -61,8 +61,28 @@ class InoftVocalEngineTableConnectors:
             'indexesKeysSelectors': indexes_keys_selectors,
         })
 
+    def _query_items_by_key(
+            self, key_value: str, field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
+            has_multiple_fields_path: bool, query_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
+    ):
+        serialized_fields_path_elements: List[dict] or Dict[str, dict] = [
+            item.serialize() for item in field_path_elements
+        ] if has_multiple_fields_path is not True else {
+            key: [item.serialize() for item in path_elements]
+            for key, path_elements in field_path_elements.items()
+        }
+        return self._data_api_handler(payload={
+            'operationType': 'queryItemsByKey',
+            'keyValue': key_value,
+            'hasMultipleFieldsPath': has_multiple_fields_path,
+            'fieldPathElements': serialized_fields_path_elements,
+            'queryLimit': query_limit,
+            'filterExpression': filter_expression,
+            **additional_kwargs
+        })
+
     def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[FieldPathSetter]) -> bool:
-        serialized_setters = [item.serialize() for item in setters]
+        serialized_setters: List[dict] = [item.serialize() for item in setters]
         return self._success_api_handler(payload={
             'operationType': 'setUpdateMultipleDataElementsToMap',
             'keyValue': key_value,
@@ -70,18 +90,18 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:
-        serialized_fields_path_elements = [
+        serialized_fields_path_elements: List[List[dict]] = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements
         ]
-        return self._success_api_handler(payload={
+        return self._data_api_handler(payload={
             'operationType': 'removeDataElementsFromMap',
             'keyValue': key_value,
             'fieldsPathElements': serialized_fields_path_elements
         })
 
     def _delete_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:
-        serialized_fields_path_elements = [
+        serialized_fields_path_elements: List[List[dict]] = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements
         ]
@@ -92,7 +112,7 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _get_single_value_in_path_target(self, key_value: str, field_path_elements: List[DatabasePathElement]) -> Optional[Any]:
-        serialized_field_path_elements = [item.serialize() for item in field_path_elements]
+        serialized_field_path_elements: List[dict] = [item.serialize() for item in field_path_elements]
         return self._data_api_handler(payload={
             'operationType': 'getSingleValueInPathTarget',
             'keyValue': key_value,
@@ -100,7 +120,7 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _get_values_in_multiple_path_target(self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Optional[Any]:
-        serialized_fields_path_elements = {
+        serialized_fields_path_elements: Dict[str, List[dict]] = {
             field_key: [item.serialize() for item in field_path_elements_items]
             for field_key, field_path_elements_items in fields_path_elements.items()
         }
@@ -111,7 +131,7 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _get_or_query_single_item(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Any]:
-        serialized_fields_path_elements = [
+        serialized_fields_path_elements: List[List[dict]] = [
             [item.serialize() for item in items_container]
             for items_container in fields_path_elements
         ]

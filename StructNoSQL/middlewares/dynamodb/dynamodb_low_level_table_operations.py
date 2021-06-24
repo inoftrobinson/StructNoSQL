@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 
+from StructNoSQL.middlewares.dynamodb.backend.models import Response
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
 
@@ -25,12 +26,9 @@ class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):
             )
             return response_data
 
-    def update_field(
-            self, field_path_elements: List[DatabasePathElement], validated_data: Any,
-            key_value: str, index_name: Optional[str] = None
-    ) -> bool:
-        response = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
-            index_name=index_name or self.primary_index_name,
+    def update_field(self, key_value: str, field_path_elements: List[DatabasePathElement], validated_data: Any) -> bool:
+        response: Optional[Response] = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
+            index_name=self.primary_index_name,
             key_value=key_value, value=validated_data,
             field_path_elements=field_path_elements
         )

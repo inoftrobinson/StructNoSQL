@@ -3,7 +3,7 @@ from typing import Set, Optional, Dict, List
 from uuid import uuid4
 
 from StructNoSQL import BaseField, MapModel, TableDataModel
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID, TEST_PROJECT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TableModel(TableDataModel):
@@ -16,7 +16,7 @@ class TableModel(TableDataModel):
 class TestsNestedStructuresInsideStructureValues(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = UsersTable(data_model=TableModel())
+        self.users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel)
 
     def test_nested_dict_dict_structure(self):
         random_parent_key = f"parentKey_{uuid4()}"

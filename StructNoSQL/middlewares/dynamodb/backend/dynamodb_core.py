@@ -151,8 +151,7 @@ class DynamoDbCoreAdapter:
             print(f"Failed to update attributes in DynamoDb table. Exception of type {type(e).__name__} occurred: {str(e)}")
             return None
 
-    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str,
-                                  element_values: List[dict]) -> Optional[Response]:
+    def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
         kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},
@@ -560,7 +559,7 @@ class DynamoDbCoreAdapter:
                 setters.remove(setter)
             return self.set_update_multiple_data_elements_to_map(index_name=index_name, key_value=key_value, setters=setters)
 
-    def query_by_key(
+    def query_response_by_key(
             self, index_name: str, key_value: Any,
             fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
             filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
@@ -595,6 +594,39 @@ class DynamoDbCoreAdapter:
             raise Exception(f"Failed to retrieve attributes from DynamoDb table."
                             f"Exception of type {type(e).__name__} occurred: {str(e)}")
 
+    def query_items_by_key(
+            self, index_name: str, key_value: Any,
+            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+            filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
+    ) -> Optional[List[Any]]:
+        fields_path_elements_list: List[List[DatabasePathElement]] = (
+            [field_path_elements] if has_multiple_fields_path is not True else [*field_path_elements.values()]
+        )
+        response = self.query_response_by_key(
+            index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements_list,
+            filter_expression=filter_expression, query_limit=query_limit, **additional_kwargs
+        )
+        if response is None:
+            return None
+
+        output: List[Any] = []
+        for record_item_data in response.items:
+            if isinstance(record_item_data, dict):
+                if has_multiple_fields_path is not True:
+                    field_path_elements: List[DatabasePathElement]
+                    output.append(navigate_into_data_with_field_path_elements(
+                        data=record_item_data, field_path_elements=field_path_elements,
+                        num_keys_to_navigation_into=len(field_path_elements)
+                    ))
+                else:
+                    field_path_elements: Dict[str, List[DatabasePathElement]]
+                    output.append(self._unpack_multiple_retrieved_fields(
+                        item_data=record_item_data, fields_path_elements=field_path_elements,
+                        num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
+                    ))
+                # todo: add data validation
+        return output
+
     def query_single_item_by_key(
             self, index_name: str, key_value: Any,
             fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
@@ -603,7 +635,7 @@ class DynamoDbCoreAdapter:
         # Yes, a query request is heavier than a get request that we could do with the _get_item_by_primary_key function.
         # Yet, in a get request, we cannot specify an index_name to query on. So, the _query_single_item_by_key should be
         # used when we want to get an item based on another index that the primary one. Otherwise, use _get_item_by_primary_key
-        response = self.query_by_key(
+        response = self.query_response_by_key(
             index_name=index_name, key_value=key_value,
             fields_path_elements=fields_path_elements,
             filter_expression=filter_expression, query_limit=1
@@ -636,7 +668,7 @@ class DynamoDbCoreAdapter:
                 ))
                 return None
             else:
-                response_items: Optional[List[dict]] = self.query_by_key(
+                response_items: Optional[List[dict]] = self.query_response_by_key(
                     index_name=index_name, key_value=key_value,
                     fields_path_elements=fields_path_elements, query_limit=1
                 ).items
@@ -674,6 +706,27 @@ class DynamoDbCoreAdapter:
             num_keys_to_navigation_into=len(field_path_elements) - 1
         )
 
+    @staticmethod
+    def _unpack_multiple_retrieved_fields(
+        item_data: dict, fields_path_elements: Dict[str, List[DatabasePathElement]],
+        num_keys_to_stop_at_before_reaching_end_of_item: int, metadata: bool = False
+    ):
+        output: Dict[str, Any] = {}
+        for field_path_key, field_item_path_elements in fields_path_elements.items():
+            # All the values of each requested items will be inside the response_item dict. We just need
+            # to navigate inside of the response_item with the field_path_elements for each requested
+            # item, and package that in an output dict that will use the key of the requested items.
+            if len(field_item_path_elements) > 0:
+                num_keys_to_navigation_into: int = len(field_item_path_elements) - num_keys_to_stop_at_before_reaching_end_of_item
+                navigated_item: Optional[Any] = navigate_into_data_with_field_path_elements(
+                    data=item_data, field_path_elements=field_item_path_elements,
+                    num_keys_to_navigation_into=num_keys_to_navigation_into
+                )
+                output[field_path_key] = navigated_item if metadata is not True else {
+                    'value': navigated_item, 'field_path_elements': field_item_path_elements
+                }
+        return output
+
     def get_data_from_multiple_fields_in_path_target(
             self, key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]],
             num_keys_to_stop_at_before_reaching_end_of_item: int, index_name: Optional[str] = None,
@@ -687,42 +740,11 @@ class DynamoDbCoreAdapter:
         if response_item is None:
             return None
 
-        output_dict: Dict[str, Any] = {}
-        for path_elements_key, path_elements_item in fields_path_elements.items():
-            if len(path_elements_item) > 0:
-                num_keys_to_navigation_into: int = len(path_elements_item) - num_keys_to_stop_at_before_reaching_end_of_item
-                first_path_element_item_element_key: str = path_elements_item[0].element_key
-
-                current_navigated_response_item_value: Optional[Any] = response_item.get(first_path_element_item_element_key, None)
-                if current_navigated_response_item_value is not None:
-                    current_navigated_response_item = {first_path_element_item_element_key: current_navigated_response_item_value}
-                    # We get separately the in its own dictionary the item with the key of the first_path_element, because when we
-                    # get the response_items, they will be all put in the same dict, which means that the response_items dict has
-                    # values and items that might have nothing to do with the current target field. Of course, its not an issue,
-                    # if we do some navigation into the dicts, but if there is no navigation (for example, if we used the get_item
-                    # function and that we queried a base field that does not require any validation), we need to isolate the item
-                    # from the other response_items, otherwise, we would return the entire response instead of only the item that
-                    # was found in the field that was queried.
-
-                    for i, path_element in enumerate(path_elements_item):
-                        if i + 1 > num_keys_to_navigation_into or (not isinstance(current_navigated_response_item, dict)):
-                            break
-
-                        current_navigated_response_item = current_navigated_response_item.get(path_element.element_key, None)
-                        if current_navigated_response_item is None:
-                            # If the current_navigated_response_item is None, it means that one key has not been
-                            # found, so we need to break the loop in order to try to call get on a None object,
-                            # and then we will return the response_item, so we will return None.
-                            break
-
-                    if metadata is not True:
-                        output_dict[path_elements_key] = current_navigated_response_item
-                    else:
-                        output_dict[path_elements_key] = {
-                            'value': current_navigated_response_item,
-                            'field_path_elements': path_elements_item
-                        }
-        return output_dict
+        return self._unpack_multiple_retrieved_fields(
+            item_data=response_item, fields_path_elements=fields_path_elements,
+            num_keys_to_stop_at_before_reaching_end_of_item=num_keys_to_stop_at_before_reaching_end_of_item,
+            metadata=metadata
+        )
 
     def get_values_in_multiple_path_target(
             self, index_name: str, key_value: str,

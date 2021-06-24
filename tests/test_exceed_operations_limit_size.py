@@ -4,7 +4,7 @@ from typing import Dict
 
 from StructNoSQL import FieldRemover, BaseField, TableDataModel
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import EXPRESSION_MAX_BYTES_SIZE
-from tests.users_table import UsersTable, TEST_ACCOUNT_ID
+from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
 class TestExceedOperationsLimitSize(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestExceedOperationsLimitSize(unittest.TestCase):
                 break
             index += 1
 
-        users_table = UsersTable(data_model=table_model)
+        users_table = PlaygroundDynamoDBBasicTable(data_model=table_model)
         # We initialize the table after having added all the fields to the class of the TableModel, so that
         # the indexing of the model will correctly be done on all the programmatically added fields.
 

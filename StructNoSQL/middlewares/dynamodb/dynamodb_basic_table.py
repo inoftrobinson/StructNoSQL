@@ -32,12 +32,12 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
     def delete_record(self, indexes_keys_selectors: dict) -> bool:
         def middleware(indexes_keys: dict) -> bool:
             return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys)
-        return self._delete_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
+        return self._record_deletion(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
     def remove_record(self, indexes_keys_selectors: dict) -> Optional[dict]:
         def middleware(indexes_keys: dict) -> Optional[dict]:
             return self.dynamodb_client.remove_record(indexes_keys_selectors=indexes_keys)
-        return self._remove_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
+        return self._record_deletion(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):

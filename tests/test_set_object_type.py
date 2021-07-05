@@ -20,7 +20,7 @@ class TestsSetObjectType(unittest.TestCase):
 
     def test_crash_on_untyped_set(self):
         def init_table():
-            class TableModel:
+            class TableModel(TableDataModel):
                 accountId = BaseField(name='accountId', field_type=str, required=True)
                 untypedSet = BaseField(name='untypedSet', field_type=set, key_name='setKey', required=False)
             users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel())

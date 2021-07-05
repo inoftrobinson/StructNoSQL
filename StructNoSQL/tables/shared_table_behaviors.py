@@ -1,7 +1,8 @@
 import string
-from typing import Callable, List, Dict, Optional, Any, Tuple
+from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable
 
 from StructNoSQL.models import DatabasePathElement, FieldGetter
+from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
@@ -170,3 +171,15 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
             getters_database_paths.extend(field_path_elements.values())
 
     return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements
+
+
+def _model_contain_all_index_keys(model: Any, indexes_keys: Iterable[str]) -> bool:
+    for index_key in indexes_keys:
+        index_matching_field: Optional[Any] = getattr(model, index_key, None)
+        if index_matching_field is None:
+            print(message_with_vars(
+                message="An index key selector was not found in the table model. Operation not executed.",
+                vars_dict={'index_key': index_key, 'index_matching_field': index_matching_field, 'table.model': model}
+            ))
+            return False
+    return True

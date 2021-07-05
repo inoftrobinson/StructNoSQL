@@ -4,7 +4,7 @@ from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
-from StructNoSQL.tables.shared_table_behaviors import _prepare_getters
+from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path
@@ -19,23 +19,9 @@ class BaseBasicTable(BaseTable):
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
         return middleware(validated_data) if is_valid is True else False
 
-    def _model_contain_all_index_keys(self, indexes_keys: Iterable[str]) -> bool:
-        for index_key in indexes_keys:
-            index_matching_field: Optional[Any] = getattr(self.model, index_key, None)
-            if index_matching_field is None:
-                print(message_with_vars(
-                    message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
-                    vars_dict={'index_key': index_key, 'index_matching_field': index_matching_field, 'table.model': self.model}
-                ))
-                return False
-        return True
-
-    def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
-        found_all_indexes: bool = self._model_contain_all_index_keys(indexes_keys=indexes_keys_selectors.keys())
-        return middleware(indexes_keys_selectors) if found_all_indexes is True else False
-
-    def _remove_record(self, middleware: Callable[[dict], Optional[dict]], indexes_keys_selectors: dict) -> Optional[dict]:
-        found_all_indexes: bool = self._model_contain_all_index_keys(indexes_keys=indexes_keys_selectors.keys())
+    def _record_deletion(self, middleware: Callable[[dict], Any], indexes_keys_selectors: dict) -> Any:
+        """Used by both the delete_record and remove_record operation. Hence, the Any in the return type of the middleware."""
+        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
         return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
     def _get_field(

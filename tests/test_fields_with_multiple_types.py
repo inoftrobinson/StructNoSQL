@@ -1,11 +1,11 @@
 import unittest
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, NoneType
+from StructNoSQL import BaseField, MapModel, NoneType, TableDataModel
 from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
-class TableModel:
+class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
     class ItemModel(MapModel):
         value = BaseField(name="value", field_type=str, required=True)

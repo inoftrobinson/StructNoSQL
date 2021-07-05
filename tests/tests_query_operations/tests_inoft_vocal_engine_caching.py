@@ -4,7 +4,7 @@ from tests.components.playground_table_clients import PlaygroundInoftVocalEngine
 from tests.tests_caching_table.tests_inoft_vocal_engine_caching import InoftVocalEngineTableModel
 
 
-class TestInoftVocalEngineCachingTable(unittest.TestCase):
+class TestsInoftVocalEngineCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
         self.users_table = PlaygroundInoftVocalEngineCachingTable(data_model=InoftVocalEngineTableModel)

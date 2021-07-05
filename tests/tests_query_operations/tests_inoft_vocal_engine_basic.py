@@ -4,7 +4,7 @@ from tests.tests_caching_table.table_models import InoftVocalEngineUsersCachingT
 from tests.tests_query_operations.table_models import InoftVocalEngineTableModel
 
 
-class TestInoftVocalEngineCachingTable(unittest.TestCase):
+class TestsInoftVocalEngineCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
         # self.users_table = InoftVocalEngineUsersBasicTable(data_model=InoftVocalEngineTableModel)

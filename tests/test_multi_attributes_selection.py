@@ -3,11 +3,11 @@ from time import time
 from typing import Optional, Dict
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, FieldGetter
+from StructNoSQL import BaseField, MapModel, FieldGetter, TableDataModel
 from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
-class TableModel:
+class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
     class ItemWithMultipleAttributes(MapModel):
         name = BaseField(name='name', field_type=str, required=False)

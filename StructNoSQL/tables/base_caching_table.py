@@ -1,9 +1,10 @@
+import abc
 from typing import Optional, List, Dict, Any, Tuple, Callable
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
-from StructNoSQL.tables.shared_table_behaviors import _prepare_getters
+from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path, join_field_path_elements
@@ -50,6 +51,9 @@ class BaseCachingTable(BaseTable):
             self._cached_data_per_primary_key[primary_key_value] = {}
         return self._cached_data_per_primary_key[primary_key_value]
 
+    def _remove_index_from_cached_data(self, primary_key_value: str) -> Optional[dict]:
+        return self._cached_data_per_primary_key.pop(primary_key_value, None)
+
     def _index_pending_update_operations(self, primary_key_value: str) -> dict:
         if primary_key_value not in self._pending_update_operations_per_primary_key:
             self._pending_update_operations_per_primary_key[primary_key_value] = {}
@@ -75,16 +79,18 @@ class BaseCachingTable(BaseTable):
     def has_pending_operations(self) -> bool:
         return self.has_pending_update_operations() or self.has_pending_remove_operations()
 
+    @abc.abstractmethod
     def commit_update_operations(self) -> bool:
         raise Exception("commit_update_operations not implemented")
 
+    @abc.abstractmethod
     def commit_remove_operations(self) -> bool:
         raise Exception("commit_remove_operations not implemented")
 
-    def commit_operations(self):
-        self.commit_update_operations()
-        self.commit_remove_operations()
-        return True
+    def commit_operations(self) -> bool:
+        update_operations_commit_success: bool = self.commit_update_operations()
+        remove_operations_commit_success: bool = self.commit_remove_operations()
+        return all([update_operations_commit_success, remove_operations_commit_success])
 
     @staticmethod
     def _cache_put_data(index_cached_data: dict, field_path_elements: List[DatabasePathElement], data: Any):
@@ -175,32 +181,26 @@ class BaseCachingTable(BaseTable):
                 )
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
-        # todo: integrate with caching
         self.model_virtual_map_field.populate(value=record_dict_data)
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
-        return middleware(validated_data) if is_valid is True else False
+        put_record_success: bool = middleware(validated_data) if is_valid is True else False
+        if put_record_success is True:
+            self._cached_data_per_primary_key[record_dict_data[self.primary_index_name]] = record_dict_data
+        return put_record_success
 
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
-        # todo: integrate with caching
-        found_all_indexes = True
-        for index_key, index_target_value in indexes_keys_selectors.items():
-            index_matching_field = getattr(self.model, index_key, None)
-            if index_matching_field is None:
-                found_all_indexes = False
-                print(message_with_vars(
-                    message="An index key selector passed to the delete_record function, was not found, in the table model. Operation not executed.",
-                    vars_dict={'index_key': index_key, 'index_target_value': index_target_value, 'index_matching_field': index_matching_field, 'table.model': self.model}
-                ))
-        return middleware(indexes_keys_selectors) if found_all_indexes is True else False
+        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
+        deletion_success: bool = middleware(indexes_keys_selectors) if found_all_indexes is True else False
+        if deletion_success is True:
+            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
+        return deletion_success
 
-    def _add_primary_key_to_path_elements(self, source_path_elements: List[List[DatabasePathElement]]) -> List[List[DatabasePathElement]]:
-        for item_path_elements in source_path_elements:
-            if len(item_path_elements) > 0:
-                first_path_element = item_path_elements[0]
-                if first_path_element.element_key == self.primary_index_name:
-                    return source_path_elements
-
-        return [self._get_primary_key_database_path(), *source_path_elements]
+    def _remove_record(self, middleware: Callable[[dict], Optional[dict]], indexes_keys_selectors: dict) -> Optional[dict]:
+        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
+        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors) if found_all_indexes is True else None
+        if removed_record_data is not None:
+            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
+        return removed_record_data
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],

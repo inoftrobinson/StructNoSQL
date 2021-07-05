@@ -2,11 +2,11 @@ import unittest
 from typing import Optional, Dict
 from uuid import uuid4
 
-from StructNoSQL import BaseField, FieldRemover
+from StructNoSQL import BaseField, FieldRemover, TableDataModel
 from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 
-class TableModel:
+class TableModel(TableDataModel):
     accountId = BaseField(name='accountId', field_type=str, required=True)
     rootFieldOne = BaseField(name='rootFieldOne', field_type=str, required=False)
     rootFieldTwo = BaseField(name='rootFieldTwo', field_type=str, required=False)

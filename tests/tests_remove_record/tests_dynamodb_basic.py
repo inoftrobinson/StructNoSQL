@@ -4,7 +4,7 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 from tests.tests_remove_record.table_models import DynamoDBTableModel
 
 
-class TestsDynamoDBCachingTable(unittest.TestCase):
+class TestsDynamoDBBasicTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
         self.users_table = PlaygroundDynamoDBBasicTable(data_model=DynamoDBTableModel)

@@ -1,6 +1,7 @@
 from typing import Optional, Any
 from StructNoSQL import DynamoDBBasicTable, PrimaryIndex, GlobalSecondaryIndex, DynamoDBCachingTable, InoftVocalEngineCachingTable
 
+
 TEST_ACCOUNT_ID = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
 TEST_PROJECT_ID = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
 TEST_ACCOUNT_EMAIL = "yay.com"
@@ -32,8 +33,8 @@ class PlaygroundDynamoDBCachingTable(DynamoDBCachingTable):
             auto_create_table=True
         )
 
-"""
 # todo: implement InoftVocalEngineBasicTable
+"""
 class PlaygroundInoftVocalEngineBasicTable(InoftVocalEngineBasicTable):
     def __init__(self, data_model):
         super().__init__(

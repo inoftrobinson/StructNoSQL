@@ -47,6 +47,11 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             return self._delete_record_request(indexes_keys_selectors=indexes_keys)
         return self._delete_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
+    def remove_record(self, indexes_keys_selectors: dict) -> Optional[dict]:
+        def middleware(indexes_keys: dict) -> Optional[dict]:
+            return self._remove_record_request(indexes_keys_selectors=indexes_keys)
+        return self._remove_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
+
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs

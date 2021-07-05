@@ -61,6 +61,12 @@ class InoftVocalEngineTableConnectors:
             'indexesKeysSelectors': indexes_keys_selectors,
         })
 
+    def _remove_record_request(self, indexes_keys_selectors: Dict[str, Any]) -> Optional[dict]:
+        return self._data_api_handler(payload={
+            'operationType': 'removeRecord',
+            'indexesKeysSelectors': indexes_keys_selectors,
+        })
+
     def _query_items_by_key(
             self, key_value: str, field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
             has_multiple_fields_path: bool, query_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs

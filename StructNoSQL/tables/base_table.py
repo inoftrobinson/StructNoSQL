@@ -32,10 +32,9 @@ class BaseTable:
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 
-        if not isinstance(data_model, type):
-            self._model = data_model
-        else:
-            self._model = data_model()
+        self._model = data_model if not isinstance(data_model, type) else data_model()
+        if not isinstance(self._model, TableDataModel):
+            raise Exception("TableModel must inherit from TableDataModel class")
         self._model_virtual_map_field = None
 
         self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
@@ -50,7 +49,7 @@ class BaseTable:
     @property
     def model_virtual_map_field(self) -> BaseField:
         if self._model_virtual_map_field is None:
-            self._model_virtual_map_field = BaseField(name="", field_type=self._model.__class__)
+            self._model_virtual_map_field = BaseField(name="", field_type=self._model.__class__, required=True)
             # The model_virtual_map_field is a BaseField with no name, that use the table model class type, which easily
             # give us the ability to use the functions of the BaseField object (for example, functions for data validation),
             # with the data model of the table itself, without having to create an intermediary item. For example, the

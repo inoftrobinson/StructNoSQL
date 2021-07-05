@@ -102,13 +102,29 @@ class DynamoDbCoreAdapter:
     def delete_record(self, indexes_keys_selectors: dict) -> bool:
         try:
             table = self.dynamodb.Table(self.table_name)
-            response = table.delete_item(Key=indexes_keys_selectors)
-            return True if response is not None else False
+            response_data: Optional[dict] = table.delete_item(Key=indexes_keys_selectors)
+            return True if response_data is not None else False
         except ResourceNotExistsError:
-            raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to save attributes to DynamoDb table.")
+            raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to delete_record in DynamoDb table.")
         except Exception as e:
             print(e)
         return False
+
+    def remove_record(self, indexes_keys_selectors: dict) -> Optional[dict]:
+        try:
+            table = self.dynamodb.Table(self.table_name)
+            response_data: dict = table.delete_item(Key=indexes_keys_selectors, ReturnValues='ALL_OLD')
+            if response_data is None:
+                return None
+            response_attributes: Optional[dict] = response_data.get('Attributes', None)
+            if response_attributes is None:
+                return None
+            return DynamoDBUtils.dynamodb_to_python(response_attributes)
+        except ResourceNotExistsError:
+            raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to remove_record in DynamoDb table.")
+        except Exception as e:
+            print(e)
+        return None
 
     def get_item_by_primary_key(self, index_name: str, key_value: any, fields_path_elements: Optional[List[List[DatabasePathElement]]]) -> Optional[GetItemResponse]:
         if fields_path_elements is not None:

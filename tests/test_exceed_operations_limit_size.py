@@ -13,8 +13,8 @@ class TestExceedOperationsLimitSize(unittest.TestCase):
 
     def test_deletion_and_removal_limit_size(self):
         class TableModel(TableDataModel):
-            accountId = BaseField(name='accountId', field_type=str, required=True)
-            container = BaseField(name='dummy', field_type=bool, required=False)
+            accountId = BaseField(field_type=str, required=True)
+            container = BaseField(field_type=bool, required=False)
 
         table_model = TableModel()
         removers: Dict[str, FieldRemover] = dict()
@@ -25,7 +25,7 @@ class TestExceedOperationsLimitSize(unittest.TestCase):
             removers[current_field_path] = FieldRemover(field_path=current_field_path)
             table_model.class_add_field(
                 field_key=current_field_path,
-                field_item=BaseField(name=current_field_path, field_type=bool, required=False)
+                field_item=BaseField(field_type=bool, required=False)
             )
             if getsizeof(removers) > (EXPRESSION_MAX_BYTES_SIZE * 1.5):
                 break

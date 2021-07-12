@@ -7,11 +7,11 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ContainerModel(MapModel):
-        untypedList = BaseField(name='untypedList', field_type=list, key_name='listIndex', required=False)
-        typedList = BaseField(name='typedList', field_type=List[str], key_name='listIndex', required=False)
-    container = BaseField(name='container', field_type=ContainerModel, required=False)
+        untypedList = BaseField(field_type=list, key_name='listIndex', required=False)
+        typedList = BaseField(field_type=List[str], key_name='listIndex', required=False)
+    container = BaseField(field_type=ContainerModel, required=False)
 
 class TestListObjectType(unittest.TestCase):
     def __init__(self, method_name: str):

@@ -7,10 +7,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
-    nestedDictDictStructure = BaseField(name='nestedDictDictStructure', field_type=Dict[str, Dict[str, bool]], required=False, key_name='itemKey')
-    # nestedDictListStructure = BaseField(name='nestedDictListStructure', field_type=Dict[str, List[str]], required=False)
-    # nestedDictSetStructure = BaseField(name='nestedDictSetStructure', field_type=Dict[str, Set[str]], required=False)
+    accountId = BaseField(field_type=str, required=True)
+    nestedDictDictStructure = BaseField(field_type=Dict[str, Dict[str, bool]], required=False, key_name='itemKey')
+    # nestedDictListStructure = BaseField(field_type=Dict[str, List[str]], required=False)
+    # nestedDictSetStructure = BaseField(field_type=Dict[str, Set[str]], required=False)
 
 
 class TestsNestedStructuresInsideStructureValues(unittest.TestCase):

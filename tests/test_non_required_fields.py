@@ -6,10 +6,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ItemModel(MapModel):
-        value = BaseField(name="value", field_type=str, required=True)
-    requiredModelAcceptingNone = BaseField(name='requiredModelAcceptingNone', field_type=ItemModel, required=False)
+        value = BaseField(field_type=str, required=True)
+    requiredModelAcceptingNone = BaseField(field_type=ItemModel, required=False)
     # This field only accept the ItemModel as field_type, but since the field is not required, will be added to the field_type.
 
 

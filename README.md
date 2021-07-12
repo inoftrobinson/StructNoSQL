@@ -14,13 +14,13 @@ Example :
 # We define a field_type for each field. This is what create the basic validation
 # tests, while there is also the possibility to make more complex tests.
 class UsersTableModel(TableDataModel):
-    userId = BaseField(name="userId", field_type=str)
-    username = BaseField(name="username", field_type=str)
-    moneyBalance = BaseField(name="moneyBalance", field_type=float)
+    userId = BaseField(field_type=str)
+    username = BaseField(field_type=str)
+    moneyBalance = BaseField(field_type=float)
     class ShoppingCartItem(MapModel):
-        itemId = BaseField(name="itemId", field_type=str)
-        addedToCartTimestamp = BaseField(name="timestamp", field_type=int)
-    shoppingCartItems = BaseField(name="shoppingCartItems", field_type=Dict[str, ShoppingCartItem])
+        itemId = BaseField(field_type=str)
+        addedToCartTimestamp = BaseField(field_type=int)
+    shoppingCartItems = BaseField(field_type=Dict[str, ShoppingCartItem])
     # The validation tests will work on complex data structures. Like a list or a dict of items.
 
 class UsersTable(BaseTable):
@@ -102,8 +102,8 @@ Class to inherit from to define the DataModel of a table.
 from StructNoSQL import TableDataModel, BaseField
 
 class UsersTableModel(TableDataModel):
-    accountId = BaseField(name="accountId", field_type=str, required=True)
-    username = BaseField(name="username", field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
+    username = BaseField(field_type=str, required=True)
 ```
 
 ### `BaseField`
@@ -127,11 +127,11 @@ Primary object to declare the fields of your table, or fields of items in maps a
       from typing import Dict
       
       class AccountsTableModel(TableDataModel):
-          accountId = BaseField(name="accountId", field_type=str)
+          accountId = BaseField(field_type=str)
           class ProjectModel(MapModel):
-              projectName = BaseField(name="projectName", field_type=str)
-          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], index_name="projectId")
-          activePromoCode = BaseField(name="activePromoCode", field_type=[str, NoneType])
+              projectName = BaseField(field_type=str)
+          projects = BaseField(field_type=Dict[str, ProjectModel], key_name="projectId")
+          activePromoCode = BaseField(field_type=[str, NoneType])
       ```
  - `required`: If a required field is missing from any data (both when setting/updating data, and when retrieving it), 
  in a table model or in a MapModel, the data validation will print an error (without raising an exception), and not 
@@ -146,7 +146,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
       from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
-          accountId = BaseField(name="accountId", field_type=str, required=True)
+          accountId = BaseField(field_type=str, required=True)
       ```
  - `not_modifiable`: Act as a read-only parameter. Once a field_value that is not_modifiable is set, trying to change
  or update its value will cause a rejection from the data validation (without raising an exception). You might use
@@ -159,7 +159,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
       from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
-          accountId = BaseField(name="accountId", field_type=str, not_modifiable=True)
+          accountId = BaseField(field_type=str, not_modifiable=True)
       ```
  - `custom_default_value`: When you insert/update an item model, all the fields that were not required and that you did
  not specify will initialize themselves with the field_type that you precised (or the first acceptable field_type if
@@ -174,7 +174,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
       from StructNoSQL import TableDataModel, BaseField
       
       class AccountsTableModel(TableDataModel):
-          activePromoCode = BaseField(name="activePromoCode", field_type=str, custom_default_value="signupPromoCode")
+          activePromoCode = BaseField(field_type=str, custom_default_value="signupPromoCode")
       ```
  - `key_name`: Reserved for BaseField's with field_type Dict[str, type]. Allows you to define a specific key that will
  be used in your database_path for navigating inside an item in your field, instead of the default f"{field.name}key".
@@ -191,8 +191,8 @@ Primary object to declare the fields of your table, or fields of items in maps a
       
       class AccountsTableModel(TableDataModel):
           class ProjectModel(MapModel):
-              projectName = BaseField(name="projectName", field_type=str)
-          projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], index_name="projectId")
+              projectName = BaseField(field_type=str)
+          projects = BaseField(field_type=Dict[str, ProjectModel], key_name="projectId")
       ```
  
  ### Various infos about the inner-working of StructNoSQL

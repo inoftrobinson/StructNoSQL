@@ -1,9 +1,9 @@
-from typing import Dict
-from StructNoSQL import TableDataModel, BaseField, MapModel
+from StructNoSQL import TableDataModel, BaseField
 
 
 class BaseTableModel(TableDataModel):
-    value = BaseField(field_type=str, required=False)
+    simpleField = BaseField(field_type=str, required=False)
+    fieldWithCustomName = BaseField(custom_field_name='field%/!$', field_type=str, required=False)
 
 class DynamoDBTableModel(BaseTableModel):
     accountId = BaseField(field_type=str, required=True)

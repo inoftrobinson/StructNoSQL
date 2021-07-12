@@ -5,11 +5,11 @@ from StructNoSQL import BaseField, MapModel, TableDataModel, PrimaryIndex, Globa
 
 
 class NestedFieldTableModel(TableDataModel):
-    accountId = BaseField(name="accountId", field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class PropertyModel(MapModel):
-        name = BaseField(name="name", field_type=str)
-        childProperties = BaseField(name="childProperties", field_type=Dict[str, ActiveSelf], key_name="childPropertyKey{i}", required=False)
-    properties = BaseField(name="properties", field_type=Dict[str, PropertyModel], key_name="propertyKey", required=False)
+        name = BaseField(field_type=str)
+        childProperties = BaseField(field_type=Dict[str, ActiveSelf], key_name="childPropertyKey{i}", required=False)
+    properties = BaseField(field_type=Dict[str, PropertyModel], key_name="propertyKey", required=False)
 
 
 class Table(DynamoDBBasicTable):

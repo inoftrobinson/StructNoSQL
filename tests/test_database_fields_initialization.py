@@ -7,10 +7,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class NestedObjectItem(MapModel):
-        value = BaseField(name='value', field_type=int, required=False)
-    nestedObject = BaseField(name='nestedObject', field_type=Dict[str, NestedObjectItem], key_name='nestedObjectId', required=False)
+        value = BaseField(field_type=int, required=False)
+    nestedObject = BaseField(field_type=Dict[str, NestedObjectItem], key_name='nestedObjectId', required=False)
 
 
 class TestDatabaseFieldsInitialization(unittest.TestCase):

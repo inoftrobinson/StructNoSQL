@@ -49,7 +49,7 @@ class BaseTable:
     @property
     def model_virtual_map_field(self) -> BaseField:
         if self._model_virtual_map_field is None:
-            self._model_virtual_map_field = BaseField(name="", field_type=self._model.__class__, required=True)
+            self._model_virtual_map_field = BaseField(field_type=self._model.__class__, required=True)
             # The model_virtual_map_field is a BaseField with no name, that use the table model class type, which easily
             # give us the ability to use the functions of the BaseField object (for example, functions for data validation),
             # with the data model of the table itself, without having to create an intermediary item. For example, the
@@ -86,7 +86,7 @@ class Processor:
         self.table = table
 
     def process_item(
-            self, class_type: Optional[type], variable_item: Any, current_field_path: str,
+            self, item_key_name: Optional[str], class_type: Optional[type], variable_item: Any, current_field_path: str,
             current_path_elements: Optional[List[DatabasePathElement]] = None, is_nested: bool = False
     ) -> list:
         required_fields = []
@@ -112,6 +112,9 @@ class Processor:
 
             elif isinstance(variable_item, BaseField):
                 variable_item: BaseField
+                if item_key_name is not None and variable_item.field_name is None:
+                    variable_item.field_name = item_key_name
+
                 new_database_path_element = DatabasePathElement(
                     element_key=variable_item.field_name,
                     default_type=variable_item.default_field_type,
@@ -223,7 +226,7 @@ class Processor:
                                             items_excepted_type.key_name = f"{variable_item.key_name}Child"
 
                                         self.process_item(
-                                            class_type=None,
+                                            class_type=None, item_key_name=None,
                                             variable_item=variable_item.items_excepted_type,
                                             current_field_path=current_field_path,
                                             current_path_elements=current_path_elements
@@ -286,10 +289,11 @@ class Processor:
                 deep_class_variables = custom_setup_deep_class_variables
 
         required_fields: List[BaseField] = []
-        for variable_item in deep_class_variables.values():
+        for variable_key_name, variable_item in deep_class_variables.items():
             current_field_path = "" if nested_field_path is None else nested_field_path
             required_fields.extend(self.process_item(
                 class_type=class_type,
+                item_key_name=variable_key_name,
                 variable_item=variable_item,
                 current_field_path=current_field_path,
                 current_path_elements=current_path_elements,

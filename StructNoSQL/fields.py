@@ -267,13 +267,20 @@ class BaseItem:
 
 class BaseField(BaseItem):
     def __init__(
-            self, name: str, field_type: Optional[Any] = None, required: Optional[bool] = False, not_modifiable: Optional[bool] = False,
+            self, field_type: Any, required: Optional[bool] = False, not_modifiable: Optional[bool] = False, custom_field_name: Optional[str] = None,
             custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32
     ):
-        super().__init__(field_type=field_type if field_type is not None else Any, custom_default_value=custom_default_value)
-        self._name = name
-        if self._name is not None:
-            _raise_if_field_name_is_invalid(field_name=self._name)
+        super().__init__(field_type=field_type, custom_default_value=custom_default_value)
+
+        self._field_name = custom_field_name
+        if self._field_name is not None:
+            _raise_if_field_name_is_invalid(field_name=self._field_name)
+        # If a custom_field_name has been specified by the user, it will be set as the field_name
+        # (which will then be validated for invalid characters). The field_name will not be able to be
+        # modified a second time (otherwise the field_name property setter will cause an exception),
+        # so the process_item function of the base_table.py will see that the field_name has already been
+        # initialized, and will not try to initialize it from the variable key_name from the class signature.
+
         self._required = required
         self._key_name = None
 
@@ -318,11 +325,8 @@ class BaseField(BaseItem):
             else:
                 raise Exception(message_with_vars(
                     message="key_name cannot be set on a field that is not of type dict, Dict, list, List, set or Set",
-                    vars_dict={'fieldName': name, 'fieldType': field_type, 'keyName': key_name}
+                    vars_dict={'fieldName': self.field_name, 'fieldType': field_type, 'keyName': key_name}
                 ))
-        else:
-            if field_type in [dict, set] or type(field_type) == _GenericAlias:
-                self._key_name = f"{name}Key"
 
     def populate(self, value: any):
         super().populate(value=value)
@@ -346,7 +350,20 @@ class BaseField(BaseItem):
 
     @property
     def field_name(self) -> str:
-        return self._name
+        return self._field_name
+
+    @field_name.setter
+    def field_name(self, value: str):
+        if self._field_name is not None:
+            raise Exception("field_name already defined")
+        _raise_if_field_name_is_invalid(field_name=value)
+        self._field_name = value
+
+        # When field_name is set, if the field_type is one of the field_type's requiring a key_name and the
+        # key_name has not be set by the user, we create a default key_name by adding 'Key' to the field_name.
+        if self.field_type in [dict, set] or type(self.field_type) == _GenericAlias:
+            if self._key_name is None:
+                self._key_name = f"{self.field_name}Key"
 
     @property
     def key_name(self) -> Optional[str]:
@@ -362,7 +379,6 @@ class BaseField(BaseItem):
         return self._max_nested
 
     def copy(self):
-        # return BaseField(name=self._name, field_type=self._field_type, required=self._required, custom_default_value=self._custom_default_value, index_name=self._key_name, max_nested_depth=self._max_nested)
         from copy import copy
         return copy(self)
 
@@ -370,7 +386,7 @@ class MapItem(BaseField):
     _default_primitive_type = dict
 
     def __init__(self, parent_field: BaseField, model_type: type, field_type: type):
-        super().__init__(name=None, field_type=field_type, custom_default_value=BaseItem.instantiate_default_value_type(field_type))
+        super().__init__(field_type=field_type, custom_default_value=BaseItem.instantiate_default_value_type(field_type))
         self.map_model = model_type
 
         self._key_name = parent_field.key_name

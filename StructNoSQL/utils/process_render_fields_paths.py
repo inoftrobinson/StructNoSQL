@@ -68,6 +68,8 @@ def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[st
 def make_rendered_database_path(database_path_elements: List[DatabasePathElement], query_kwargs: dict) -> List[DatabasePathElement]:
     output_database_path_elements: List[DatabasePathElement] = []
     for path_element in database_path_elements:
+        if path_element.element_key is None:
+            print("e")
         if "$key$:" not in path_element.element_key:
             # If the path_element do not contains a key that need to be modified, we can use the current
             # instance of the path element, since it will not be modified, and so will not cause issue

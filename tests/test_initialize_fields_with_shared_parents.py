@@ -6,10 +6,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ItemModel(MapModel):
-        itemName = BaseField(name='itemName', field_type=str, required=False)
-    containerForItemsWithSharedParents = BaseField(name='containerForItemsWithSharedParents', field_type=Dict[str, ItemModel], key_name='itemId', required=False)
+        itemName = BaseField(field_type=str, required=False)
+    containerForItemsWithSharedParents = BaseField(field_type=Dict[str, ItemModel], key_name='itemId', required=False)
 
 
 class InitializeFieldsWithSharedParents(unittest.TestCase):

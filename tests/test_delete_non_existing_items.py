@@ -7,9 +7,9 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 class TableModel(TableDataModel):
     class FieldsToDeleteContainerModel(MapModel):
-        existingItemOneToDelete = BaseField(name='existingItemOneToDelete', field_type=str, required=False)
-        existingItemTwoToDelete = BaseField(name='existingItemTwoToDelete', field_type=str, required=False)
-    fieldsToDeleteContainer = BaseField(name='fieldsToDeleteContainer', field_type=FieldsToDeleteContainerModel, required=False)
+        existingItemOneToDelete = BaseField(field_type=str, required=False)
+        existingItemTwoToDelete = BaseField(field_type=str, required=False)
+    fieldsToDeleteContainer = BaseField(field_type=FieldsToDeleteContainerModel, required=False)
 
 class TestDeleteNonExistingItems(unittest.TestCase):
     def __init__(self, method_name: str):

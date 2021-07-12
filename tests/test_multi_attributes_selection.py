@@ -8,12 +8,12 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ItemWithMultipleAttributes(MapModel):
-        name = BaseField(name='name', field_type=str, required=False)
-        value = BaseField(name='value', field_type=str, required=False)
-        timestamp = BaseField(name='timestamp', field_type=(int, float), required=False)
-    multiAttributesContainer = BaseField(name='multiAttributesContainer', field_type=Dict[str, ItemWithMultipleAttributes], key_name='itemKey', required=False)
+        name = BaseField(field_type=str, required=False)
+        value = BaseField(field_type=str, required=False)
+        timestamp = BaseField(field_type=(int, float), required=False)
+    multiAttributesContainer = BaseField(field_type=Dict[str, ItemWithMultipleAttributes], key_name='itemKey', required=False)
 
 
 class TestDatabaseFieldsInitialization(unittest.TestCase):

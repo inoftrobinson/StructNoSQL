@@ -7,17 +7,14 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
-    fieldToRemove = BaseField(name='fieldAlreadyInitializedRequiringNewValue', field_type=str, required=False)
+    accountId = BaseField(field_type=str, required=True)
+    fieldAlreadyInitializedRequiringNewValue = BaseField(field_type=str, required=False)
     class ContainerModel(MapModel):
-        firstNestedValue = BaseField(name='firstNestedValue', field_type=str, required=False)
+        firstNestedValue = BaseField(field_type=str, required=False)
         class NestedContainerModel(MapModel):
-            secondNestedValue = BaseField(name='secondNestedValue', field_type=str, required=False)
-        nestedContainer = BaseField(name='nestedContainer', field_type=Dict[str, NestedContainerModel], required=False)
-    containerThatWillFailRequestAndRequireFieldsInitialization = BaseField(
-        name='containerThatWillFailRequestAndRequireFieldsInitialization',
-        field_type=Dict[str, ContainerModel], key_name='id', required=False
-    )
+            secondNestedValue = BaseField(field_type=str, required=False)
+        nestedContainer = BaseField(field_type=Dict[str, NestedContainerModel], required=False)
+    containerThatWillFailRequestAndRequireFieldsInitialization = BaseField(field_type=Dict[str, ContainerModel], key_name='id', required=False)
 
 class TestRequestFailsOnFieldsInitializationButRequireExistingFieldsToBeUpdateD(unittest.TestCase):
     """

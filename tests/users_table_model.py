@@ -3,27 +3,27 @@ from StructNoSQL import TableDataModel, BaseField, MapModel, NoneType
 
 
 class UsersTableModel(TableDataModel):
-    accountId = BaseField(name="accountId", field_type=str, required=True)
-    username = BaseField(name="username", field_type=str)
+    accountId = BaseField(field_type=str, required=True)
+    username = BaseField(field_type=str)
     class ProjectModel(MapModel):
-        projectName = BaseField(name="projectName", field_type=str, required=True)
+        projectName = BaseField(field_type=str, required=True)
         class InstancesInfosModel(MapModel):
-            ya = BaseField(name="ya", field_type=str)
-        instancesInfos = BaseField(name="instancesInfos", field_type=InstancesInfosModel, required=False)
-    projects = BaseField(name="projects", field_type=Dict[str, ProjectModel], key_name="projectId")
-    multiTypes = BaseField(name="multiTypes", field_type=[str, NoneType], required=True)
-    number1 = BaseField(name="number1", field_type=[int, float], required=False)
-    string1 = BaseField(name="string1", field_type=str, required=False)
-    floatTest = BaseField(name="floatTest", field_type=float, required=False)
+            ya = BaseField(field_type=str)
+        instancesInfos = BaseField(field_type=InstancesInfosModel, required=False)
+    projects = BaseField(field_type=Dict[str, ProjectModel], key_name="projectId")
+    multiTypes = BaseField(field_type=[str, NoneType], required=True)
+    number1 = BaseField(field_type=[int, float], required=False)
+    string1 = BaseField(field_type=str, required=False)
+    floatTest = BaseField(field_type=float, required=False)
 
-    fieldToRemove = BaseField(name="fieldToRemove", field_type=str, required=False)
-    fieldToDelete = BaseField(name="fieldToDelete", field_type=str, required=False)
+    fieldToRemove = BaseField(field_type=str, required=False)
+    fieldToDelete = BaseField(field_type=str, required=False)
     class SophisticatedRemovalModel(MapModel):
-        nestedVariable = BaseField(name="nestedVariable", field_type=str, required=False)
-    sophisticatedRemoval = BaseField(name="sophisticatedRemoval", field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)
+        nestedVariable = BaseField(field_type=str, required=False)
+    sophisticatedRemoval = BaseField(field_type=Dict[str, SophisticatedRemovalModel], key_name="id", required=False)
 
     class TestMapModel(MapModel):
-        sampleText = BaseField(name="sampleText", field_type=str, required=False)
-    testMapModel = BaseField(name="testMapModel", field_type=TestMapModel, required=False)
+        sampleText = BaseField(field_type=str, required=False)
+    testMapModel = BaseField(field_type=TestMapModel, required=False)
 
-    testDictWithPrimitiveValue = BaseField(name="testDictWithPrimitiveValue", field_type=Dict[str, bool], key_name="key")
+    testDictWithPrimitiveValue = BaseField(field_type=Dict[str, bool], key_name="key")

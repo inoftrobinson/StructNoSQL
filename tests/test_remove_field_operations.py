@@ -7,13 +7,13 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
-    fieldToRemove = BaseField(name='fieldToRemove', field_type=str, required=False)
+    accountId = BaseField(field_type=str, required=True)
+    fieldToRemove = BaseField(field_type=str, required=False)
     class ContainerModel(MapModel):
-        firstNestedValue = BaseField(name='firstNestedValue', field_type=str, required=False)
-        secondNestedValue = BaseField(name='secondNestedValue', field_type=str, required=False)
-        thirdNestedValue = BaseField(name='thirdNestedValue', field_type=str, required=False)
-    sophisticatedFieldToRemove = BaseField(name='sophisticatedFieldToRemove', field_type=Dict[str, ContainerModel], key_name='id', required=False)
+        firstNestedValue = BaseField(field_type=str, required=False)
+        secondNestedValue = BaseField(field_type=str, required=False)
+        thirdNestedValue = BaseField(field_type=str, required=False)
+    sophisticatedFieldToRemove = BaseField(field_type=Dict[str, ContainerModel], key_name='id', required=False)
 
 class TestRemoveFieldOperations(unittest.TestCase):
     def __init__(self, method_name: str):

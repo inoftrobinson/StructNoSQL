@@ -7,10 +7,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ContainerItem(MapModel):
-        value = BaseField(name='value', field_type=int, required=False)
-    container = BaseField(name='container', field_type=Dict[str, ContainerItem], key_name='itemId', required=False)
+        value = BaseField(field_type=int, required=False)
+    container = BaseField(field_type=Dict[str, ContainerItem], key_name='itemId', required=False)
 
 
 class TestFieldKeyWithSpecialChars(unittest.TestCase):

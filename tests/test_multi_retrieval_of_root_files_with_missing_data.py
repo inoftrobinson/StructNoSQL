@@ -7,9 +7,9 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
-    rootFieldOne = BaseField(name='rootFieldOne', field_type=str, required=False)
-    rootFieldTwo = BaseField(name='rootFieldTwo', field_type=str, required=False)
+    accountId = BaseField(field_type=str, required=True)
+    rootFieldOne = BaseField(field_type=str, required=False)
+    rootFieldTwo = BaseField(field_type=str, required=False)
 
 
 class TestMultiRetrievalOfRootFilesWithMissingData(unittest.TestCase):

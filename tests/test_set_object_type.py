@@ -8,10 +8,10 @@ from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTab
 
 
 class TableModel(TableDataModel):
-    accountId = BaseField(name='accountId', field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     class ContainerModel(MapModel):
-        typedSet = BaseField(name='typedSet', field_type=Set[str], key_name='setKey', required=False)
-    container = BaseField(name='container', field_type=ContainerModel)
+        typedSet = BaseField(field_type=Set[str], key_name='setKey', required=False)
+    container = BaseField(field_type=ContainerModel)
 
 class TestsSetObjectType(unittest.TestCase):
     def __init__(self, method_name: str):
@@ -21,8 +21,8 @@ class TestsSetObjectType(unittest.TestCase):
     def test_crash_on_untyped_set(self):
         def init_table():
             class TableModel(TableDataModel):
-                accountId = BaseField(name='accountId', field_type=str, required=True)
-                untypedSet = BaseField(name='untypedSet', field_type=set, key_name='setKey', required=False)
+                accountId = BaseField(field_type=str, required=True)
+                untypedSet = BaseField(field_type=set, key_name='setKey', required=False)
             users_table = PlaygroundDynamoDBBasicTable(data_model=TableModel())
         self.assertRaises(UsageOfUntypedSetException, init_table)
 

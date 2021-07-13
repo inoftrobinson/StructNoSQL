@@ -187,12 +187,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                 DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
                 if response.attributes is not None else None
             )
-            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-            data = navigate_into_data_with_field_path_elements(
-                data=response_attributes, field_path_elements=field_path_elements,
-                num_keys_to_navigation_into=len(field_path_elements)
-            )
-            return True, data
+            return True, response_attributes
         return self._update_field_return_old(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:

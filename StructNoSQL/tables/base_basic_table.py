@@ -170,14 +170,22 @@ class BaseBasicTable(BaseTable):
         return False
 
     def _update_field_return_old(
-            self, middleware: Callable[[List[DatabasePathElement], Any], Any],
+            self, middleware: Callable[[List[DatabasePathElement], Any], Tuple[bool, Any]],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> Tuple[bool, Optional[Any]]:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
         if valid is True and field_path_elements is not None:
-            return middleware(field_path_elements, validated_data)
+            update_success, response_attributes = middleware(field_path_elements, validated_data)
+
+            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+            old_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                data=response_attributes, field_path_elements=field_path_elements,
+                num_keys_to_navigation_into=len(field_path_elements)
+            ) if response_attributes is not None else None
+
+            return update_success, old_item_data
         return False, None
 
     def _update_multiple_fields(

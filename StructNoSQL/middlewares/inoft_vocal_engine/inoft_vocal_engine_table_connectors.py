@@ -1,7 +1,7 @@
 from json import JSONDecodeError
 
 import requests
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Tuple
 
 from StructNoSQL.models import FieldPathSetter, DatabasePathElement
 
@@ -31,6 +31,13 @@ class InoftVocalEngineTableConnectors:
                 print(f"JSON decoding error : {e} : {response.text}")
                 return None
 
+    def _success_api_handler(self, payload: dict) -> bool:
+        response_data: Optional[dict] = self._base_api_handler(payload=payload)
+        if response_data is not None:
+            success: bool = response_data.get('success', False)
+            return success
+        return False
+
     def _data_api_handler(self, payload: dict) -> Optional[Any]:
         response_data: Optional[dict] = self._base_api_handler(payload=payload)
         if response_data is not None:
@@ -42,12 +49,13 @@ class InoftVocalEngineTableConnectors:
                 raise Exception(exception)"""
         return None
 
-    def _success_api_handler(self, payload: dict) -> bool:
+    def _success_and_data_api_handler(self, payload: dict) -> Tuple[bool, Optional[Any]]:
         response_data: Optional[dict] = self._base_api_handler(payload=payload)
         if response_data is not None:
             success: bool = response_data.get('success', False)
-            return success
-        return False
+            if success is True:
+                return True, response_data.get('data', None)
+        return False, None
 
     def _put_record_request(self, record_item_data: dict) -> bool:
         return self._success_api_handler(payload={
@@ -85,6 +93,29 @@ class InoftVocalEngineTableConnectors:
             'queryLimit': query_limit,
             'filterExpression': filter_expression,
             **additional_kwargs
+        })
+
+    def _set_update_data_element_to_map_with_default_initialization(
+            self, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+    ) -> bool:
+        serialized_field_path_elements: List[dict] = [item.serialize() for item in field_path_elements]
+        return self._success_api_handler(payload={
+            'operationType': 'setUpdateMultipleDataElementsToMap',
+            'keyValue': key_value,
+            'fieldPathElements': serialized_field_path_elements,
+            'value': value
+        })
+
+    def _set_update_data_element_to_map_with_default_initialization_return_old(
+            self, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+    ) -> Tuple[bool, Optional[Any]]:
+        serialized_field_path_elements: List[dict] = [item.serialize() for item in field_path_elements]
+        return self._success_and_data_api_handler(payload={
+            'operationType': 'setUpdateMultipleDataElementsToMapWithDefaultInitialization',
+            'keyValue': key_value,
+            'fieldPathElements': serialized_field_path_elements,
+            'value': value,
+            'returnOldValue': True
         })
 
     def _set_update_multiple_data_elements_to_map(self, key_value: Any, setters: List[FieldPathSetter]) -> bool:

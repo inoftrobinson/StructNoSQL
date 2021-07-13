@@ -1,5 +1,6 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.middlewares.dynamodb.backend.models import Response
 from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
 from StructNoSQL.practical_logger import message_with_vars
@@ -30,6 +31,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 setters=list(dynamodb_setters.values())
             )
             print(response)
+        self._pending_update_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
@@ -40,6 +42,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             )
             # delete operations can be cached, where as remove operations need to be executed immediately
             print(response)
+        self._pending_remove_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
@@ -116,6 +119,17 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         return self._update_field(key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+
+    def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
+        def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):
+            response: Optional[Response] = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
+                index_name=self.primary_index_name,
+                key_value=key_value, value=validated_data,
+                field_path_elements=field_path_elements,
+                return_old_value=True
+            )
+            return (False, None) if response is None else (True, response.attributes)
+        return self._update_field_return_old(middleware=middleware, key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)

@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
@@ -24,12 +24,14 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
     def commit_update_operations(self) -> bool:
         for primary_key_value, dynamodb_setters in self._pending_update_operations_per_primary_key.items():
-            return self._set_update_multiple_data_elements_to_map(key_value=primary_key_value, setters=list(dynamodb_setters.values()))
+            self._set_update_multiple_data_elements_to_map(key_value=primary_key_value, setters=list(dynamodb_setters.values()))
+        self._pending_update_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 
     def commit_remove_operations(self) -> bool:
         for primary_key_value, fields_path_elements in self._pending_remove_operations_per_primary_key.items():
-            return self._remove_data_elements_from_map(key_value=primary_key_value, fields_path_elements=list(fields_path_elements.values()))
+            self._remove_data_elements_from_map(key_value=primary_key_value, fields_path_elements=list(fields_path_elements.values()))
+        self._pending_remove_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 
     def commit_operations(self):
@@ -93,6 +95,15 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         return self._update_field(key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+
+    def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
+        def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any) -> Tuple[bool, Optional[Any]]:
+            update_success, response_attributes = self._set_update_data_element_to_map_with_default_initialization_return_old(
+                key_value=key_value, value=validated_data,
+                field_path_elements=field_path_elements
+            )
+            return update_success, response_attributes
+        return self._update_field_return_old(middleware=middleware, key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)

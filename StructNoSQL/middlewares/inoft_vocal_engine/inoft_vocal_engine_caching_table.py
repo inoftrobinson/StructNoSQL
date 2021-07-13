@@ -1,7 +1,8 @@
 from typing import Optional, List, Dict, Any, Tuple
 
 from StructNoSQL import PrimaryIndex
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
+    FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
@@ -107,6 +108,14 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)
+
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, dict]:
+            update_success, response_attributes = self._set_update_multiple_data_elements_to_map_return_old(
+                key_value=key_value, setters=list(dynamodb_setters.values())
+            )
+            return update_success, response_attributes
+        return self._update_multiple_fields_return_old(middleware=middleware, key_value=key_value, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

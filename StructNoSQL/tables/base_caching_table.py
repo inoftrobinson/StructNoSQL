@@ -576,6 +576,80 @@ class BaseCachingTable(BaseTable):
                 ))"""
         return True
 
+    def _update_multiple_fields_return_old(
+            self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Optional[dict]]],
+            key_value: str, setters: Dict[str, FieldSetter]
+    ) -> Tuple[bool, Dict[str, Optional[Any]]]:
+
+        output_data: Dict[str, Optional[Any]] = {}
+        dynamodb_setters: Dict[str, FieldPathSetter] = {}
+        index_cached_data = self._index_cached_data(primary_key_value=key_value)
+
+        for setter_key, setter_item in setters.items():
+            validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                field_path=setter_item.field_path, fields_switch=self.fields_switch,
+                query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
+            )
+            if valid is True:
+                found_value_in_cache, field_value_from_cache = self._cache_get_data(
+                    primary_key_value=key_value, field_path_elements=field_path_elements
+                )
+                if found_value_in_cache is True:
+                    joined_field_path = join_field_path_elements(field_path_elements)
+                    pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
+                    pending_update_operations[joined_field_path] = FieldPathSetter(
+                        field_path_elements=field_path_elements, value_to_set=validated_data
+                    )
+                    # Even when we retrieve a removed value from the cache, and that we do not need to perform a remove operation right away to retrieve
+                    # the removed value, we still want to add a delete_operation that will be performed on operation commits, because if we remove a value
+                    # from the cache, it does not remove a potential older value present in the database, that the remove operation should remove.
+                    output_data[setter_key] = (
+                        field_value_from_cache if self.debug is not True else
+                        {'value': field_value_from_cache, 'fromCache': True}
+                    )
+                else:
+                    dynamodb_setters[setter_key] = FieldPathSetter(
+                        field_path_elements=field_path_elements, value_to_set=validated_data
+                    )
+                    self._cache_put_data(
+                        index_cached_data=index_cached_data,
+                        field_path_elements=field_path_elements,
+                        data=validated_data
+                    )
+
+                    """old_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                        data=response_attributes, field_path_elements=field_path_elements,
+                        num_keys_to_navigation_into=len(field_path_elements)
+                    ) if response_attributes is not None else None
+
+                    return update_success, (
+                        old_item_data if self.debug is not True else
+                        {'value': old_item_data, 'fromCache': False}
+                    )"""
+
+        if len(dynamodb_setters) > 0:
+            update_success, setters_response_attributes = middleware(dynamodb_setters)
+
+            if setters_response_attributes is not None:
+                from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+                for setter_key, setter_item in dynamodb_setters.items():
+                    navigated_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                        data=setters_response_attributes, field_path_elements=setter_item.field_path_elements,
+                        num_keys_to_navigation_into=len(setter_item.field_path_elements)
+                    )
+                    output_data[setter_key] = (
+                        navigated_data if self.debug is not True else
+                        {'value': navigated_data, 'fromCache': False}
+                    )
+            else:
+                for setter_key in dynamodb_setters.keys():
+                    output_data[setter_key] = None
+
+            # final_output = {**output_data, **output}
+            return update_success, output_data
+
+        return True, output_data
+
     def _remove_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None

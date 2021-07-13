@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any, Tuple
 
+from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
@@ -11,7 +12,9 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             self, engine_account_id: str, engine_project_id: str, engine_api_key: str,
             table_id: str, region_name: str, data_model
     ):
-        super().__init__(data_model=data_model)
+        super().__init__(data_model=data_model, primary_index=PrimaryIndex(
+            hash_key_name='accountProjectUserId', hash_key_variable_python_type=str
+        ))
         self.__setup_connectors__(
             engine_account_id=engine_account_id,
             engine_project_id=engine_project_id,
@@ -33,6 +36,30 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         def middleware(indexes_keys: dict) -> Optional[dict]:
             return self._remove_record_request(indexes_keys_selectors=indexes_keys)
         return self._record_deletion(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
+
+    def query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None,
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ) -> Optional[dict]:
+        def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool) -> List[dict]:
+            return self._query_items_by_key(
+                key_value=key_value, field_path_elements=field_path_elements,
+                has_multiple_fields_path=has_multiple_fields_path,
+                query_limit=records_query_limit, filter_expression=filter_expression,
+                **additional_kwargs
+            )
+        return self._query_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
+
+    def query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter],
+            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+    ):
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+            return self._query_items_by_key(
+                key_value=key_value, field_path_elements=fields_path_elements, has_multiple_fields_path=True,
+                query_limit=records_query_limit, filter_expression=filter_expression, **additional_kwargs
+            )
+        return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
@@ -78,6 +105,14 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             )
             return update_success
         return self._update_multiple_fields(middleware=middleware, setters=setters)
+
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, dict]:
+            update_success, response_attributes = self._set_update_multiple_data_elements_to_map_return_old(
+                key_value=key_value, setters=list(dynamodb_setters.values())
+            )
+            return update_success, response_attributes
+        return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

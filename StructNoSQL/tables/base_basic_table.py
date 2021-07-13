@@ -245,7 +245,18 @@ class BaseBasicTable(BaseTable):
                     field_path_elements=field_path_elements, value_to_set=validated_data
                 )
         update_success, setters_response_attributes = middleware(dynamodb_setters)
-        return update_success, setters_response_attributes
+
+        from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+        output: Dict[str, Optional[Any]] = {
+            setter_key: navigate_into_data_with_field_path_elements(
+                data=setters_response_attributes, field_path_elements=setter_item.field_path_elements,
+                num_keys_to_navigation_into=len(setter_item.field_path_elements)
+            ) for setter_key, setter_item in dynamodb_setters.items()
+        } if setters_response_attributes is not None else (
+            {setter_key: None for setter_key in dynamodb_setters.keys()}
+        )
+
+        return update_success, output
 
     def _base_removal(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],

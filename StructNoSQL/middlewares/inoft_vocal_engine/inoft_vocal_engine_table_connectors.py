@@ -100,7 +100,7 @@ class InoftVocalEngineTableConnectors:
     ) -> bool:
         serialized_field_path_elements: List[dict] = [item.serialize() for item in field_path_elements]
         return self._success_api_handler(payload={
-            'operationType': 'setUpdateMultipleDataElementsToMap',
+            'operationType': 'setUpdateMultipleDataElementsToMapWithDefaultInitialization',
             'keyValue': key_value,
             'fieldPathElements': serialized_field_path_elements,
             'value': value
@@ -124,6 +124,15 @@ class InoftVocalEngineTableConnectors:
             'operationType': 'setUpdateMultipleDataElementsToMap',
             'keyValue': key_value,
             'setters': serialized_setters
+        })
+
+    def _set_update_multiple_data_elements_to_map_return_old(self, key_value: Any, setters: List[FieldPathSetter]) -> Tuple[bool, Dict[str, Any]]:
+        serialized_setters: List[dict] = [item.serialize() for item in setters]
+        return self._success_and_data_api_handler(payload={
+            'operationType': 'setUpdateMultipleDataElementsToMap',
+            'keyValue': key_value,
+            'setters': serialized_setters,
+            'returnOldValues': True
         })
 
     def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:

@@ -1,6 +1,6 @@
 from typing import Optional, Any
-from StructNoSQL import DynamoDBBasicTable, PrimaryIndex, GlobalSecondaryIndex, DynamoDBCachingTable, InoftVocalEngineCachingTable
-
+from StructNoSQL import DynamoDBBasicTable, PrimaryIndex, GlobalSecondaryIndex, DynamoDBCachingTable, \
+    InoftVocalEngineCachingTable, InoftVocalEngineBasicTable
 
 TEST_ACCOUNT_ID = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
 TEST_PROJECT_ID = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
@@ -33,8 +33,6 @@ class PlaygroundDynamoDBCachingTable(DynamoDBCachingTable):
             auto_create_table=True
         )
 
-# todo: implement InoftVocalEngineBasicTable
-"""
 class PlaygroundInoftVocalEngineBasicTable(InoftVocalEngineBasicTable):
     def __init__(self, data_model):
         super().__init__(
@@ -44,7 +42,6 @@ class PlaygroundInoftVocalEngineBasicTable(InoftVocalEngineBasicTable):
             table_id="structnosql-playground", region_name="eu-west-2",
             data_model=data_model
         )
-"""
 
 class PlaygroundInoftVocalEngineCachingTable(InoftVocalEngineCachingTable):
     def __init__(self, data_model):

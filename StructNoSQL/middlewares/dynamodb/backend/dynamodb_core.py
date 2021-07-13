@@ -137,7 +137,7 @@ class DynamoDbCoreAdapter:
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
-            if "Item" in response:
+            if 'Item' in response:
                 processed_item = DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=response['Item'])
                 return GetItemResponse(item=processed_item, success=True)
             else:
@@ -245,7 +245,7 @@ class DynamoDbCoreAdapter:
         # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
         # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
         # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
-        output_response_attributes: Dict[str, Any] = DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else {}
+        output_response_attributes: dict = DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else {}
         if len(targets_path_elements) == len(consumed_targets_path_elements):
             return output_response_attributes
         else:

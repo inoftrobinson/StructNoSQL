@@ -15,3 +15,7 @@ class TestsInoftVocalEngineCachingTable(unittest.TestCase):
     def test_update_field_return_old(self):
         from tests.tests_update_field_return_old.cases_shared import test_update_field_return_old
         test_update_field_return_old(**self.SHARED_CASE_KWARGS)
+
+    def test_update_multiple_fields_return_old(self):
+        from tests.tests_update_field_return_old.cases_shared import test_update_multiple_fields_return_old
+        test_update_multiple_fields_return_old(**self.SHARED_CASE_KWARGS)

@@ -1,8 +1,10 @@
 from typing import Optional, List, Dict, Any, Tuple
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import Response
 from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
+    FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
@@ -128,11 +130,34 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 field_path_elements=field_path_elements,
                 return_old_value=True
             )
-            return (False, None) if response is None else (True, response.attributes)
+            if response is None:
+                return False, None
+
+            python_response_attributes: Optional[dict] = (
+                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                if response.attributes is not None else None
+            )
+            return True, python_response_attributes
         return self._update_field_return_old(middleware=middleware, key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)
+
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Optional[dict]]:
+            response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
+                index_name=self.primary_index_name, key_value=key_value,
+                setters=list(dynamodb_setters.values()), return_old_values=True
+            )
+            if response is None:
+                return False, None
+
+            python_response_attributes: Optional[dict] = (
+                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                if response.attributes is not None else None
+            )
+            return True, python_response_attributes
+        return self._update_multiple_fields_return_old(middleware=middleware, key_value=key_value, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

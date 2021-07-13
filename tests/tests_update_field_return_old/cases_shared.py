@@ -83,6 +83,9 @@ def test_update_multiple_fields_return_old(
         )
     }, field_old_value)
 
+    if is_caching is True:
+        users_table.clear_cached_data()
+
     retrieved_container_fields_second_random_values: Optional[Dict[str, Optional[Any]]] = users_table.get_field(
         key_value=TEST_ACCOUNT_ID, field_path='container.(textFieldOne, textFieldTwo)'
     )

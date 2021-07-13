@@ -81,45 +81,6 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._query_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, index_name=index_name)
 
-    """def query_field(
-            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
-            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
-    ) -> Optional[dict]:
-
-        from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-        )
-        final_fields_path_elements: List[List[DatabasePathElement]] = (
-            [field_path_elements] if has_multiple_fields_path is not True else list(field_path_elements.values())
-        )
-
-        response = self.dynamodb_client.query_response_by_key(
-            index_name=index_name or self.primary_index_name, key_value=key_value,
-            fields_path_elements=final_fields_path_elements,
-            query_limit=records_query_limit, filter_expression=filter_expression,
-            **additional_kwargs
-        )
-        if response is None:
-            return None
-
-        output: List[Any] = []
-        for record_item_data in response.items:
-            if isinstance(record_item_data, dict):
-                from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-                if has_multiple_fields_path is not True:
-                    output.append(navigate_into_data_with_field_path_elements(
-                        data=record_item_data, field_path_elements=field_path_elements,
-                        num_keys_to_navigation_into=len(field_path_elements)
-                    ))
-                else:
-                    output.append(self.dynamodb_client._unpack_multiple_retrieved_fields(
-                        item_data=record_item_data, fields_path_elements=field_path_elements,
-                        num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
-                    ))
-                # todo: add data validation
-        return output"""
-
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
@@ -173,7 +134,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
-        def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):
+        def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any) -> Tuple[bool, Optional[dict]]:
             response: Optional[Response] = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
                 index_name=self.primary_index_name,
                 key_value=key_value, value=validated_data,
@@ -183,7 +144,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             if response is None:
                 return False, None
 
-            response_attributes: Optional[Dict[str, Any]] = (
+            response_attributes: Optional[dict] = (
                 DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
                 if response.attributes is not None else None
             )
@@ -191,7 +152,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         return self._update_field_return_old(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
-        def middleware(dynamodb_setters: List[FieldPathSetter]):
+        def middleware(dynamodb_setters: List[FieldPathSetter]) -> bool:
             response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=self.primary_index_name, key_value=key_value,
                 setters=dynamodb_setters, return_old_values=False
@@ -199,26 +160,20 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return response is not None
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 
-    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Optional[dict]]:
             response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=self.primary_index_name, key_value=key_value,
                 setters=list(dynamodb_setters.values()), return_old_values=True
             )
             if response is None:
-                return False, {setter_key: None for setter_key in dynamodb_setters.keys()}
+                return False, None
 
-            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-            output: Dict[str, Optional[Any]] = {
-                setter_key: navigate_into_data_with_field_path_elements(
-                    data=response.attributes, field_path_elements=setter_item.field_path_elements,
-                    num_keys_to_navigation_into=len(setter_item.field_path_elements)
-                ) for setter_key, setter_item in dynamodb_setters.items()
-            } if response.attributes is not None else {
-                setter_key: None for setter_key in dynamodb_setters.keys()
-            }
-            return True, output
-
+            python_response_attributes: Optional[dict] = (
+                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                if response.attributes is not None else None
+            )
+            return True, python_response_attributes
         return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:

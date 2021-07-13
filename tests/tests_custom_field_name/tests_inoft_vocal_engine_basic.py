@@ -1,14 +1,13 @@
 import unittest
 
-from tests.components.playground_table_clients import PlaygroundInoftVocalEngineCachingTable
+from tests.components.playground_table_clients import PlaygroundInoftVocalEngineBasicTable
 from tests.tests_custom_field_name.table_models import InoftVocalEngineTableModel
 
 
 class TestsInoftVocalEngineCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        # self.users_table = PlaygroundInoftVocalEngineBasicTable(data_model=InoftVocalEngineTableModel)  # todo: implement the InoftVocalEngineBasicTable
-        self.users_table = PlaygroundInoftVocalEngineCachingTable(data_model=InoftVocalEngineTableModel)
+        self.users_table = PlaygroundInoftVocalEngineBasicTable(data_model=InoftVocalEngineTableModel)
         self.users_table.debug = True
 
         self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectUserId', 'is_caching': True}

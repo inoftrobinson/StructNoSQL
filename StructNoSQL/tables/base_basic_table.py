@@ -1,13 +1,13 @@
-from typing import Optional, List, Dict, Any, Tuple, Callable, Iterable
+from typing import Optional, List, Dict, Any, Tuple, Callable, Iterable, Union
 
-from StructNoSQL import PrimaryIndex
+from StructNoSQL import PrimaryIndex, BaseField
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path
+    process_validate_data_and_make_single_rendered_database_path, process_and_make_single_rendered_database_path_v2
 
 
 class BaseBasicTable(BaseTable):
@@ -25,13 +25,30 @@ class BaseBasicTable(BaseTable):
         return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
     def _get_field(
-            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],
             field_path: str, query_kwargs: Optional[dict] = None
-    ) -> Any:
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+    ) -> Optional[Any]:
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        return middleware(field_path_elements, has_multiple_fields_path)
+        retrieved_data: Union[Optional[Any], Dict[str, Optional[Any]]] = middleware(field_path_elements, has_multiple_fields_path)
+        if has_multiple_fields_path is not True:
+            field_path_object: BaseField
+            retrieved_data: Optional[Any]
+            field_path_object.populate(value=retrieved_data)
+            validated_data, is_valid = field_path_object.validate_data()
+            return validated_data if is_valid is True else None
+        else:
+            field_path_object: Dict[str, BaseField]
+            retrieved_data: Dict[str, Optional[Any]]
+
+            output_data: Dict[str, Optional[Any]] = {}
+            for field_key, field_object_item in field_path_object.items():
+                matching_item_data: Optional[Any] = retrieved_data.get(field_key, None)
+                field_object_item.populate(value=matching_item_data)
+                validated_data, is_valid = field_object_item.validate_data()
+                output_data[field_key] = validated_data if is_valid is True else None
+            return output_data
 
     @staticmethod
     def _process_cache_record_value(value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):

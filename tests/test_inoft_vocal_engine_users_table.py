@@ -13,23 +13,6 @@ class TestTableOperations(unittest.TestCase):
         super().__init__(methodName=method_name)
         self.users_table = PlaygroundDynamoDBBasicTable(data_model=UsersTableModel)
 
-    # todo: deprecate
-    """
-    def test_get_all_projects(self):
-        response_items: Optional[List[dict]] = self.users_table.query(
-            index_name="accountId", key_value=TEST_ACCOUNT_ID, fields_paths=["projects"]
-        )
-        if response_items is not None:
-            for item in response_items:
-                current_item_projects = item.get("projects", None)
-                if current_item_projects is not None:
-                    for project_data in current_item_projects.values():
-                        print(f"Project : {project_data}")
-                        project_name = project_data.get("projectName", None)
-                        if project_name is not None:
-                            self.assertIn("test", project_data["projectName"])
-    """
-
     def test_get_name_of_one_project(self):
         response_data: Optional[str] = self.users_table.get_field(
             key_value=TEST_ACCOUNT_ID,

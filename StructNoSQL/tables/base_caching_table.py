@@ -1,5 +1,7 @@
 import abc
 from typing import Optional, List, Dict, Any, Tuple, Callable
+
+from StructNoSQL import BaseField
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
@@ -7,7 +9,8 @@ from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path, join_field_path_elements
+    process_validate_data_and_make_single_rendered_database_path, join_field_path_elements, \
+    process_and_make_single_rendered_database_path_v2
 
 
 class BaseCachingTable(BaseTable):
@@ -205,27 +208,34 @@ class BaseCachingTable(BaseTable):
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None
-    ) -> Any:
+    ) -> Optional[Any]:
 
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
+            field_path_object: BaseField
             field_path_elements: List[DatabasePathElement]
+
             found_in_cache, field_value_from_cache = self._cache_get_data(
                 primary_key_value=key_value, field_path_elements=field_path_elements
             )
             if found_in_cache is True:
                 return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
 
-            response_data = middleware(field_path_elements, has_multiple_fields_path)
+            retrieved_data: Optional[Any] = middleware(field_path_elements, False)
+            field_path_object.populate(value=retrieved_data)
+            validated_data, is_valid = field_path_object.validate_data()
+            output_data: Optional[Any] = validated_data if is_valid is True else None
 
-            index_cached_data = self._index_cached_data(primary_key_value=key_value)
-            BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=response_data)
-            return response_data if self.debug is not True else {'value': response_data, 'fromCache': False}
+            if is_valid is True:
+                BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=output_data)
+            return output_data if self.debug is not True else {'value': output_data, 'fromCache': False}
         else:
+            field_path_object: Dict[str, BaseField]
             field_path_elements: Dict[str, List[DatabasePathElement]]
-            output_items: Dict[str, Any] = {}
+            output_items: Dict[str, Optional[Any]] = {}
 
             keys_fields_already_cached_to_pop: List[str] = []
             for item_key, item_field_path_elements in field_path_elements.items():
@@ -244,14 +254,20 @@ class BaseCachingTable(BaseTable):
                 field_path_elements.pop(key_to_pop)
 
             if len(field_path_elements) > 0:
-                retrieved_items: Optional[dict] = middleware(field_path_elements, has_multiple_fields_path)
-                if retrieved_items is not None:
-                    for item_key, item_value in retrieved_items.items():
-                        output_items[item_key] = (
-                            item_value if self.debug is not True else
-                            {'fromCache': False, 'value': item_value}
-                        )
-
+                retrieved_items_data: Dict[str, Optional[Any]] = middleware(field_path_elements, True)
+                for field_key, field_object_item in field_path_object.items():
+                    matching_item_data: Optional[Any] = retrieved_items_data.get(field_key, None)
+                    field_object_item.populate(value=matching_item_data)
+                    validated_data, is_valid = field_object_item.validate_data()
+                    if is_valid is True:
+                        matching_field_path_elements: List[DatabasePathElement] = field_path_elements[field_key]
+                        # We get the matching_field_path_elements directly with bracket's selector instead of a .get, because
+                        # we are be confident that a key present in field_path_object will also be present in field_path_elements
+                        BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=matching_field_path_elements, data=validated_data)
+                        output_items[field_key] = validated_data
+                    else:
+                        # We do not cache the data if it's not valid
+                        output_items[field_key] = None
             return output_items
 
     def _process_cache_record_value(self, value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):

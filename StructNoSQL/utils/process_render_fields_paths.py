@@ -1,16 +1,16 @@
 import re
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Union
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
-from StructNoSQL.fields import BaseItem
+from StructNoSQL.fields import BaseItem, BaseField
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.exceptions import MissingQueryKwarg
 
 MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION = r'(\()(.*)(\))'
 
 
-def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) -> BaseItem:
-    current_field_object: Optional[BaseItem] = fields_switch.get(field_path_key, None)
+def _get_field_object_from_field_path(field_path_key: str, fields_switch: Dict[str, BaseField]) -> BaseField:
+    current_field_object: Optional[BaseField] = fields_switch.get(field_path_key, None)
     if current_field_object is not None:
         return current_field_object
     else:
@@ -19,7 +19,7 @@ def _get_field_object_from_field_path(field_path_key: str, fields_switch: dict) 
             vars_dict={"field_path_key": field_path_key, "fields_switch": fields_switch}
         ))
 
-def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> (BaseItem or List[BaseItem], bool):
+def process_and_get_field_path_object_from_field_path(field_path_key: str, fields_switch: dict) -> Tuple[Union[BaseField, Dict[str, BaseField]], bool]:
     matches: Optional[List[tuple]] = re.findall(pattern=MULTI_ATTRIBUTES_SELECTOR_REGEX_EXPRESSION, string=field_path_key)
     if matches is not None and len(matches) > 0:
         for match in matches:
@@ -27,7 +27,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
             attributes_selectors_string: str = match[1]
             attributes_selector_list = attributes_selectors_string.replace(' ', '').split(',')
 
-            attributes_fields_objets: List[BaseItem] = []
+            attributes_fields_objets: Dict[str, BaseField] = {}
             for attribute_selector in attributes_selector_list:
                 current_attribute_field_path = field_path_key.replace(selected_string, attribute_selector)
                 """if len(current_attribute_field_path) > 0 and current_attribute_field_path[0] == ".":
@@ -35,9 +35,9 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
                     # invalid point, which we will remove if we see that the first char of the field path is a point.
                     current_attribute_field_path = current_attribute_field_path[1:]"""
 
-                attributes_fields_objets.append(_get_field_object_from_field_path(
+                attributes_fields_objets[attribute_selector] = _get_field_object_from_field_path(
                     field_path_key=current_attribute_field_path, fields_switch=fields_switch
-                ))
+                )
 
             num_attributes_fields = len(attributes_fields_objets)
             if not num_attributes_fields > 0:
@@ -46,7 +46,9 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
                     vars_dict={'field_path_key': field_path_key, 'attributes_selectors_string': attributes_selectors_string}
                 ))
             elif num_attributes_fields == 1:
-                return attributes_fields_objets[0], False
+                # Treat a single field wrapped inside a
+                # multi-selector as a requested single field
+                return list(attributes_fields_objets.values())[0], False
             else:
                 return attributes_fields_objets, True
 
@@ -68,8 +70,6 @@ def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[st
 def make_rendered_database_path(database_path_elements: List[DatabasePathElement], query_kwargs: dict) -> List[DatabasePathElement]:
     output_database_path_elements: List[DatabasePathElement] = []
     for path_element in database_path_elements:
-        if path_element.element_key is None:
-            print("e")
         if "$key$:" not in path_element.element_key:
             # If the path_element do not contains a key that need to be modified, we can use the current
             # instance of the path element, since it will not be modified, and so will not cause issue
@@ -111,17 +111,41 @@ def process_and_make_single_rendered_database_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
     if has_multiple_fields_path is not True:
+        field_path_object: BaseField
         rendered_database_path_elements = make_rendered_database_path(
             database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
         )
         return rendered_database_path_elements, False
     else:
+        field_path_object: Dict[str, BaseField]
         fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = {}
-        for single_field_path_object in field_path_object:
+        for single_field_path_object in field_path_object.values():
             fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
                 database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
             )
         return fields_rendered_database_path_elements, True
+
+def process_and_make_single_rendered_database_path_v2(
+        field_path: str, fields_switch: dict, query_kwargs: dict
+) -> Tuple[Union[BaseField, Dict[str, BaseField]], Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool]:
+
+    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
+        field_path_key=field_path, fields_switch=fields_switch
+    )
+    if has_multiple_fields_path is not True:
+        field_path_object: BaseField
+        rendered_database_path_elements = make_rendered_database_path(
+            database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
+        )
+        return field_path_object, rendered_database_path_elements, False
+    else:
+        field_path_object: Dict[str, BaseField]
+        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = {}
+        for single_field_path_object in field_path_object.values():
+            fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
+                database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
+            )
+        return field_path_object, fields_rendered_database_path_elements, True
 
 def process_validate_data_and_make_single_rendered_database_path(
         field_path: str, fields_switch: dict, query_kwargs: dict, data_to_validate: Any

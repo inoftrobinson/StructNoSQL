@@ -189,24 +189,6 @@ class BaseItem:
         # print("Finished data validation.")
 
     def query(self, key_value: str, fields_path_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
-        """for path_element in self._database_path:
-            if "$key$:" in path_element.element_key:
-                variable_name = path_element.element_key.replace("$key$:", "")
-                if query_kwargs is not None:
-                    matching_kwarg = query_kwargs.get(variable_name, None)
-                    if matching_kwarg is not None:
-                        path_element.element_key = matching_kwarg
-                    else:
-                        raise Exception(message_with_vars(
-                            message="A variable was required but not found in the query_kwargs dict passed to the query function.",
-                            vars_dict={"keyVariableName": variable_name, "matchingKwarg": matching_kwarg, "queryKwargs": query_kwargs, "databasePath": self._database_path}
-                        ))
-                else:
-                    raise Exception(message_with_vars(
-                        message="A variable was required but not query_kwargs have been passed to the query function.",
-                        vars_dict={"keyVariableName": variable_name, "queryKwargs": query_kwargs, "databasePath": self._database_path}
-                    ))"""
-
         self._query = Query(
             variable_validator=self, table=self._table,
             target_database_path=self._database_path,
@@ -344,9 +326,6 @@ class BaseField(BaseItem):
                 vars_dict={"fieldName": self.field_name, "fieldType": self.field_type,
                            "dictItemsExceptedType": self.items_excepted_type}
             ))
-
-    def post(self, value: any):
-        print(self._database_path)
 
     @property
     def field_name(self) -> str:

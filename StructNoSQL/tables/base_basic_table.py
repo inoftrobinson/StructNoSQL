@@ -159,7 +159,7 @@ class BaseBasicTable(BaseTable):
         )
 
     def _update_field(
-            self, middleware: Callable[[List[DatabasePathElement], Any], Any],
+            self, middleware: Callable[[List[DatabasePathElement], Any], bool],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> bool:
         validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
@@ -168,6 +168,17 @@ class BaseBasicTable(BaseTable):
         if valid is True and field_path_elements is not None:
             return middleware(field_path_elements, validated_data)
         return False
+
+    def _update_field_return_old(
+            self, middleware: Callable[[List[DatabasePathElement], Any], Any],
+            field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
+    ) -> Tuple[bool, Optional[Any]]:
+        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
+        )
+        if valid is True and field_path_elements is not None:
+            return middleware(field_path_elements, validated_data)
+        return False, None
 
     def _update_multiple_fields(
             self, middleware: Callable[[List[FieldPathSetter]], Any],

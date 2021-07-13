@@ -169,31 +169,31 @@ class DynamoDbCoreAdapter:
 
     def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
         kwargs = {
-            "TableName": self.table_name,
-            "Key": {index_name: key_value},
-            "ReturnValues": "UPDATED_NEW",
-            "UpdateExpression": f"SET {object_path} = list_append(if_not_exists({object_path}, :emptyList), :newItems)",
+            'TableName': self.table_name,
+            'Key': {index_name: key_value},
+            'ReturnValues': "UPDATED_NEW",
+            'UpdateExpression': f"SET {object_path} = list_append(if_not_exists({object_path}, :emptyList), :newItems)",
             # The if_not_exists inside the list_append, will create an empty
             # list before adding the newItems, only if the field do not exist.
-            "ExpressionAttributeValues": {
-                ":newItems": element_values,
-                ":emptyList": []
+            'ExpressionAttributeValues': {
+                ':newItems': element_values,
+                ':emptyList': []
             }
         }
         return self._execute_update_query(query_kwargs_dict=kwargs)
 
     def remove_data_elements_from_list(self, index_name: str, key_value: Any, list_object_path: str, indexes_to_remove: list) -> Optional[Response]:
         kwargs = {
-            "TableName": self.table_name,
-            "Key": {index_name: key_value},
-            "ReturnValues": "UPDATED_NEW"
+            'TableName': self.table_name,
+            'Key': {index_name: key_value},
+            'ReturnValues': "UPDATED_NEW"
         }
         update_expression = "REMOVE "
         for i, index_in_database_list in enumerate(indexes_to_remove):
             update_expression += f"{list_object_path}[{index_in_database_list}]"
             if i + 1 < len(indexes_to_remove):
                 update_expression += ", "
-        kwargs["UpdateExpression"] = update_expression
+        kwargs['UpdateExpression'] = update_expression
 
         return self._execute_update_query(query_kwargs_dict=kwargs)
 
@@ -258,8 +258,8 @@ class DynamoDbCoreAdapter:
                 retrieve_removed_elements=retrieve_removed_elements
             )
             combined_output_response_attributes = {
-                **(output_response_attributes or dict()),
-                **(request_continuation_response_attributes or dict())
+                **(output_response_attributes or {}),
+                **(request_continuation_response_attributes or {})
             }
             return combined_output_response_attributes
 
@@ -354,10 +354,10 @@ class DynamoDbCoreAdapter:
         return response
 
     def _construct_update_data_element_to_map_query_kwargs(
-            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any, return_old_value: bool = False
     ) -> dict:
 
-        expression_attribute_names_dict = {}
+        expression_attribute_names_dict: Dict[str, str] = {}
         update_expression = "SET "
 
         for i, path_element in enumerate(field_path_elements):
@@ -372,7 +372,7 @@ class DynamoDbCoreAdapter:
         update_query_kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},
-            "ReturnValues": "UPDATED_NEW",
+            "ReturnValues": "NONE" if return_old_value is not True else "UPDATED_OLD",
             "UpdateExpression": update_expression,
             "ExpressionAttributeNames": expression_attribute_names_dict,
             "ExpressionAttributeValues": {
@@ -382,14 +382,14 @@ class DynamoDbCoreAdapter:
         return update_query_kwargs
 
     def set_update_data_element_to_map_with_default_initialization(
-            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any
+            self, index_name: str, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any, return_old_value: bool = False
     ) -> Optional[Response]:
         update_query_kwargs = self._construct_update_data_element_to_map_query_kwargs(
-            index_name=index_name, key_value=key_value, field_path_elements=field_path_elements, value=value
+            index_name=index_name, key_value=key_value, field_path_elements=field_path_elements, value=value, return_old_value=return_old_value
         )
         return self._execute_update_query_with_initialization_if_missing(
             index_name=index_name, key_value=key_value, update_query_kwargs=update_query_kwargs,
-            setters=[FieldPathSetter(field_path_elements=field_path_elements, value_to_set=value)]
+            setters=[FieldPathSetter(field_path_elements=field_path_elements, value_to_set=value)],
         )
 
     def set_update_data_element_to_map_without_default_initialization(

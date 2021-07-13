@@ -1,6 +1,7 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import Response
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
@@ -170,6 +171,29 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
             return True if response is not None else False
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+
+    def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
+        def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any):
+            response: Optional[Response] = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
+                index_name=self.primary_index_name,
+                key_value=key_value, value=validated_data,
+                field_path_elements=field_path_elements,
+                return_old_value=True
+            )
+            if response is None:
+                return False, None
+
+            response_attributes: Optional[Dict[str, Any]] = (
+                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                if response.attributes is not None else None
+            )
+            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+            data = navigate_into_data_with_field_path_elements(
+                data=response_attributes, field_path_elements=field_path_elements,
+                num_keys_to_navigation_into=len(field_path_elements)
+            )
+            return True, data
+        return self._update_field_return_old(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         def middleware(dynamodb_setters: List[FieldPathSetter]):

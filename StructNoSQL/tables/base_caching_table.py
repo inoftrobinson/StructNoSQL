@@ -503,14 +503,19 @@ class BaseCachingTable(BaseTable):
             primary_key_value=key_value, field_path_elements=field_path_elements
         )
         if found_value_in_cache is True:
+            # When the old value of our field is found in cache, we are not forced to perform a database operation right away in order
+            # to know the old value of our field, but we still need to schedule an update operation, then update the in memory cache.
             joined_field_path = join_field_path_elements(field_path_elements)
             pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
             pending_update_operations[joined_field_path] = FieldPathSetter(
                 field_path_elements=field_path_elements, value_to_set=validated_data
             )
-            # Even when we retrieve a removed value from the cache, and that we do not need to perform a remove operation right away to retrieve
-            # the removed value, we still want to add a delete_operation that will be performed on operation commits, because if we remove a value
-            # from the cache, it does not remove a potential older value present in the database, that the remove operation should remove.
+
+            self._cache_put_data(
+                index_cached_data=index_cached_data,
+                field_path_elements=field_path_elements,
+                data=validated_data
+            )
             return True, (
                 field_value_from_cache if self.debug is not True else
                 {'value': field_value_from_cache, 'fromCache': True}
@@ -595,14 +600,20 @@ class BaseCachingTable(BaseTable):
                     primary_key_value=key_value, field_path_elements=field_path_elements
                 )
                 if found_value_in_cache is True:
+                    # When the old value of our field is found in cache, we are not forced to perform a database operation right away in order
+                    # to know the old value of our field, but we still need to schedule an update operation, then update the in memory cache.
                     joined_field_path = join_field_path_elements(field_path_elements)
                     pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
                     pending_update_operations[joined_field_path] = FieldPathSetter(
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     )
-                    # Even when we retrieve a removed value from the cache, and that we do not need to perform a remove operation right away to retrieve
-                    # the removed value, we still want to add a delete_operation that will be performed on operation commits, because if we remove a value
-                    # from the cache, it does not remove a potential older value present in the database, that the remove operation should remove.
+
+                    self._cache_put_data(
+                        index_cached_data=index_cached_data,
+                        field_path_elements=field_path_elements,
+                        data=validated_data
+                    )
+
                     output_data[setter_key] = (
                         field_value_from_cache if self.debug is not True else
                         {'value': field_value_from_cache, 'fromCache': True}

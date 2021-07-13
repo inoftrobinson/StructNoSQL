@@ -189,7 +189,7 @@ class BaseBasicTable(BaseTable):
         return False, None
 
     def _update_multiple_fields(
-            self, middleware: Callable[[List[FieldPathSetter]], Any],
+            self, middleware: Callable[[List[FieldPathSetter]], bool],
             setters: List[FieldSetter or UnsafeFieldSetter]
     ) -> bool:
         dynamodb_setters: List[FieldPathSetter] = []
@@ -227,8 +227,25 @@ class BaseBasicTable(BaseTable):
                     field_path_elements=rendered_field_path_elements,
                     value_to_set=processed_value_to_set
                 ))"""
-        response = middleware(dynamodb_setters)
-        return True if response is not None else False
+        update_success: bool = middleware(dynamodb_setters)
+        return update_success
+
+    def _update_multiple_fields_return_old(
+            self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Dict[str, Optional[Any]]]], setters: Dict[str, FieldSetter]
+    ) -> Tuple[bool, Dict[str, Optional[Any]]]:
+
+        dynamodb_setters: Dict[str, FieldPathSetter] = {}
+        for setter_key, setter_item in setters.items():
+            validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                field_path=setter_item.field_path, fields_switch=self.fields_switch,
+                query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
+            )
+            if valid is True:
+                dynamodb_setters[setter_key] = FieldPathSetter(
+                    field_path_elements=field_path_elements, value_to_set=validated_data
+                )
+        update_success, setters_response_attributes = middleware(dynamodb_setters)
+        return update_success, setters_response_attributes
 
     def _base_removal(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],

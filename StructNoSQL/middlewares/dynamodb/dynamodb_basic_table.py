@@ -192,10 +192,34 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         def middleware(dynamodb_setters: List[FieldPathSetter]):
-            return self.dynamodb_client.set_update_multiple_data_elements_to_map(
-                index_name=self.primary_index_name, key_value=key_value, setters=dynamodb_setters
+            response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
+                index_name=self.primary_index_name, key_value=key_value,
+                setters=dynamodb_setters, return_old_values=False
             )
+            return response is not None
         return self._update_multiple_fields(middleware=middleware, setters=setters)
+
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+            response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
+                index_name=self.primary_index_name, key_value=key_value,
+                setters=list(dynamodb_setters.values()), return_old_values=True
+            )
+            if response is None:
+                return False, {setter_key: None for setter_key in dynamodb_setters.keys()}
+
+            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+            output: Dict[str, Optional[Any]] = {
+                setter_key: navigate_into_data_with_field_path_elements(
+                    data=response.attributes, field_path_elements=setter_item.field_path_elements,
+                    num_keys_to_navigation_into=len(setter_item.field_path_elements)
+                ) for setter_key, setter_item in dynamodb_setters.items()
+            } if response.attributes is not None else {
+                setter_key: None for setter_key in dynamodb_setters.keys()
+            }
+            return True, output
+
+        return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

@@ -28,7 +28,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         for primary_key_value, dynamodb_setters in self._pending_update_operations_per_primary_key.items():
             response = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=self.primary_index_name, key_value=primary_key_value,
-                setters=list(dynamodb_setters.values())
+                setters=list(dynamodb_setters.values()), return_old_values=False
             )
             print(response)
         self._pending_update_operations_per_primary_key = {}

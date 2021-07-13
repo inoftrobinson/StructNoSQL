@@ -498,7 +498,7 @@ class DynamoDbCoreAdapter:
         return response
 
     def set_update_multiple_data_elements_to_map(
-            self, index_name: str, key_value: Any, setters: List[FieldPathSetter]
+            self, index_name: str, key_value: Any, setters: List[FieldPathSetter], return_old_values: bool
     ) -> Optional[Response]:
 
         if not len(setters) > 0:
@@ -507,17 +507,17 @@ class DynamoDbCoreAdapter:
             return None
 
         update_query_kwargs = {
-            "TableName": self.table_name,
-            "Key": {index_name: key_value},
-            "ReturnValues": "UPDATED_NEW"
+            'TableName': self.table_name,
+            'Key': {index_name: key_value},
+            'ReturnValues': "UPDATED_OLD" if return_old_values is True else "NONE"
         }
         update_expression = "SET "
-        expression_attribute_names_dict, expression_attribute_values_dict = {}, dict()
+        expression_attribute_names_dict, expression_attribute_values_dict = {}, {}
 
         consumed_setters: List[FieldPathSetter] = []
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
-            current_setter_attribute_names, current_setter_attribute_values = {}, dict()
+            current_setter_attribute_names, current_setter_attribute_values = {}, {}
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
                 current_setter_update_expression, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
@@ -559,10 +559,10 @@ class DynamoDbCoreAdapter:
                 ))
                 break
 
-        update_query_kwargs["UpdateExpression"] = update_expression
-        update_query_kwargs["ExpressionAttributeValues"] = expression_attribute_values_dict
+        update_query_kwargs['UpdateExpression'] = update_expression
+        update_query_kwargs['ExpressionAttributeValues'] = expression_attribute_values_dict
         if len(expression_attribute_names_dict) > 0:
-            update_query_kwargs["ExpressionAttributeNames"] = expression_attribute_names_dict
+            update_query_kwargs['ExpressionAttributeNames'] = expression_attribute_names_dict
 
         response = self._execute_update_query_with_initialization_if_missing(
             index_name=index_name, key_value=key_value,
@@ -573,7 +573,10 @@ class DynamoDbCoreAdapter:
         else:
             for setter in consumed_setters:
                 setters.remove(setter)
-            return self.set_update_multiple_data_elements_to_map(index_name=index_name, key_value=key_value, setters=setters)
+            return self.set_update_multiple_data_elements_to_map(
+                index_name=index_name, key_value=key_value,
+                setters=setters, return_old_values=return_old_values
+            )
 
     def query_response_by_key(
             self, index_name: str, key_value: Any,

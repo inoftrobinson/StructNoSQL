@@ -72,10 +72,11 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         return self._update_field_return_old(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
-        def middleware(dynamodb_setters: List[FieldPathSetter]):
-            return self._set_update_multiple_data_elements_to_map(
+        def middleware(dynamodb_setters: List[FieldPathSetter]) -> bool:
+            update_success: bool = self._set_update_multiple_data_elements_to_map(
                 key_value=key_value, setters=dynamodb_setters
             )
+            return update_success
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:

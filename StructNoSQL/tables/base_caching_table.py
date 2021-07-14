@@ -1,5 +1,5 @@
 import abc
-from typing import Optional, List, Dict, Any, Tuple, Callable
+from typing import Optional, List, Dict, Any, Tuple, Callable, Union
 
 from StructNoSQL import BaseField
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
@@ -428,23 +428,39 @@ class BaseCachingTable(BaseTable):
             grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
         )
 
+    def _unpack_getters_response_item_v2(
+            self, response_item: dict,
+            single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+            grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
+    ):
+        def item_mutator(item: Any):
+            return item if self.debug is not True else {'value': item, 'fromCache': False}
+
+        from StructNoSQL.tables.shared_table_behaviors import _base_unpack_getters_response_item_v2
+        return _base_unpack_getters_response_item_v2(
+            item_mutator=item_mutator, response_item=response_item,
+            single_getters_database_paths_elements=single_getters_database_paths_elements,
+            grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
+        )
+
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
             key_value: str, getters: Dict[str, FieldGetter]
     ) -> Optional[dict]:
         output_data: Dict[str, Any] = {}
-        index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
 
-        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+        single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+        grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]] = {}
 
         getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
             )
             if has_multiple_fields_path is not True:
+                field_path_object: BaseField
                 field_path_elements: List[DatabasePathElement]
+
                 found_value_in_cache, field_value_from_cache = self._cache_get_data(
                     primary_key_value=key_value, field_path_elements=field_path_elements
                 )
@@ -454,10 +470,12 @@ class BaseCachingTable(BaseTable):
                         {'value': field_value_from_cache, 'fromCache': True}
                     )
                 else:
-                    single_getters_database_paths_elements[getter_key] = field_path_elements
+                    single_getters_database_paths_elements[getter_key] = (field_path_object, field_path_elements)
                     getters_database_paths.append(field_path_elements)
             else:
+                field_path_object: Dict[str, BaseField]
                 field_path_elements: Dict[str, List[DatabasePathElement]]
+
                 current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
                 container_data: Dict[str, Any] = {}
 
@@ -475,13 +493,13 @@ class BaseCachingTable(BaseTable):
                         getters_database_paths.append(child_item_field_path_elements)
 
                 output_data[getter_key] = container_data
-                grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
+                grouped_getters_database_paths_elements[getter_key] = (field_path_object, current_getter_grouped_database_paths_elements)
 
         response_data = middleware(getters_database_paths)
         if response_data is None:
             return output_data
 
-        unpacked_retrieved_items: dict = self._unpack_getters_response_item(
+        unpacked_retrieved_items: dict = self._unpack_getters_response_item_v2(
             response_item=response_data,
             single_getters_database_paths_elements=single_getters_database_paths_elements,
             grouped_getters_database_paths_elements=grouped_getters_database_paths_elements

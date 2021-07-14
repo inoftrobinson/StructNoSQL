@@ -145,14 +145,14 @@ class BaseBasicTable(BaseTable):
     @staticmethod
     def _unpack_getters_response_item(
             response_item: dict,
-            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
-            grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
+            single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+            grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
     ):
         def item_mutator(item: Any):
             return item
 
-        from StructNoSQL.tables.shared_table_behaviors import _base_unpack_getters_response_item
-        return _base_unpack_getters_response_item(
+        from StructNoSQL.tables.shared_table_behaviors import _base_unpack_getters_response_item_v2
+        return _base_unpack_getters_response_item_v2(
             item_mutator=item_mutator, response_item=response_item,
             single_getters_database_paths_elements=single_getters_database_paths_elements,
             grouped_getters_database_paths_elements=grouped_getters_database_paths_elements
@@ -160,14 +160,14 @@ class BaseBasicTable(BaseTable):
 
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], getters: Dict[str, FieldGetter]
-    ) -> Optional[dict]:
+    ) -> Dict[str, Optional[Any]]:
 
         getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
             _prepare_getters(fields_switch=self.fields_switch, getters=getters)
         )
-        response_data = middleware(getters_database_paths)
+        response_data: Optional[dict] = middleware(getters_database_paths)
         if response_data is None:
-            return None
+            return {getter_key: None for getter_key in getters.keys()}
 
         return self._unpack_getters_response_item(
             response_item=response_data,

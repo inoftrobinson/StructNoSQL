@@ -1,11 +1,13 @@
 import string
 from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable
 
+from StructNoSQL import BaseField
 from StructNoSQL.models import DatabasePathElement, FieldGetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
+    process_and_make_single_rendered_database_path_v2
 
 
 def _base_unpack_getters_response_item(
@@ -28,6 +30,37 @@ def _base_unpack_getters_response_item(
                 data=response_item, field_path_elements=child_item_field_path_elements,
                 num_keys_to_navigation_into=len(child_item_field_path_elements)
             )
+        output_data[container_key] = item_mutator(container_data)
+    return output_data
+
+def _base_unpack_getters_response_item_v2(
+        item_mutator: Callable[[Any], Any], response_item: dict,
+        single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+        grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
+) -> Dict[str, Any]:
+    output_data: Dict[str, Any] = {}
+    for item_key, item_container in single_getters_database_paths_elements.items():
+        item_field_object, item_field_path_elements = item_container
+        item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+            data=response_item, field_path_elements=item_field_path_elements,
+            num_keys_to_navigation_into=len(item_field_path_elements)
+        )
+        item_field_object.populate(value=item_data)
+        validated_data, is_valid = item_field_object.validate_data()
+        output_data[item_key] = item_mutator(validated_data if is_valid is True else None)
+
+    for container_key, container_container in grouped_getters_database_paths_elements.items():
+        container_data: Dict[str, Any] = {}
+        container_fields_objects, container_fields_path_elements = container_container
+        for child_item_key, child_item_field_path_elements in container_fields_path_elements.items():
+            matching_field_object: BaseField = container_fields_objects[child_item_key]
+            item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                data=response_item, field_path_elements=child_item_field_path_elements,
+                num_keys_to_navigation_into=len(child_item_field_path_elements)
+            )
+            matching_field_object.populate(value=item_data)
+            validated_data, is_valid = matching_field_object.validate_data()
+            container_data[child_item_key] = validated_data if is_valid is True else None
         output_data[container_key] = item_mutator(container_data)
     return output_data
 
@@ -150,24 +183,28 @@ def _inner_query_fields_secondary_index(
 
 def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter]) -> Tuple[
     List[List[DatabasePathElement]],
-    Dict[str, List[DatabasePathElement]],
-    Dict[str, Dict[str, List[DatabasePathElement]]]
+    Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+    Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
 ]:
     getters_database_paths: List[List[DatabasePathElement]] = []
-    single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-    grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+    single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+    grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]] = {}
 
     for getter_key, getter_item in getters.items():
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
             field_path=getter_item.field_path, fields_switch=fields_switch, query_kwargs=getter_item.query_kwargs
         )
         if has_multiple_fields_path is not True:
+            field_path_object: BaseField
             getter_field_path_elements: List[DatabasePathElement]
-            single_getters_database_paths_elements[getter_key] = field_path_elements
+
+            single_getters_database_paths_elements[getter_key] = (field_path_object, field_path_elements)
             getters_database_paths.append(field_path_elements)
         else:
+            field_path_object: Dict[str, BaseField]
             getter_field_path_elements: Dict[str, List[DatabasePathElement]]
-            grouped_getters_database_paths_elements[getter_key] = field_path_elements
+
+            grouped_getters_database_paths_elements[getter_key] = (field_path_object, field_path_elements)
             getters_database_paths.extend(field_path_elements.values())
 
     return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements

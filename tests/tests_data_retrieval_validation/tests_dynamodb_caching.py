@@ -19,3 +19,7 @@ class TestsDynamoDBCachingTable(unittest.TestCase):
     def test_get_field_multi_selectors(self):
         from tests.tests_data_retrieval_validation.cases_shared import test_get_field_multi_selectors
         test_get_field_multi_selectors(**self.SHARED_CASE_KWARGS)
+
+    def test_get_multiple_fields(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_get_multiple_fields
+        test_get_multiple_fields(**self.SHARED_CASE_KWARGS)

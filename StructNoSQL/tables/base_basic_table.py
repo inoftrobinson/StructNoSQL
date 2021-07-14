@@ -7,7 +7,7 @@ from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path, process_and_make_single_rendered_database_path_v2
+    process_validate_data_and_make_single_rendered_database_path, process_and_make_single_rendered_database_path_v3
 
 
 class BaseBasicTable(BaseTable):
@@ -28,26 +28,31 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
-        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        retrieved_data: Union[Optional[Any], Dict[str, Optional[Any]]] = middleware(field_path_elements, has_multiple_fields_path)
         if has_multiple_fields_path is not True:
-            field_path_object: BaseField
-            retrieved_data: Optional[Any]
-            field_path_object.populate(value=retrieved_data)
-            validated_data, is_valid = field_path_object.validate_data()
-            return validated_data if is_valid is True else None
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            field_object, field_path_elements = target_field_container
+
+            retrieved_item_data: Optional[Any] = middleware(field_path_elements, False)
+            field_object.populate(value=retrieved_item_data)
+            validated_data, is_valid = field_object.validate_data()
+            return validated_data
         else:
-            field_path_object: Dict[str, BaseField]
-            retrieved_data: Dict[str, Optional[Any]]
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+
+            fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_field_container.items()}
+            retrieved_items_data: Dict[str, Optional[Any]] = middleware(fields_paths_elements, True)
 
             output_data: Dict[str, Optional[Any]] = {}
-            for field_key, field_object_item in field_path_object.items():
-                matching_item_data: Optional[Any] = retrieved_data.get(field_key, None)
-                field_object_item.populate(value=matching_item_data)
-                validated_data, is_valid = field_object_item.validate_data()
-                output_data[field_key] = validated_data if is_valid is True else None
+            for item_key, item_container in target_field_container.items():
+                field_object, field_path_elements = item_container
+
+                matching_item_data: Optional[Any] = retrieved_items_data.get(item_key, None)
+                field_object.populate(value=matching_item_data)
+                validated_data, is_valid = field_object.validate_data()
+                output_data[item_key] = validated_data
             return output_data
 
     @staticmethod
@@ -60,7 +65,7 @@ class BaseBasicTable(BaseTable):
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+            target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], has_multiple_fields_path: bool,
     ) -> Optional[dict]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
@@ -69,7 +74,7 @@ class BaseBasicTable(BaseTable):
             primary_index_name=self.primary_index_name,
             get_primary_key_database_path=self._get_primary_key_database_path,
             middleware=middleware,
-            field_path_elements=field_path_elements,
+            target_field_container=target_field_container,
             has_multiple_fields_path=has_multiple_fields_path
         )
 
@@ -78,20 +83,22 @@ class BaseBasicTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
     ) -> Optional[dict]:
 
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
-                field_path_elements=field_path_elements,
+                target_field_container=target_field_container,
                 has_multiple_fields_path=has_multiple_fields_path
             )
         else:
             # If requested index is primary index
             if has_multiple_fields_path is not True:
-                field_path_elements: List[DatabasePathElement]
-                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, has_multiple_fields_path)
+                target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                field_object, field_path_elements = target_field_container
+
+                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, False)
                 if retrieved_records_items_data is None:
                     return None
 
@@ -105,11 +112,13 @@ class BaseBasicTable(BaseTable):
                         field_path_elements=field_path_elements
                     )}
             else:
-                field_path_elements: Dict[str, List[DatabasePathElement]]
-                if not len(field_path_elements) > 0:
+                target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+
+                if not len(target_field_container) > 0:
                     return {key_value: {}}
 
-                retrieved_records_items_data: Optional[List[dict]] = middleware(field_path_elements, has_multiple_fields_path)
+                fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_field_container.items()}
+                retrieved_records_items_data: Optional[List[dict]] = middleware(fields_paths_elements, True)
                 if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -117,28 +126,32 @@ class BaseBasicTable(BaseTable):
                     return {key_value: self._process_cache_record_item(
                         record_item_data=retrieved_records_items_data[0],
                         primary_key_value=key_value,
-                        fields_path_elements=field_path_elements
+                        fields_path_elements=fields_paths_elements
                     )}
 
     def _query_multiple_fields(
             self, middleware: Callable[[Dict[str, List[DatabasePathElement]], bool], List[Any]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None
     ):
-        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
+        getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (
             _prepare_getters(fields_switch=self.fields_switch, getters=getters)
         )
         if len(grouped_getters_database_paths_elements) > 0:
             raise Exception(f"grouped_getters_database_paths_elements not yet supported")
 
         if index_name is None or index_name == self.primary_index_name:
+            single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = (
+                {key: item[1] for key, item in single_getters_target_fields_containers.items()}
+            )
             retrieved_records_items_data: Optional[List[Any]] = middleware(single_getters_database_paths_elements, True)
             if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                # todo: add data validation
                 return {key_value: retrieved_records_items_data[0]}
             return None
         else:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
-                field_path_elements=single_getters_database_paths_elements,
+                target_field_container=single_getters_target_fields_containers,
                 has_multiple_fields_path=True
             )
 
@@ -146,7 +159,7 @@ class BaseBasicTable(BaseTable):
     def _unpack_getters_response_item(
             response_item: dict,
             single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-            grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
+            grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
     ):
         def item_mutator(item: Any):
             return item
@@ -275,86 +288,66 @@ class BaseBasicTable(BaseTable):
 
         return update_success, output
 
-    def _base_removal(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            field_path: str, query_kwargs: Optional[dict] = None
-    ) -> Tuple[Optional[Dict[str, Any]], List[List[DatabasePathElement]]]:
-
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
-        )
-        target_path_elements: List[List[DatabasePathElement]] = (
-            [field_path_elements]
-            if has_multiple_fields_path is not True else
-            list(field_path_elements.values())
-        )
-        # The remove_data_elements_from_map function expect a List[List[DatabasePathElement]]. If we have a
-        # single field_path, we wrap the field_path_elements inside a list. And if we have multiple fields_paths
-        # (which will be structured inside a dict), we turn the convert the values of the dict to a list.
-        return middleware(target_path_elements), target_path_elements
-
     def _remove_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Optional[dict]],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
-        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        target_path_elements: List[List[DatabasePathElement]] = (
-            [field_path_elements]
-            if has_multiple_fields_path is not True else
-            list(field_path_elements.values())
-        )
-        # The remove_data_elements_from_map function expect a List[List[DatabasePathElement]]. If we have a
-        # single field_path, we wrap the field_path_elements inside a list. And if we have multiple fields_paths
-        # (which will be structured inside a dict), we turn the convert the values of the dict to a list.
-        response_attributes: Optional[dict] = middleware(target_path_elements)
-        if response_attributes is None:
-            return None
 
         if has_multiple_fields_path is not True:
-            field_path_object: BaseField
-            field_path_elements: List[DatabasePathElement]
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            field_path_object, field_path_elements = target_field_container
+
+            removed_item_attributes: Optional[dict] = middleware([field_path_elements])
+            if removed_item_attributes is None:
+                return None
 
             item_removed_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-                data=response_attributes, field_path_elements=field_path_elements,
+                data=removed_item_attributes, field_path_elements=field_path_elements,
                 num_keys_to_navigation_into=len(field_path_elements)
             )
             field_path_object.populate(value=item_removed_data)
             validated_data, is_valid = field_path_object.validate_data()
-            return validated_data if is_valid is True else None
+            return validated_data
         else:
-            field_path_object: Dict[str, BaseField]
-            field_path_elements: Dict[str, List[DatabasePathElement]]
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+
+            fields_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
+            removed_items_attributes: Optional[dict] = middleware(fields_paths_elements)
+            # The attributes of all the removed items are packed inside the same dictionary,
+            # because all the remove's are expected to be done by a single database operation.
+            if removed_items_attributes is None:
+                return None
 
             removed_items_values: Dict[str, Optional[Any]] = {}
-            for item_key, item_field_path_elements in field_path_elements.items():
-                matching_field_object: BaseField = field_path_object[item_key]
-                # Even the remove_field function can potentially remove multiple
-                # field_path_elements if the field_path expression is selecting multiple fields.
-                # last_path_element = field_path_elements[len(field_path_elements) - 1]
+            for item_key, item_container in target_field_container.items():
+                item_field_object, item_field_path_elements = item_container
+
                 item_removed_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-                    data=response_attributes, field_path_elements=item_field_path_elements,
+                    data=removed_items_attributes, field_path_elements=item_field_path_elements,
                     num_keys_to_navigation_into=len(item_field_path_elements)
                 )
-                matching_field_object.populate(value=item_removed_data)
-                validated_data, is_valid = matching_field_object.validate_data()
-                removed_items_values[item_key] = validated_data if is_valid is True else None
+                item_field_object.populate(value=item_removed_data)
+                validated_data, is_valid = item_field_object.validate_data()
+                removed_items_values[item_key] = validated_data
             return removed_items_values
 
     def _delete_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], bool],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> bool:
-        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        target_path_elements: List[List[DatabasePathElement]] = (
-            [field_path_elements]
-            if has_multiple_fields_path is not True else
-            list(field_path_elements.values())
-        )
-        return middleware(target_path_elements)
+        if has_multiple_fields_path is not None:
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            return middleware([target_field_container[1]])
+        else:
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+            targets_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
+            return middleware(targets_paths_elements)
 
     def _grouped_remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: Dict[str, FieldRemover]
@@ -364,23 +357,27 @@ class BaseBasicTable(BaseTable):
             # operation, and since no value has been removed, we return None.
             return None
         else:
-            removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-            grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+            removers_field_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+            grouped_removers_field_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
             removers_database_paths: List[List[DatabasePathElement]] = []
             for remover_key, remover_item in removers.items():
-                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
                     field_path=remover_item.field_path, fields_switch=self.fields_switch,
                     query_kwargs=remover_item.query_kwargs
                 )
                 if has_multiple_fields_path is not True:
-                    field_path_elements: List[DatabasePathElement]
-                    removers_field_paths_elements[remover_key] = field_path_elements
+                    target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                    field_object, field_path_elements = target_field_container
+
+                    removers_field_paths_elements[remover_key] = target_field_container
                     removers_database_paths.append(field_path_elements)
                 else:
-                    field_path_elements: Dict[str, List[DatabasePathElement]]
-                    grouped_removers_field_paths_elements[remover_key] = field_path_elements
-                    removers_database_paths.extend(field_path_elements.values())
+                    target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+                    fields_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
+
+                    grouped_removers_field_paths_elements[remover_key] = target_field_container
+                    removers_database_paths.extend(fields_paths_elements)
 
             response_attributes: Optional[Any] = middleware(removers_database_paths)
             if response_attributes is None:
@@ -402,16 +399,17 @@ class BaseBasicTable(BaseTable):
 
         removers_database_paths: List[List[DatabasePathElement]] = []
         for current_remover in removers:
-            field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
                 field_path=current_remover.field_path, fields_switch=self.fields_switch,
                 query_kwargs=current_remover.query_kwargs
             )
             if has_multiple_fields_path is not True:
-                field_path_elements: List[DatabasePathElement]
-                removers_database_paths.append(field_path_elements)
+                target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                removers_database_paths.append(target_field_container[1])
             else:
-                field_path_elements: Dict[str, List[DatabasePathElement]]
-                removers_database_paths.append(*field_path_elements.values())
+                target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+                fields_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
+                removers_database_paths.extend(fields_paths_elements)
 
-        response = middleware(removers_database_paths)
-        return True if response is not None else False
+        response: Optional[Any] = middleware(removers_database_paths)
+        return response is not None

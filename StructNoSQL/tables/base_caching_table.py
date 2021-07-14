@@ -10,7 +10,7 @@ from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_c
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path, join_field_path_elements, \
-    process_and_make_single_rendered_database_path_v2
+    process_and_make_single_rendered_database_path_v3
 
 
 class BaseCachingTable(BaseTable):
@@ -164,23 +164,28 @@ class BaseCachingTable(BaseTable):
         pending_remove_operations[joined_field_path] = field_path_elements
 
     def _cache_process_add_delete_operation(self, index_cached_data: dict, pending_remove_operations: dict, field_path: str, query_kwargs: Optional[dict] = None):
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
-            field_path_elements: List[DatabasePathElement]
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            field_object, field_path_elements = target_field_container
+
             self._cache_add_delete_operation(
                 index_cached_data=index_cached_data,
                 pending_remove_operations=pending_remove_operations,
                 field_path_elements=field_path_elements
             )
         else:
-            field_path_elements: Dict[str, List[DatabasePathElement]]
-            for item_field_path_elements_value in field_path_elements.values():
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+
+            for item_field_container in target_field_container.values():
+                item_field_object, item_field_path_elements = item_field_container
+
                 self._cache_add_delete_operation(
                     index_cached_data=index_cached_data,
                     pending_remove_operations=pending_remove_operations,
-                    field_path_elements=item_field_path_elements_value
+                    field_path_elements=item_field_path_elements
                 )
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
@@ -211,18 +216,21 @@ class BaseCachingTable(BaseTable):
     ) -> Optional[Any]:
 
         index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
-        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
-            field_path_object: BaseField
-            field_path_elements: List[DatabasePathElement]
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            field_path_object, field_path_elements = target_field_container
 
             found_in_cache, field_value_from_cache = self._cache_get_data(
                 primary_key_value=key_value, field_path_elements=field_path_elements
             )
             if found_in_cache is True:
-                return field_value_from_cache if self.debug is not True else {'value': field_value_from_cache, 'fromCache': True}
+                return (
+                    field_value_from_cache if self.debug is not True else
+                    {'value': field_value_from_cache, 'fromCache': True}
+                )
 
             retrieved_data: Optional[Any] = middleware(field_path_elements, False)
             field_path_object.populate(value=retrieved_data)
@@ -235,12 +243,14 @@ class BaseCachingTable(BaseTable):
                 {'value': validated_data, 'fromCache': False}
             )
         else:
-            field_path_object: Dict[str, BaseField]
-            field_path_elements: Dict[str, List[DatabasePathElement]]
-            output_items: Dict[str, Optional[Any]] = {}
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
+            output_items: Dict[str, Optional[Any]] = {}
             keys_fields_already_cached_to_pop: List[str] = []
-            for item_key, item_field_path_elements in field_path_elements.items():
+
+            for item_key, item_container in target_field_container.items():
+                item_field_object, item_field_path_elements = item_container
+
                 found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
                     primary_key_value=key_value, field_path_elements=item_field_path_elements
                 )
@@ -253,24 +263,27 @@ class BaseCachingTable(BaseTable):
                     keys_fields_already_cached_to_pop.append(item_key)
 
             for key_to_pop in keys_fields_already_cached_to_pop:
-                field_path_elements.pop(key_to_pop)
+                target_field_container.pop(key_to_pop)
 
-            if len(field_path_elements) > 0:
-                retrieved_items_data: Dict[str, Optional[Any]] = middleware(field_path_elements, True)
-                for field_key, field_object_item in field_path_object.items():
-                    matching_item_data: Optional[Any] = retrieved_items_data.get(field_key, None)
-                    field_object_item.populate(value=matching_item_data)
-                    validated_data, is_valid = field_object_item.validate_data()
+            if len(target_field_container) > 0:
+                fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_field_container.items()}
+                retrieved_items_data: Dict[str, Optional[Any]] = middleware(fields_paths_elements, True)
+                for item_key, item_container in target_field_container.items():
+                    item_field_object, item_field_path_elements = item_container
+
+                    matching_item_data: Optional[Any] = retrieved_items_data.get(item_key, None)
+                    item_field_object.populate(value=matching_item_data)
+                    validated_data, is_valid = item_field_object.validate_data()
                     if is_valid is True:
-                        matching_field_path_elements: List[DatabasePathElement] = field_path_elements[field_key]
-                        # We get the matching_field_path_elements directly with bracket's selector instead of a .get, because
-                        # we are be confident that a key present in field_path_object will also be present in field_path_elements
-                        BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=matching_field_path_elements, data=validated_data)
-                        # We only save the data in the in-memory cache if it is valid
+                        BaseCachingTable._cache_put_data(
+                            index_cached_data=index_cached_data,
+                            field_path_elements=item_field_path_elements,
+                            data=validated_data
+                        )
 
                     # If the valid is not valid, validated_data will be None, so we do not need to add an
                     # additional check on is_valid in order to know whether we can use validated_data or not.
-                    output_items[field_key] = (
+                    output_items[item_key] = (
                         validated_data if self.debug is not True else
                         {'value': validated_data, 'fromCache': False}
                     )
@@ -285,25 +298,34 @@ class BaseCachingTable(BaseTable):
         BaseCachingTable._cache_put_data(index_cached_data=record_cached_data, field_path_elements=field_path_elements, data=value)
         return output
 
-    def _process_cache_record_item(self, record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> dict:
+    def _process_cache_record_item(
+            self, record_item_data: dict, primary_key_value: str,
+            target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+    ) -> dict:
         output: dict = {}
         record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
-        for item_key, item_field_path_elements in fields_path_elements.items():
+        for item_key, item_container in target_fields_containers.items():
+            item_field_object, item_field_path_elements = item_container
+
             record_item_matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
-            BaseCachingTable._cache_put_data(
-                index_cached_data=record_cached_data,
-                field_path_elements=item_field_path_elements,
-                data=record_item_matching_item_data
-            )
+            item_field_object.populate(value=record_item_matching_item_data)
+            validated_data, is_valid = item_field_object.validate_data()
+            if is_valid is True:
+                BaseCachingTable._cache_put_data(
+                    index_cached_data=record_cached_data,
+                    field_path_elements=item_field_path_elements,
+                    data=record_item_matching_item_data
+                )
+
             output[item_key] = (
-                record_item_matching_item_data if self.debug is not True else
-                {'fromCache': False, 'value': record_item_matching_item_data}
+                validated_data if self.debug is not True else
+                {'fromCache': False, 'value': validated_data}
             )
         return output
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+            target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], has_multiple_fields_path: bool,
     ) -> Optional[dict]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
@@ -312,18 +334,19 @@ class BaseCachingTable(BaseTable):
             primary_index_name=self.primary_index_name,
             get_primary_key_database_path=self._get_primary_key_database_path,
             middleware=middleware,
-            field_path_elements=field_path_elements,
+            target_field_container=target_field_container,
             has_multiple_fields_path=has_multiple_fields_path
         )
 
     def _shared_rar(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], List[Any]],
-            fields_path_elements: Dict[str, List[DatabasePathElement]], key_value: str
+            key_value: str, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
     ):
         existing_record_data: dict = {}
 
         keys_fields_already_cached_to_pop: List[str] = []
-        for item_key, item_field_path_elements in fields_path_elements.items():
+        for item_key, item_container in target_fields_containers.items():
+            item_field_object, item_field_path_elements = item_container
             found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
                 primary_key_value=key_value, field_path_elements=item_field_path_elements
             )
@@ -335,10 +358,11 @@ class BaseCachingTable(BaseTable):
                 keys_fields_already_cached_to_pop.append(item_key)
 
         for key_to_pop in keys_fields_already_cached_to_pop:
-            fields_path_elements.pop(key_to_pop)
+            target_fields_containers.pop(key_to_pop)
 
-        if len(fields_path_elements) > 0:
-            retrieved_records_items_data: Optional[List[dict]] = middleware(fields_path_elements, True)
+        if len(target_fields_containers) > 0:
+            fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_fields_containers.items()}
+            retrieved_records_items_data: Optional[List[dict]] = middleware(fields_paths_elements, True)
             if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                 # Since we query the primary_index, we know for a fact that we will never be returned more than
                 # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -348,7 +372,7 @@ class BaseCachingTable(BaseTable):
                     **self._process_cache_record_item(
                         record_item_data=retrieved_records_items_data[0],
                         primary_key_value=key_value,
-                        fields_path_elements=fields_path_elements
+                        target_fields_containers=target_fields_containers
                     )
                 }}
         return {key_value: existing_record_data}
@@ -358,19 +382,21 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
     ) -> Optional[dict]:
 
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
-                field_path_elements=field_path_elements,
+                target_field_container=target_field_container,
                 has_multiple_fields_path=has_multiple_fields_path
             )
         else:
             # If requested index is primary index
             if has_multiple_fields_path is not True:
-                field_path_elements: List[DatabasePathElement]
+                target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                field_object, field_path_elements = target_field_container
+
                 found_in_cache, field_value_from_cache = self._cache_get_data(
                     primary_key_value=key_value, field_path_elements=field_path_elements
                 )
@@ -397,25 +423,40 @@ class BaseCachingTable(BaseTable):
                     )
                 return records_output
             else:
-                field_path_elements: Dict[str, List[DatabasePathElement]]
-                return self._shared_rar(middleware=middleware, fields_path_elements=field_path_elements, key_value=key_value)
+                target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+                return self._shared_rar(
+                    middleware=middleware, key_value=key_value,
+                    target_fields_containers=target_field_container
+                )
 
     def _query_multiple_fields(
             self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], List[Any]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None
     ):
-        getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
+        getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (
             _prepare_getters(fields_switch=self.fields_switch, getters=getters)
         )
         if len(grouped_getters_database_paths_elements) > 0:
+            # todo: add grouped_getters_database_paths_elements support
             raise Exception(f"grouped_getters_database_paths_elements not yet supported")
 
+        fields_path_elements: Dict[str, List[DatabasePathElement]] = {
+            key: item[1] for key, item in single_getters_target_fields_containers.items()
+        }
+        fields_objects: Dict[str, BaseField] = {
+            key: item[0] for key, item in single_getters_target_fields_containers.items()
+        }
+        # todo: fix this code
+
         if index_name is None or index_name == self.primary_index_name:
-            return self._shared_rar(middleware=middleware, fields_path_elements=single_getters_database_paths_elements, key_value=key_value)
+            return self._shared_rar(
+                middleware=middleware,  key_value=key_value,
+                target_fields_containers=single_getters_target_fields_containers
+            )
         else:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
-                field_path_elements=single_getters_database_paths_elements,
+                target_field_container=single_getters_target_fields_containers,
                 has_multiple_fields_path=True
             )
 
@@ -437,7 +478,7 @@ class BaseCachingTable(BaseTable):
     def _unpack_getters_response_item_v2(
             self, response_item: dict,
             single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-            grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]]
+            grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
     ):
         def item_mutator(item: Any):
             return item if self.debug is not True else {'value': item, 'fromCache': False}
@@ -456,16 +497,16 @@ class BaseCachingTable(BaseTable):
         output_data: Dict[str, Any] = {}
 
         single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
-        grouped_getters_database_paths_elements: Dict[str, Tuple[Dict[str, BaseField], Dict[str, List[DatabasePathElement]]]] = {}
+        grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
         getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
-            field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
             )
             if has_multiple_fields_path is not True:
-                field_path_object: BaseField
-                field_path_elements: List[DatabasePathElement]
+                target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                field_object, field_path_elements = target_field_container
 
                 found_value_in_cache, field_value_from_cache = self._cache_get_data(
                     primary_key_value=key_value, field_path_elements=field_path_elements
@@ -476,30 +517,31 @@ class BaseCachingTable(BaseTable):
                         {'value': field_value_from_cache, 'fromCache': True}
                     )
                 else:
-                    single_getters_database_paths_elements[getter_key] = (field_path_object, field_path_elements)
+                    single_getters_database_paths_elements[getter_key] = target_field_container
                     getters_database_paths.append(field_path_elements)
             else:
-                field_path_object: Dict[str, BaseField]
-                field_path_elements: Dict[str, List[DatabasePathElement]]
+                target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
-                current_getter_grouped_database_paths_elements: Dict[str, List[DatabasePathElement]] = {}
+                current_getter_grouped_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
                 container_data: Dict[str, Any] = {}
 
-                for child_item_key, child_item_field_path_elements in field_path_elements.items():
+                for item_key, item_container in target_field_container.items():
+                    item_field_object, item_field_path_elements = item_container
+
                     found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
-                        primary_key_value=key_value, field_path_elements=child_item_field_path_elements
+                        primary_key_value=key_value, field_path_elements=item_field_path_elements
                     )
                     if found_item_value_in_cache is True:
-                        container_data[child_item_key] = (
+                        container_data[item_key] = (
                             field_item_value_from_cache if self.debug is not True else
                             {'value': field_item_value_from_cache, 'fromCache': True}
                         )
                     else:
-                        current_getter_grouped_database_paths_elements[child_item_key] = child_item_field_path_elements
-                        getters_database_paths.append(child_item_field_path_elements)
+                        current_getter_grouped_database_paths_elements[item_key] = item_container
+                        getters_database_paths.append(item_field_path_elements)
 
                 output_data[getter_key] = container_data
-                grouped_getters_database_paths_elements[getter_key] = (field_path_object, current_getter_grouped_database_paths_elements)
+                grouped_getters_database_paths_elements[getter_key] = current_getter_grouped_database_paths_elements
 
         response_data: Optional[dict] = middleware(getters_database_paths)
         if response_data is None:
@@ -701,14 +743,14 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
 
-        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         if has_multiple_fields_path is not True:
-            field_path_object: BaseField
-            field_path_elements: List[DatabasePathElement]
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+            field_object, field_path_elements = target_field_container
 
             found_value_in_cache, field_value_from_cache = self._cache_get_data(
                 primary_key_value=key_value, field_path_elements=field_path_elements
@@ -740,8 +782,8 @@ class BaseCachingTable(BaseTable):
                         data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
-                    field_path_object.populate(value=removed_item_data)
-                    validate_data, is_valid = field_path_object.validate_data()
+                    field_object.populate(value=removed_item_data)
+                    validate_data, is_valid = field_object.validate_data()
                     return (
                         validate_data if self.debug is not True else
                         {'value': validate_data, 'fromCache': False}
@@ -752,47 +794,47 @@ class BaseCachingTable(BaseTable):
                         {'value': None, 'fromCache': False}
                     )
         else:
-            field_path_object: Dict[str, BaseField]
-            field_path_elements: Dict[str, List[DatabasePathElement]]
+            target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
             target_path_elements: List[List[DatabasePathElement]] = []
             container_output_data: Dict[str, Any] = {}
 
-            for item_field_path_elements_value in field_path_elements.values():
-                item_last_path_element = item_field_path_elements_value[-1]
+            for item_key, item_container in target_field_container.items():
+                item_field_object, item_field_path_elements = item_container
 
                 found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
-                    primary_key_value=key_value, field_path_elements=item_field_path_elements_value
+                    primary_key_value=key_value, field_path_elements=item_field_path_elements
                 )
                 if found_item_value_in_cache is True:
                     pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)
                     self._cache_add_delete_operation(
                         index_cached_data=index_cached_data,
                         pending_remove_operations=pending_remove_operations,
-                        field_path_elements=item_field_path_elements_value
+                        field_path_elements=item_field_path_elements
                     )
-                    container_output_data[item_last_path_element.element_key] = (
+                    container_output_data[item_key] = (
                         field_item_value_from_cache if self.debug is not True else
                         {'value': field_item_value_from_cache, 'fromCache': True}
                     )
                 else:
-                    target_path_elements.append(item_field_path_elements_value)
+                    target_path_elements.append(item_field_path_elements)
                     self._cache_remove_field(
                         index_cached_data=index_cached_data,
                         primary_key_value=key_value,
-                        field_path_elements=item_field_path_elements_value
+                        field_path_elements=item_field_path_elements
                     )
 
             if len(target_path_elements) > 0:
                 response_attributes: Optional[dict] = middleware(target_path_elements)
-                for item_key, item_field_path_elements in field_path_elements.items():
-                    matching_field_object: BaseField = field_path_object[item_key]
+                for item_key, item_container in target_field_container.items():
+                    item_field_object, item_field_path_elements = item_container
+
                     removed_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=item_field_path_elements,
                         num_keys_to_navigation_into=len(item_field_path_elements)
                     )
-                    matching_field_object.populate(value=removed_item_data)
-                    validated_data, is_valid = matching_field_object.validate_data()
+                    item_field_object.populate(value=removed_item_data)
+                    validated_data, is_valid = item_field_object.validate_data()
                     container_output_data[item_key] = (
                         validated_data if self.debug is not True else
                         {'value': validated_data, 'fromCache': False}
@@ -833,20 +875,22 @@ class BaseCachingTable(BaseTable):
             output_data: dict = {}
             index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
-            removers_field_paths_elements: Dict[str, List[DatabasePathElement]] = {}
-            grouped_removers_field_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
+            removers_field_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+            grouped_removers_field_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
             # todo: add the remove items present in cache to the output_data instead of only returning the items not removed from cache
 
             removers_database_paths: List[List[DatabasePathElement]] = []
             for remover_key, remover_item in removers.items():
-                field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
                     field_path=remover_item.field_path, fields_switch=self.fields_switch,
                     query_kwargs=remover_item.query_kwargs
                 )
                 if has_multiple_fields_path is not True:
-                    field_path_elements: List[DatabasePathElement]
-                    removers_field_paths_elements[remover_key] = field_path_elements
+                    target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                    field_object, field_path_elements = target_field_container
+
+                    removers_field_paths_elements[remover_key] = target_field_container
                     removers_database_paths.append(field_path_elements)
                     self._cache_remove_field(
                         index_cached_data=index_cached_data,
@@ -854,22 +898,24 @@ class BaseCachingTable(BaseTable):
                         field_path_elements=field_path_elements
                     )
                 else:
-                    field_path_elements: Dict[str, List[DatabasePathElement]]
-                    grouped_removers_field_paths_elements[remover_key] = field_path_elements
-                    field_path_elements_values = list(field_path_elements.values())
-                    for item_field_path_elements_values in field_path_elements_values:
-                        removers_database_paths.append(item_field_path_elements_values)
+                    target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+
+                    grouped_removers_field_paths_elements[remover_key] = target_field_container
+                    for item_container in target_field_container.values():
+                        item_field_object, item_field_path_elements = item_container
+
+                        removers_database_paths.append(item_field_path_elements)
                         self._cache_remove_field(
                             index_cached_data=index_cached_data,
                             primary_key_value=key_value,
-                            field_path_elements=item_field_path_elements_values
+                            field_path_elements=item_field_path_elements
                         )
 
             response_attributes = middleware(removers_database_paths)
             if response_attributes is None:
                 return None
 
-            return self._unpack_getters_response_item(
+            return self._unpack_getters_response_item_v2(
                 response_item=response_attributes,
                 single_getters_database_paths_elements=removers_field_paths_elements,
                 grouped_getters_database_paths_elements=grouped_removers_field_paths_elements

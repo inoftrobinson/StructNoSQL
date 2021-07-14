@@ -266,6 +266,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Dict[str, Optional[Any]]]], setters: Dict[str, FieldSetter]
     ) -> Tuple[bool, Dict[str, Optional[Any]]]:
 
+        setters_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
         dynamodb_setters: Dict[str, FieldPathSetter] = {}
         for setter_key, setter_item in setters.items():
             field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
@@ -273,22 +274,25 @@ class BaseBasicTable(BaseTable):
                 query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
             )
             if is_valid is True:
+                setters_containers[setter_key] = (field_object, field_path_elements)
                 dynamodb_setters[setter_key] = FieldPathSetter(
                     field_path_elements=field_path_elements, value_to_set=validated_data
                 )
         update_success, setters_response_attributes = middleware(dynamodb_setters)
 
-        from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-        output: Dict[str, Optional[Any]] = {
-            setter_key: navigate_into_data_with_field_path_elements(
-                data=setters_response_attributes, field_path_elements=setter_item.field_path_elements,
-                num_keys_to_navigation_into=len(setter_item.field_path_elements)
-            ) for setter_key, setter_item in dynamodb_setters.items()
-        } if setters_response_attributes is not None else (
-            {setter_key: None for setter_key in dynamodb_setters.keys()}
-        )
+        output_data: Dict[str, Optional[Any]] = {}
+        for item_key, item_container in setters_containers.items():
+            item_field_object, item_field_path_elements = item_container
 
-        return update_success, output
+            item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                data=setters_response_attributes, field_path_elements=item_field_path_elements,
+                num_keys_to_navigation_into=len(item_field_path_elements)
+            )
+            item_field_object.populate(value=item_data)
+            validated_data, valid = item_field_object.validate_data()
+            output_data[item_key] = validated_data
+
+        return update_success, output_data
 
     def _remove_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Optional[dict]],

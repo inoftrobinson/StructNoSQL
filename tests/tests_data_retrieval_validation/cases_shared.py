@@ -166,13 +166,13 @@ def test_remove_field(
         {'value': simple_field_random_text_value, 'fromCache': False}
     ), first_table_retrieved_simple_field)
 
-    second_table_retrieved_simple_field: Optional[int] = second_table.remove_field(
+    second_table_removed_simple_field: Optional[int] = second_table.remove_field(
         key_value=TEST_ACCOUNT_ID, field_path='simpleField'
     )
     self.assertEqual((
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
-    ), second_table_retrieved_simple_field)
+    ), second_table_removed_simple_field)
 
 
 def test_remove_field_multi_selectors(
@@ -272,3 +272,37 @@ def test_remove_multiple_fields(
             {'value': None, 'fromCache': False}
         )
     }, second_table_retrieved_container_fields)
+
+
+def test_update_field_return_old(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
+    first_table_simple_field_update_success: bool = first_table.update_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_random_text_value
+    )
+    self.assertTrue(first_table_simple_field_update_success)
+    if is_caching is True:
+        self.assertTrue(first_table.commit_operations())
+        first_table.clear_cached_data()
+
+    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    )
+    self.assertEqual((
+        simple_field_random_text_value if is_caching is not True else
+        {'value': simple_field_random_text_value, 'fromCache': False}
+    ), first_table_retrieved_simple_field)
+
+    simple_field_dummy_int_value: int = 42
+    second_table_simple_field_update_success, second_table_retrieved_old_simple_field = second_table.update_field_return_old(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_dummy_int_value
+    )
+    second_table_retrieved_old_simple_field: Optional[int]
+    self.assertEqual((
+        None if is_caching is not True else
+        {'value': None, 'fromCache': False}
+    ), second_table_retrieved_old_simple_field)

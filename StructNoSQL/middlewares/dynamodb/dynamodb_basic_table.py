@@ -130,7 +130,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                 key_value=key_value, value=validated_data,
                 field_path_elements=field_path_elements
             )
-            return True if response is not None else False
+            return response is not None
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:

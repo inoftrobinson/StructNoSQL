@@ -40,3 +40,7 @@ class TestsInoftVocalEngineCachingTable(unittest.TestCase):
     def test_remove_multiple_fields(self):
         from tests.tests_data_retrieval_validation.cases_shared import test_remove_multiple_fields
         test_remove_multiple_fields(**self.SHARED_CASE_KWARGS)
+
+    def test_update_field_return_old(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_update_field_return_old
+        test_update_field_return_old(**self.SHARED_CASE_KWARGS)

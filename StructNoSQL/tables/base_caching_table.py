@@ -554,10 +554,10 @@ class BaseCachingTable(BaseTable):
         return {**output_data, **unpacked_retrieved_items}
 
     def _update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
-        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        if valid is True and field_path_elements is not None:
+        if is_valid is True:
             index_cached_data = self._index_cached_data(primary_key_value=key_value)
             BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
 
@@ -574,9 +574,12 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> Tuple[bool, Optional[Any]]:
 
-        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_update_data, update_data_is_valid = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
+        if update_data_is_valid is not True:
+            return False, None
+
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         field_path_elements: List[DatabasePathElement]
@@ -589,27 +592,27 @@ class BaseCachingTable(BaseTable):
             joined_field_path = join_field_path_elements(field_path_elements)
             pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
             pending_update_operations[joined_field_path] = FieldPathSetter(
-                field_path_elements=field_path_elements, value_to_set=validated_data
+                field_path_elements=field_path_elements, value_to_set=validated_update_data
             )
 
             self._cache_put_data(
                 index_cached_data=index_cached_data,
                 field_path_elements=field_path_elements,
-                data=validated_data
+                data=validated_update_data
             )
             return True, (
                 field_value_from_cache if self.debug is not True else
                 {'value': field_value_from_cache, 'fromCache': True}
             )
         else:
-            update_success, response_attributes = middleware(field_path_elements, validated_data)
+            update_success, response_attributes = middleware(field_path_elements, validated_update_data)
             if update_success is not True:
                 return False, None
 
             self._cache_put_data(
                 index_cached_data=index_cached_data,
                 field_path_elements=field_path_elements,
-                data=validated_data
+                data=validated_update_data
             )
 
             old_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
@@ -617,20 +620,23 @@ class BaseCachingTable(BaseTable):
                 num_keys_to_navigation_into=len(field_path_elements)
             ) if response_attributes is not None else None
 
+            field_object.populate(value=old_item_data)
+            validated_removed_data, removed_data_is_valid = field_object.validate_data()
+
             return update_success, (
-                old_item_data if self.debug is not True else
-                {'value': old_item_data, 'fromCache': False}
+                validated_removed_data if self.debug is not True else
+                {'value': validated_removed_data, 'fromCache': False}
             )
 
     def _update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
-                validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
                     field_path=current_setter.field_path, fields_switch=self.fields_switch,
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
-                if valid is True:
+                if is_valid is True:
                     BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
                     joined_field_path = join_field_path_elements(field_path_elements)
                     pending_update_operations = self._index_pending_update_operations(primary_key_value=key_value)
@@ -672,11 +678,11 @@ class BaseCachingTable(BaseTable):
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         for setter_key, setter_item in setters.items():
-            validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+            field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
                 field_path=setter_item.field_path, fields_switch=self.fields_switch,
                 query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
             )
-            if valid is True:
+            if is_valid is True:
                 found_value_in_cache, field_value_from_cache = self._cache_get_data(
                     primary_key_value=key_value, field_path_elements=field_path_elements
                 )

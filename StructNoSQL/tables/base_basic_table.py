@@ -192,31 +192,33 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[DatabasePathElement], Any], bool],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> bool:
-        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        if valid is True and field_path_elements is not None:
-            return middleware(field_path_elements, validated_data)
-        return False
+        return middleware(field_path_elements, validated_data) if is_valid is True else False
 
     def _update_field_return_old(
             self, middleware: Callable[[List[DatabasePathElement], Any], Tuple[bool, Any]],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> Tuple[bool, Optional[Any]]:
-        validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_update_data, update_data_is_valid = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
-        if valid is True and field_path_elements is not None:
-            update_success, response_attributes = middleware(field_path_elements, validated_data)
+        if update_data_is_valid is not True:
+            return False, None
 
-            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-            old_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-                data=response_attributes, field_path_elements=field_path_elements,
-                num_keys_to_navigation_into=len(field_path_elements)
-            ) if response_attributes is not None else None
+        update_success, response_attributes = middleware(field_path_elements, validated_update_data)
 
-            return update_success, old_item_data
-        return False, None
+        from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+        old_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+            data=response_attributes, field_path_elements=field_path_elements,
+            num_keys_to_navigation_into=len(field_path_elements)
+        ) if response_attributes is not None else None
+
+        field_object.populate(value=old_item_data)
+        validated_removed_data, removed_data_is_valid = field_object.validate_data()
+
+        return update_success, validated_removed_data
 
     def _update_multiple_fields(
             self, middleware: Callable[[List[FieldPathSetter]], bool],
@@ -225,11 +227,11 @@ class BaseBasicTable(BaseTable):
         dynamodb_setters: List[FieldPathSetter] = []
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
-                validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+                field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
                     field_path=current_setter.field_path, fields_switch=self.fields_switch,
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
-                if valid is True:
+                if is_valid is True:
                     dynamodb_setters.append(FieldPathSetter(
                         field_path_elements=field_path_elements, value_to_set=validated_data
                     ))
@@ -266,11 +268,11 @@ class BaseBasicTable(BaseTable):
 
         dynamodb_setters: Dict[str, FieldPathSetter] = {}
         for setter_key, setter_item in setters.items():
-            validated_data, valid, field_path_elements = process_validate_data_and_make_single_rendered_database_path(
+            field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
                 field_path=setter_item.field_path, fields_switch=self.fields_switch,
                 query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
             )
-            if valid is True:
+            if is_valid is True:
                 dynamodb_setters[setter_key] = FieldPathSetter(
                     field_path_elements=field_path_elements, value_to_set=validated_data
                 )

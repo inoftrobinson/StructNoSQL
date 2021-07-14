@@ -294,43 +294,67 @@ class BaseBasicTable(BaseTable):
         return middleware(target_path_elements), target_path_elements
 
     def _remove_field(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
+            self, middleware: Callable[[List[List[DatabasePathElement]]], Optional[dict]],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
-        response_attributes, all_fields_items_path_elements = self._base_removal(
-            middleware=middleware, field_path=field_path, query_kwargs=query_kwargs
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        if response_attributes is not None:
-            if not len(all_fields_items_path_elements) > 0:
-                return None
-            elif len(all_fields_items_path_elements) == 1:
-                field_path_elements = all_fields_items_path_elements[0]
-                removed_item_data = navigate_into_data_with_field_path_elements(
-                    data=response_attributes, field_path_elements=field_path_elements,
-                    num_keys_to_navigation_into=len(field_path_elements)
+        target_path_elements: List[List[DatabasePathElement]] = (
+            [field_path_elements]
+            if has_multiple_fields_path is not True else
+            list(field_path_elements.values())
+        )
+        # The remove_data_elements_from_map function expect a List[List[DatabasePathElement]]. If we have a
+        # single field_path, we wrap the field_path_elements inside a list. And if we have multiple fields_paths
+        # (which will be structured inside a dict), we turn the convert the values of the dict to a list.
+        response_attributes: Optional[dict] = middleware(target_path_elements)
+        if response_attributes is None:
+            return None
+
+        if has_multiple_fields_path is not True:
+            field_path_object: BaseField
+            field_path_elements: List[DatabasePathElement]
+
+            item_removed_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                data=response_attributes, field_path_elements=field_path_elements,
+                num_keys_to_navigation_into=len(field_path_elements)
+            )
+            field_path_object.populate(value=item_removed_data)
+            validated_data, is_valid = field_path_object.validate_data()
+            return validated_data if is_valid is True else None
+        else:
+            field_path_object: Dict[str, BaseField]
+            field_path_elements: Dict[str, List[DatabasePathElement]]
+
+            removed_items_values: Dict[str, Optional[Any]] = {}
+            for item_key, item_field_path_elements in field_path_elements.items():
+                matching_field_object: BaseField = field_path_object[item_key]
+                # Even the remove_field function can potentially remove multiple
+                # field_path_elements if the field_path expression is selecting multiple fields.
+                # last_path_element = field_path_elements[len(field_path_elements) - 1]
+                item_removed_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                    data=response_attributes, field_path_elements=item_field_path_elements,
+                    num_keys_to_navigation_into=len(item_field_path_elements)
                 )
-                return removed_item_data
-            else:
-                removed_items_values: Dict[str, Any] = {}
-                for field_path_elements in all_fields_items_path_elements:
-                    # Even the remove_field function can potentially remove multiple
-                    # field_path_elements if the field_path expression is selecting multiple fields.
-                    last_path_element = field_path_elements[len(field_path_elements) - 1]
-                    removed_items_values[last_path_element.element_key] = navigate_into_data_with_field_path_elements(
-                        data=response_attributes, field_path_elements=field_path_elements,
-                        num_keys_to_navigation_into=len(field_path_elements)
-                    )
-                return removed_items_values
-        return None
+                matching_field_object.populate(value=item_removed_data)
+                validated_data, is_valid = matching_field_object.validate_data()
+                removed_items_values[item_key] = validated_data if is_valid is True else None
+            return removed_items_values
 
     def _delete_field(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
+            self, middleware: Callable[[List[List[DatabasePathElement]]], bool],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> bool:
-        response_attributes, _ = self._base_removal(
-            middleware=middleware, field_path=field_path, query_kwargs=query_kwargs
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
+            field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        return True if response_attributes is not None else False
+        target_path_elements: List[List[DatabasePathElement]] = (
+            [field_path_elements]
+            if has_multiple_fields_path is not True else
+            list(field_path_elements.values())
+        )
+        return middleware(target_path_elements)
 
     def _grouped_remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: Dict[str, FieldRemover]

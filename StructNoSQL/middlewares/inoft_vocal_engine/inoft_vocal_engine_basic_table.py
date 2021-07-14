@@ -131,7 +131,7 @@ field_path=remover_item.field_path,
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]):
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> bool:
             return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=fields_path_elements)
         return self._delete_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 

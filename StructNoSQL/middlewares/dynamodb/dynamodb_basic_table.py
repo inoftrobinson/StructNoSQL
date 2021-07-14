@@ -177,7 +177,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]):
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Dict[str, Any]]:
             return self.dynamodb_client.remove_data_elements_from_map(
                 index_name=self.primary_index_name,
                 key_value=key_value, targets_path_elements=fields_path_elements,
@@ -195,12 +195,13 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]):
-            return self.dynamodb_client.remove_data_elements_from_map(
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> bool:
+            removed_items = self.dynamodb_client.remove_data_elements_from_map(
                 index_name=self.primary_index_name,
                 key_value=key_value, targets_path_elements=fields_path_elements,
                 retrieve_removed_elements=False
             )
+            return removed_items is not None
         return self._delete_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
 
     def delete_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, bool]:

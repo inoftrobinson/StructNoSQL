@@ -60,8 +60,8 @@ def _base_unpack_getters_response_item_v2(
             )
             matching_field_object.populate(value=item_data)
             validated_data, is_valid = matching_field_object.validate_data()
-            container_data[child_item_key] = validated_data if is_valid is True else None
-        output_data[container_key] = item_mutator(container_data)
+            container_data[child_item_key] = item_mutator(validated_data if is_valid is True else None)
+        output_data[container_key] = container_data
     return output_data
 
 

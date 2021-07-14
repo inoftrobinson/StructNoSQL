@@ -227,11 +227,13 @@ class BaseCachingTable(BaseTable):
             retrieved_data: Optional[Any] = middleware(field_path_elements, False)
             field_path_object.populate(value=retrieved_data)
             validated_data, is_valid = field_path_object.validate_data()
-            output_data: Optional[Any] = validated_data if is_valid is True else None
-
             if is_valid is True:
-                BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=output_data)
-            return output_data if self.debug is not True else {'value': output_data, 'fromCache': False}
+                BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=field_path_elements, data=validated_data)
+
+            return (
+                validated_data if self.debug is not True else
+                {'value': validated_data, 'fromCache': False}
+            )
         else:
             field_path_object: Dict[str, BaseField]
             field_path_elements: Dict[str, List[DatabasePathElement]]
@@ -264,10 +266,14 @@ class BaseCachingTable(BaseTable):
                         # We get the matching_field_path_elements directly with bracket's selector instead of a .get, because
                         # we are be confident that a key present in field_path_object will also be present in field_path_elements
                         BaseCachingTable._cache_put_data(index_cached_data=index_cached_data, field_path_elements=matching_field_path_elements, data=validated_data)
-                        output_items[field_key] = validated_data
-                    else:
-                        # We do not cache the data if it's not valid
-                        output_items[field_key] = None
+                        # We only save the data in the in-memory cache if it is valid
+
+                    # If the valid is not valid, validated_data will be None, so we do not need to add an
+                    # additional check on is_valid in order to know whether we can use validated_data or not.
+                    output_items[field_key] = (
+                        validated_data if self.debug is not True else
+                        {'value': validated_data, 'fromCache': False}
+                    )
             return output_items
 
     def _process_cache_record_value(self, value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
@@ -495,7 +501,7 @@ class BaseCachingTable(BaseTable):
                 output_data[getter_key] = container_data
                 grouped_getters_database_paths_elements[getter_key] = (field_path_object, current_getter_grouped_database_paths_elements)
 
-        response_data = middleware(getters_database_paths)
+        response_data: Optional[dict] = middleware(getters_database_paths)
         if response_data is None:
             return output_data
 
@@ -675,22 +681,17 @@ class BaseCachingTable(BaseTable):
         if len(dynamodb_setters) > 0:
             update_success, setters_response_attributes = middleware(dynamodb_setters)
 
-            if setters_response_attributes is not None:
-                from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-                for setter_key, setter_item in dynamodb_setters.items():
-                    navigated_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-                        data=setters_response_attributes, field_path_elements=setter_item.field_path_elements,
-                        num_keys_to_navigation_into=len(setter_item.field_path_elements)
-                    )
-                    output_data[setter_key] = (
-                        navigated_data if self.debug is not True else
-                        {'value': navigated_data, 'fromCache': False}
-                    )
-            else:
-                for setter_key in dynamodb_setters.keys():
-                    output_data[setter_key] = None
+            from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
+            for setter_key, setter_item in dynamodb_setters.items():
+                navigated_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                    data=setters_response_attributes, field_path_elements=setter_item.field_path_elements,
+                    num_keys_to_navigation_into=len(setter_item.field_path_elements)
+                )
+                output_data[setter_key] = (
+                    navigated_data if self.debug is not True else
+                    {'value': navigated_data, 'fromCache': False}
+                )
 
-            # final_output = {**output_data, **output}
             return update_success, output_data
 
         return True, output_data
@@ -700,13 +701,15 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
 
-        field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        field_path_object, field_path_elements, has_multiple_fields_path = process_and_make_single_rendered_database_path_v2(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
 
         if has_multiple_fields_path is not True:
+            field_path_object: BaseField
             field_path_elements: List[DatabasePathElement]
+
             found_value_in_cache, field_value_from_cache = self._cache_get_data(
                 primary_key_value=key_value, field_path_elements=field_path_elements
             )
@@ -731,15 +734,17 @@ class BaseCachingTable(BaseTable):
                     primary_key_value=key_value,
                     field_path_elements=field_path_elements
                 )
-                response_attributes = middleware(target_path_elements)
+                response_attributes: Optional[dict] = middleware(target_path_elements)
                 if response_attributes is not None:
-                    removed_item_data = navigate_into_data_with_field_path_elements(
+                    removed_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
                         data=response_attributes, field_path_elements=field_path_elements,
                         num_keys_to_navigation_into=len(field_path_elements)
                     )
+                    field_path_object.populate(value=removed_item_data)
+                    validate_data, is_valid = field_path_object.validate_data()
                     return (
-                        removed_item_data if self.debug is not True else
-                        {'value': removed_item_data, 'fromCache': False}
+                        validate_data if self.debug is not True else
+                        {'value': validate_data, 'fromCache': False}
                     )
                 else:
                     return (
@@ -747,7 +752,9 @@ class BaseCachingTable(BaseTable):
                         {'value': None, 'fromCache': False}
                     )
         else:
+            field_path_object: Dict[str, BaseField]
             field_path_elements: Dict[str, List[DatabasePathElement]]
+
             target_path_elements: List[List[DatabasePathElement]] = []
             container_output_data: Dict[str, Any] = {}
 
@@ -777,17 +784,19 @@ class BaseCachingTable(BaseTable):
                     )
 
             if len(target_path_elements) > 0:
-                response_attributes = middleware(target_path_elements)
-                if response_attributes is not None:
-                    for key, child_item_field_path_elements in field_path_elements.items():
-                        removed_item_data = navigate_into_data_with_field_path_elements(
-                            data=response_attributes, field_path_elements=child_item_field_path_elements,
-                            num_keys_to_navigation_into=len(child_item_field_path_elements)
-                        )
-                        container_output_data[key] = (
-                            removed_item_data if self.debug is not True else
-                            {'value': removed_item_data, 'fromCache': False}
-                        )
+                response_attributes: Optional[dict] = middleware(target_path_elements)
+                for item_key, item_field_path_elements in field_path_elements.items():
+                    matching_field_object: BaseField = field_path_object[item_key]
+                    removed_item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+                        data=response_attributes, field_path_elements=item_field_path_elements,
+                        num_keys_to_navigation_into=len(item_field_path_elements)
+                    )
+                    matching_field_object.populate(value=removed_item_data)
+                    validated_data, is_valid = matching_field_object.validate_data()
+                    container_output_data[item_key] = (
+                        validated_data if self.debug is not True else
+                        {'value': validated_data, 'fromCache': False}
+                    )
 
             return container_output_data
 

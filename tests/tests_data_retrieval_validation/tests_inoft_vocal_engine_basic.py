@@ -10,7 +10,10 @@ class TestsInoftVocalEngineBasicTable(unittest.TestCase):
         self.first_table = PlaygroundInoftVocalEngineBasicTable(data_model=InoftVocalEngineFirstTableModel)
         self.second_table = PlaygroundInoftVocalEngineBasicTable(data_model=InoftVocalEngineSecondTableModel)
 
-        self.SHARED_CASE_KWARGS = {'self': self, 'first_table': self.first_table, 'second_table': self.second_table}
+        self.SHARED_CASE_KWARGS = {
+            'self': self, 'first_table': self.first_table, 'second_table': self.second_table,
+            'is_caching': False, 'primary_key_name': 'accountProjectUserId'
+        }
 
     def test_get_field(self):
         from tests.tests_data_retrieval_validation.cases_shared import test_get_field
@@ -24,3 +27,10 @@ class TestsInoftVocalEngineBasicTable(unittest.TestCase):
         from tests.tests_data_retrieval_validation.cases_shared import test_get_multiple_fields
         test_get_multiple_fields(**self.SHARED_CASE_KWARGS)
 
+    def test_remove_field(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_remove_field
+        test_remove_field(**self.SHARED_CASE_KWARGS)
+
+    def test_remove_field_multi_selectors(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_remove_field_multi_selectors
+        test_remove_field_multi_selectors(**self.SHARED_CASE_KWARGS)

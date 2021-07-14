@@ -135,7 +135,7 @@ class InoftVocalEngineTableConnectors:
             'returnOldValues': True
         })
 
-    def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> bool:
+    def _remove_data_elements_from_map(self, key_value: str, fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Any]:
         serialized_fields_path_elements: List[List[dict]] = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements

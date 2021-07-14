@@ -115,7 +115,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]):
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Optional[dict]:
             return self._remove_data_elements_from_map(
                 key_value=key_value, fields_path_elements=fields_path_elements,
             )
@@ -125,7 +125,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         def task_executor(remover_item: FieldRemover):
             return self.remove_field(
                 key_value=key_value,
-field_path=remover_item.field_path,
+                field_path=remover_item.field_path,
                 query_kwargs=remover_item.query_kwargs
             )
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)

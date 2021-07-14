@@ -123,9 +123,13 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
         return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
-        return {key: self.remove_field(
-            key_value=key_value, field_path=item.field_path, query_kwargs=item.query_kwargs
-        ) for key, item in removers.items()}
+        def task_executor(remover_item: FieldRemover):
+            return self.remove_field(
+                key_value=key_value,
+                field_path=remover_item.field_path,
+                query_kwargs=remover_item.query_kwargs
+            )
+        return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
     def delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         return self._delete_field(key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)

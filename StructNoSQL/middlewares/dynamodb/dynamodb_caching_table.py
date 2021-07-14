@@ -168,7 +168,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             )
         return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
 
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
         def task_executor(remover_item: FieldRemover):
             return self.remove_field(
                 key_value=key_value,

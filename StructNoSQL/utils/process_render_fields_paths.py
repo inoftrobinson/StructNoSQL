@@ -103,52 +103,7 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
                 ))
     return output_database_path_elements
 
-def process_and_make_single_rendered_database_path(
-        field_path: str, fields_switch: dict, query_kwargs: dict
-) -> (List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool):
-
-    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
-        field_path_key=field_path, fields_switch=fields_switch
-    )
-    if has_multiple_fields_path is not True:
-        field_path_object: BaseField
-        rendered_database_path_elements = make_rendered_database_path(
-            database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
-        )
-        return rendered_database_path_elements, False
-    else:
-        field_path_object: Dict[str, BaseField]
-        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = {}
-        for single_field_path_object in field_path_object.values():
-            fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
-                database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
-            )
-        return fields_rendered_database_path_elements, True
-
-# todo: remove process_and_make_single_rendered_database_path_v2
-def process_and_make_single_rendered_database_path_v2(
-        field_path: str, fields_switch: dict, query_kwargs: dict
-) -> Tuple[Union[BaseField, Dict[str, BaseField]], Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool]:
-
-    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
-        field_path_key=field_path, fields_switch=fields_switch
-    )
-    if has_multiple_fields_path is not True:
-        field_path_object: BaseField
-        rendered_database_path_elements = make_rendered_database_path(
-            database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
-        )
-        return field_path_object, rendered_database_path_elements, False
-    else:
-        field_path_object: Dict[str, BaseField]
-        fields_rendered_database_path_elements: Dict[str, List[DatabasePathElement]] = {}
-        for single_field_path_object in field_path_object.values():
-            fields_rendered_database_path_elements[single_field_path_object.field_name] = make_rendered_database_path(
-                database_path_elements=single_field_path_object.database_path, query_kwargs=query_kwargs
-            )
-        return field_path_object, fields_rendered_database_path_elements, True
-
-def process_and_make_single_rendered_database_path_v3(field_path: str, fields_switch: dict, query_kwargs: dict) -> Tuple[
+def process_and_make_single_rendered_database_path(field_path: str, fields_switch: dict, query_kwargs: dict) -> Tuple[
     Union[
         Tuple[BaseField, List[DatabasePathElement]],
         Dict[str, Tuple[BaseField, List[DatabasePathElement]]]

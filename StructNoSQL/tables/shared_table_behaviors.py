@@ -6,7 +6,7 @@ from StructNoSQL.models import DatabasePathElement, FieldGetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path_v3
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 
 
 def _base_unpack_getters_response_item(
@@ -193,7 +193,7 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
     grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
     for getter_key, getter_item in getters.items():
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=getter_item.field_path, fields_switch=fields_switch, query_kwargs=getter_item.query_kwargs
         )
         if has_multiple_fields_path is not True:

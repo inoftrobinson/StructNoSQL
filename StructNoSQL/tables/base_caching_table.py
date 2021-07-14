@@ -9,8 +9,7 @@ from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path, join_field_path_elements, \
-    process_and_make_single_rendered_database_path_v3
+    process_validate_data_and_make_single_rendered_database_path, join_field_path_elements
 
 
 class BaseCachingTable(BaseTable):
@@ -164,7 +163,7 @@ class BaseCachingTable(BaseTable):
         pending_remove_operations[joined_field_path] = field_path_elements
 
     def _cache_process_add_delete_operation(self, index_cached_data: dict, pending_remove_operations: dict, field_path: str, query_kwargs: Optional[dict] = None):
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
@@ -216,7 +215,7 @@ class BaseCachingTable(BaseTable):
     ) -> Optional[Any]:
 
         index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
@@ -382,7 +381,7 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
     ) -> Optional[dict]:
 
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
@@ -501,7 +500,7 @@ class BaseCachingTable(BaseTable):
 
         getters_database_paths: List[List[DatabasePathElement]] = []
         for getter_key, getter_item in getters.items():
-            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=getter_item.field_path, fields_switch=self.fields_switch, query_kwargs=getter_item.query_kwargs
             )
             if has_multiple_fields_path is not True:
@@ -743,7 +742,7 @@ class BaseCachingTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
 
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
@@ -882,7 +881,7 @@ class BaseCachingTable(BaseTable):
 
             removers_database_paths: List[List[DatabasePathElement]] = []
             for remover_key, remover_item in removers.items():
-                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                     field_path=remover_item.field_path, fields_switch=self.fields_switch,
                     query_kwargs=remover_item.query_kwargs
                 )

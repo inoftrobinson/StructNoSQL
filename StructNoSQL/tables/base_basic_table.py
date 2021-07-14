@@ -6,8 +6,8 @@ from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
-from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
-    process_validate_data_and_make_single_rendered_database_path, process_and_make_single_rendered_database_path_v3
+from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path,\
+    process_validate_data_and_make_single_rendered_database_path
 
 
 class BaseBasicTable(BaseTable):
@@ -28,7 +28,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not True:
@@ -83,7 +83,7 @@ class BaseBasicTable(BaseTable):
             key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None
     ) -> Optional[dict]:
 
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
@@ -292,7 +292,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], Optional[dict]],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> Optional[Any]:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
 
@@ -338,7 +338,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], bool],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> bool:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if has_multiple_fields_path is not None:
@@ -362,7 +362,7 @@ class BaseBasicTable(BaseTable):
 
             removers_database_paths: List[List[DatabasePathElement]] = []
             for remover_key, remover_item in removers.items():
-                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                     field_path=remover_item.field_path, fields_switch=self.fields_switch,
                     query_kwargs=remover_item.query_kwargs
                 )
@@ -399,7 +399,7 @@ class BaseBasicTable(BaseTable):
 
         removers_database_paths: List[List[DatabasePathElement]] = []
         for current_remover in removers:
-            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path_v3(
+            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
                 field_path=current_remover.field_path, fields_switch=self.fields_switch,
                 query_kwargs=current_remover.query_kwargs
             )

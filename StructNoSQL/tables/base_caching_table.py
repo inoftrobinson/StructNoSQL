@@ -864,16 +864,6 @@ class BaseCachingTable(BaseTable):
 
             return container_output_data
 
-    def _remove_multiple_fields(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, removers: Dict[str, FieldRemover]
-    ) -> Optional[Dict[str, Any]]:
-
-        return {key: self._remove_field(
-            middleware=middleware, key_value=key_value,
-            field_path=item.field_path, query_kwargs=item.query_kwargs
-        ) for key, item in removers.items()}
-
     def _delete_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> bool:
         index_cached_data = self._index_cached_data(primary_key_value=key_value)
         pending_remove_operations = self._index_pending_remove_operations(primary_key_value=key_value)

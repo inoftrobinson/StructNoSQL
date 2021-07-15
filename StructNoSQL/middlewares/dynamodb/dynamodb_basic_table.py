@@ -185,12 +185,13 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._remove_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
-    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
+    def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], data_validation: bool = True) -> Dict[str, Optional[Any]]:
         def task_executor(remover_item: FieldRemover):
             return self.remove_field(
                 key_value=key_value,
                 field_path=remover_item.field_path,
-                query_kwargs=remover_item.query_kwargs
+                query_kwargs=remover_item.query_kwargs,
+                data_validation=data_validation
             )
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 

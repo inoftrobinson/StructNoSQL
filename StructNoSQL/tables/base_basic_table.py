@@ -19,25 +19,29 @@ class BaseBasicTable(BaseTable):
         validated_data, is_valid = self.model_virtual_map_field.validate_data()
         return middleware(validated_data) if is_valid is True else False
 
-    def _record_deletion(self, middleware: Callable[[dict], Any], indexes_keys_selectors: dict) -> Any:
-        """Used by both the delete_record and remove_record operation. Hence, the Any in the return type of the middleware."""
-        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
-        return middleware(indexes_keys_selectors) if found_all_indexes is True else False
-
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
-        deletion_success: bool = middleware(indexes_keys_selectors) if found_all_indexes is True else False
-        if deletion_success is True:
-            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
-        return deletion_success
+        if found_all_indexes is not True:
+            return False
+        return middleware(indexes_keys_selectors)
 
-    def _remove_record(self, middleware: Callable[[dict], Optional[dict]], indexes_keys_selectors: dict) -> Optional[dict]:
+    def _remove_record(
+            self, middleware: Callable[[dict], Optional[dict]],
+            indexes_keys_selectors: dict, data_validation: bool
+    ) -> Optional[dict]:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
-        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors) if found_all_indexes is True else None
-        if removed_record_data is not None:
-            # self.fields_switch.
-            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
-        return removed_record_data
+        if found_all_indexes is not True:
+            return None
+
+        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors)
+        if removed_record_data is None:
+            return None
+
+        if data_validation is True:
+            raise Exception("data_validation True in remove_record not supported")
+        else:
+            return removed_record_data
+        # self.fields_switch.
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],

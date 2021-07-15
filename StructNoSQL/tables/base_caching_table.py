@@ -199,17 +199,31 @@ class BaseCachingTable(BaseTable):
 
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
-        deletion_success: bool = middleware(indexes_keys_selectors) if found_all_indexes is True else False
+        if found_all_indexes is not True:
+            return False
+
+        deletion_success: bool = middleware(indexes_keys_selectors)
         if deletion_success is True:
             self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
         return deletion_success
 
-    def _remove_record(self, middleware: Callable[[dict], Optional[dict]], indexes_keys_selectors: dict) -> Optional[dict]:
+    def _remove_record(
+            self, middleware: Callable[[dict], Optional[dict]],
+            indexes_keys_selectors: dict, data_validation: bool
+    ) -> Optional[dict]:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
-        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors) if found_all_indexes is True else None
-        if removed_record_data is not None:
-            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
-        return removed_record_data
+        if found_all_indexes is not True:
+            return None
+        
+        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors)
+        if removed_record_data is None:
+            return None
+
+        self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
+        if data_validation is True:
+            raise Exception("data_validation True in remove_record not supported")
+        else:
+            return removed_record_data
 
     def _inner_item_make_rar(self, value: Any, data_validation: bool, field_object: BaseField) -> Optional[Any]:
         if data_validation is not True:

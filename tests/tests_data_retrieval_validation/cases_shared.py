@@ -562,18 +562,23 @@ def test_remove_record(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
-        key_value=random_record_id, field_path='simpleField'
+    second_table_retrieved_simple_field_without_data_validation: Optional[Any] = second_table.get_field(
+        key_value=random_record_id, field_path='simpleField', data_validation=False
     )
     self.assertEqual((
         simple_field_random_text_value if is_caching is not True else
         {'value': simple_field_random_text_value, 'fromCache': False}
-    ), first_table_retrieved_simple_field)
+    ), second_table_retrieved_simple_field_without_data_validation)
 
-    second_table_removed_record_data: Optional[dict] = second_table.remove_record(
-        indexes_keys_selectors={primary_key_name: random_record_id}
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_table_removed_record_data_with_data_validation: Optional[dict] = second_table.remove_record(
+        indexes_keys_selectors={primary_key_name: random_record_id}, data_validation=True
     )
+    # The only valid field from the removed_record should be the primary_key field. Since the simpleField
+    # will not be of a type matching the model, its key should not be included in the removed_record_data.
     self.assertEqual((
-        {primary_key_name: random_record_id, 'simpleField': None} if is_caching is not True else
-        {'value': {primary_key_name: random_record_id, 'simpleField': None}, 'fromCache': False}
-    ), second_table_removed_record_data)
+        {primary_key_name: random_record_id} if is_caching is not True else
+        {'value': {primary_key_name: random_record_id}, 'fromCache': False}
+    ), second_table_removed_record_data_with_data_validation)

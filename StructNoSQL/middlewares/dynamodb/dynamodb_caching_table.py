@@ -62,7 +62,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             return self.dynamodb_client.delete_record(indexes_keys_selectors=indexes_keys)
         return self._delete_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
-    def remove_record(self, indexes_keys_selectors: dict, data_validation: bool = False) -> Optional[dict]:
+    def remove_record(self, indexes_keys_selectors: dict, data_validation: bool = True) -> Optional[dict]:
         def middleware(indexes_keys: dict) -> Optional[dict]:
             return self.dynamodb_client.remove_record(indexes_keys_selectors=indexes_keys)
         return self._remove_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors, data_validation=data_validation)

@@ -214,16 +214,16 @@ class BaseCachingTable(BaseTable):
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
         if found_all_indexes is not True:
             return None
-        
+
         removed_record_data: Optional[dict] = middleware(indexes_keys_selectors)
         if removed_record_data is None:
             return None
 
         self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
-        if data_validation is True:
-            raise Exception("data_validation True in remove_record not supported")
-        else:
-            return removed_record_data
+        return self._item_make_rar(
+            value=removed_record_data, data_validation=data_validation,
+            field_object=self.model_virtual_map_field, from_cache=False
+        )
 
     def _inner_item_make_rar(self, value: Any, data_validation: bool, field_object: BaseField) -> Optional[Any]:
         if data_validation is not True:

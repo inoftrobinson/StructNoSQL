@@ -58,3 +58,7 @@ class TestsInoftVocalEngineBasicTable(unittest.TestCase):
     def test_query_multiple_fields(self):
         from tests.tests_data_retrieval_validation.cases_shared import test_query_multiple_fields
         test_query_multiple_fields(**self.SHARED_CASE_KWARGS)
+
+    def test_remove_record(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_remove_record
+        test_remove_record(**self.SHARED_CASE_KWARGS)

@@ -38,10 +38,11 @@ class BaseBasicTable(BaseTable):
             return None
 
         if data_validation is True:
-            raise Exception("data_validation True in remove_record not supported")
+            self.model_virtual_map_field.populate(value=removed_record_data)
+            validated_data, is_valid = self.model_virtual_map_field.validate_data()
+            return validated_data
         else:
             return removed_record_data
-        # self.fields_switch.
 
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],

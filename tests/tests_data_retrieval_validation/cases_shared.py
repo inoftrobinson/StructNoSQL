@@ -1,5 +1,5 @@
 import unittest
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, Tuple
 from uuid import uuid4
 
 from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineCachingTable, FieldSetter, \
@@ -23,21 +23,24 @@ def test_get_field(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    second_table_retrieved_simple_field_without_data_validation: Optional[Any] = second_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=False
     )
     self.assertEqual((
         simple_field_random_text_value if is_caching is not True else
         {'value': simple_field_random_text_value, 'fromCache': False}
-    ), first_table_retrieved_simple_field)
+    ), second_table_retrieved_simple_field_without_data_validation)
 
-    second_table_retrieved_simple_field: Optional[int] = second_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_table_retrieved_simple_field_with_data_validation: Optional[int] = second_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=True
     )
     self.assertEqual((
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
-    ), second_table_retrieved_simple_field)
+    ), second_table_retrieved_simple_field_with_data_validation)
 
 
 def test_get_field_multi_selectors(
@@ -59,8 +62,8 @@ def test_get_field_multi_selectors(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=False
     )
     self.assertEqual({
         'nestedFieldOne': (
@@ -71,9 +74,12 @@ def test_get_field_multi_selectors(
             container_field_two_random_text_value if is_caching is not True else
             {'value': container_field_two_random_text_value, 'fromCache': False}
         )
-    }, first_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_without_data_validation)
 
-    second_table_retrieved_container_fields: Dict[str, Optional[int]] = second_table.get_field(
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.get_field(
         key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
     )
     self.assertEqual({
@@ -85,7 +91,7 @@ def test_get_field_multi_selectors(
             None if is_caching is not True else
             {'value': None, 'fromCache': False}
         )
-    }, second_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_with_data_validation)
 
 
 def test_get_multiple_fields(
@@ -108,8 +114,8 @@ def test_get_multiple_fields(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.get_multiple_fields(
-        key_value=TEST_ACCOUNT_ID, getters={
+    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.get_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, data_validation=False, getters={
             'one': FieldGetter(field_path='container.nestedFieldOne'),
             'two': FieldGetter(field_path='container.nestedFieldTwo'),
         }
@@ -123,10 +129,13 @@ def test_get_multiple_fields(
             container_field_two_random_text_value if is_caching is not True else
             {'value': container_field_two_random_text_value, 'fromCache': False}
         )
-    }, first_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_without_data_validation)
 
-    second_table_retrieved_container_fields: Dict[str, Optional[int]] = second_table.get_multiple_fields(
-        key_value=TEST_ACCOUNT_ID, getters={
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.get_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, data_validation=True, getters={
             'one': FieldGetter(field_path='container.nestedFieldOne'),
             'two': FieldGetter(field_path='container.nestedFieldTwo'),
         }
@@ -140,7 +149,7 @@ def test_get_multiple_fields(
             None if is_caching is not True else
             {'value': None, 'fromCache': False}
         )
-    }, second_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_with_data_validation)
 
 
 def test_remove_field(
@@ -149,30 +158,37 @@ def test_remove_field(
         second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
         is_caching: bool, primary_key_name: str
 ):
-    simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
-    first_table_simple_field_update_success: bool = first_table.update_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_random_text_value
-    )
-    self.assertTrue(first_table_simple_field_update_success)
-    if is_caching is True:
-        self.assertTrue(first_table.commit_operations())
-        first_table.clear_cached_data()
+    def generate_update_simple_field_text_value() -> str:
+        simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
+        first_table_simple_field_update_success: bool = first_table.update_field(
+            key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_random_text_value
+        )
+        self.assertTrue(first_table_simple_field_update_success)
+        if is_caching is True:
+            self.assertTrue(first_table.commit_operations())
+            first_table.clear_cached_data()
+        return simple_field_random_text_value
 
-    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    first_generated_simple_field_random_text_value: str = generate_update_simple_field_text_value()
+    second_table_removed_simple_field_without_data_validation: Optional[Any] = second_table.remove_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=False
     )
     self.assertEqual((
-        simple_field_random_text_value if is_caching is not True else
-        {'value': simple_field_random_text_value, 'fromCache': False}
-    ), first_table_retrieved_simple_field)
+        first_generated_simple_field_random_text_value if is_caching is not True else
+        {'value': first_generated_simple_field_random_text_value, 'fromCache': False}
+    ), second_table_removed_simple_field_without_data_validation)
 
-    second_table_removed_simple_field: Optional[int] = second_table.remove_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_generated_simple_field_random_text_value: str = generate_update_simple_field_text_value()
+    second_table_removed_simple_field_with_data_validation: Optional[int] = second_table.remove_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=True
     )
     self.assertEqual((
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
-    ), second_table_removed_simple_field)
+    ), second_table_removed_simple_field_with_data_validation)
 
 
 def test_remove_field_multi_selectors(
@@ -181,35 +197,39 @@ def test_remove_field_multi_selectors(
         second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
         is_caching: bool, primary_key_name: str
 ):
-    container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
-    container_field_two_random_text_value: str = f"container_fieldTwo_randomTextValue_{uuid4()}"
-    first_table_container_fields_update_success: bool = first_table.update_multiple_fields(
-        key_value=TEST_ACCOUNT_ID, setters=[
-            FieldSetter(field_path='container.nestedFieldOne', value_to_set=container_field_one_random_text_value),
-            FieldSetter(field_path='container.nestedFieldTwo', value_to_set=container_field_two_random_text_value)
-        ]
-    )
-    self.assertTrue(first_table_container_fields_update_success)
-    if is_caching is True:
-        self.assertTrue(first_table.commit_operations())
-        first_table.clear_cached_data()
+    def generate_update_container_fields_text_values() -> Tuple[str, str]:
+        container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
+        container_field_two_random_text_value: str = f"container_fieldTwo_randomTextValue_{uuid4()}"
+        first_table_container_fields_update_success: bool = first_table.update_multiple_fields(
+            key_value=TEST_ACCOUNT_ID, setters=[
+                FieldSetter(field_path='container.nestedFieldOne', value_to_set=container_field_one_random_text_value),
+                FieldSetter(field_path='container.nestedFieldTwo', value_to_set=container_field_two_random_text_value)
+            ]
+        )
+        self.assertTrue(first_table_container_fields_update_success)
+        if is_caching is True:
+            self.assertTrue(first_table.commit_operations())
+            first_table.clear_cached_data()
+        return container_field_one_random_text_value, container_field_two_random_text_value
 
-    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    first_generated_container_field_one_random_text_value, first_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
+    second_table_removed_container_fields_without_data_validation: Dict[str, Optional[Any]] = first_table.remove_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=False
     )
     self.assertEqual({
         'nestedFieldOne': (
-            container_field_one_random_text_value if is_caching is not True else
-            {'value': container_field_one_random_text_value, 'fromCache': False}
+            first_generated_container_field_one_random_text_value if is_caching is not True else
+            {'value': first_generated_container_field_one_random_text_value, 'fromCache': False}
         ),
         'nestedFieldTwo': (
-            container_field_two_random_text_value if is_caching is not True else
-            {'value': container_field_two_random_text_value, 'fromCache': False}
+            first_generated_container_field_two_random_text_value if is_caching is not True else
+            {'value': first_generated_container_field_two_random_text_value, 'fromCache': False}
         )
-    }, first_table_retrieved_container_fields)
+    }, second_table_removed_container_fields_without_data_validation)
 
-    second_table_retrieved_container_fields: Dict[str, Optional[int]] = second_table.remove_field(
-        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    second_generated_container_field_one_random_text_value, second_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
+    second_table_removed_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.remove_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=True
     )
     self.assertEqual({
         'nestedFieldOne': (
@@ -220,7 +240,7 @@ def test_remove_field_multi_selectors(
             None if is_caching is not True else
             {'value': None, 'fromCache': False}
         )
-    }, second_table_retrieved_container_fields)
+    }, second_table_removed_container_fields_with_data_validation)
 
 
 def test_remove_multiple_fields(

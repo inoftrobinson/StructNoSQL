@@ -2,7 +2,7 @@ import re
 from typing import List, Dict, Any, Optional, Tuple, Union
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import FieldTargetNotFoundException
-from StructNoSQL.fields import BaseItem, BaseField
+from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.exceptions import MissingQueryKwarg
 
@@ -138,3 +138,9 @@ def process_validate_data_and_make_single_rendered_database_path(
 
 def join_field_path_elements(field_path_elements: List[DatabasePathElement]) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))
+
+def map_record_data_to_fields(data: dict, table_model: BaseField):
+    # todo: finish to implement
+    for key, item in data.items():
+        # table_model.
+        matching_field = table_model.childrens_map.get(key, None)

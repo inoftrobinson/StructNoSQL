@@ -33,7 +33,7 @@ def _base_unpack_getters_response_item(
     return output_data
 
 def _base_unpack_getters_response_item_v2(
-        item_mutator: Callable[[Any], Any], response_item: dict,
+        item_mutator: Callable[[Any], Any], data_validation: bool, response_item: dict,
         single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
         grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
 ) -> Dict[str, Any]:
@@ -44,9 +44,13 @@ def _base_unpack_getters_response_item_v2(
             data=response_item, field_path_elements=item_field_path_elements,
             num_keys_to_navigation_into=len(item_field_path_elements)
         )
-        item_field_object.populate(value=item_data)
-        validated_data, is_valid = item_field_object.validate_data()
-        output_data[item_key] = item_mutator(validated_data if is_valid is True else None)
+        if data_validation is True:
+            item_field_object.populate(value=item_data)
+            validated_data, is_valid = item_field_object.validate_data()
+        else:
+            validated_data = item_data
+
+        output_data[item_key] = item_mutator(validated_data)
 
     for fields_container_key, fields_container_item in grouped_getters_database_paths_elements.items():
         current_container_fields_data: Dict[str, Any] = {}
@@ -56,9 +60,14 @@ def _base_unpack_getters_response_item_v2(
                 data=response_item, field_path_elements=child_field_path_elements,
                 num_keys_to_navigation_into=len(child_field_path_elements)
             )
-            child_field_object.populate(value=item_data)
-            validated_data, is_valid = child_field_object.validate_data()
+            if data_validation is True:
+                child_field_object.populate(value=item_data)
+                validated_data, is_valid = child_field_object.validate_data()
+            else:
+                validated_data = item_data
+
             current_container_fields_data[child_field_key] = item_mutator(validated_data)
+
         output_data[fields_container_key] = current_container_fields_data
     return output_data
 

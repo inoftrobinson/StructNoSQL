@@ -79,7 +79,7 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             )
         return self._query_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
 
-    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Any:
+    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
@@ -87,12 +87,12 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
                 return self._get_values_in_multiple_path_target(key_value=key_value, fields_path_elements=field_path_elements)
-        return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
+        return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
-    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter]) -> Optional[dict]:
+    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], data_validation: bool = True) -> Optional[dict]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self._get_or_query_single_item(key_value=key_value, fields_path_elements=fields_path_elements)
-        return self._get_multiple_fields(middleware=middleware, key_value=key_value, getters=getters)
+        return self._get_multiple_fields(middleware=middleware, key_value=key_value, getters=getters, data_validation=data_validation)
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         return self._update_field(key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
@@ -117,10 +117,10 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
             return update_success, response_attributes
         return self._update_multiple_fields_return_old(middleware=middleware, key_value=key_value, setters=setters)
 
-    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
+    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self._remove_data_elements_from_map(key_value=key_value, fields_path_elements=fields_path_elements)
-        return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs)
+        return self._remove_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
         def task_executor(remover_item: FieldRemover):

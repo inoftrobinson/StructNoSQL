@@ -40,7 +40,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return self.dynamodb_client.remove_record(indexes_keys_selectors=indexes_keys)
         return self._record_deletion(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors)
 
-    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None) -> Any:
+    def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None, data_validation: bool = True) -> Any:
         def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
             if has_multiple_fields_path is not True:
                 field_path_elements: List[DatabasePathElement]
@@ -56,15 +56,15 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                     key_value=key_value, fields_path_elements=field_path_elements
                 )
                 return response_data
-        return self._get_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
+        return self._get_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
-    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None) -> Optional[dict]:
+    def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None, data_validation: bool = True) -> Optional[dict]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self.dynamodb_client.get_or_query_single_item(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, fields_path_elements=fields_path_elements,
             )
-        return self._get_multiple_fields(middleware=middleware, getters=getters)
+        return self._get_multiple_fields(middleware=middleware, getters=getters, data_validation=data_validation)
 
 
     def query_field(
@@ -176,14 +176,14 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return True, python_response_attributes
         return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
 
-    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None) -> Optional[Any]:
+    def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Dict[str, Any]]:
             return self.dynamodb_client.remove_data_elements_from_map(
                 index_name=self.primary_index_name,
                 key_value=key_value, targets_path_elements=fields_path_elements,
                 retrieve_removed_elements=True
             )
-        return self._remove_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs)
+        return self._remove_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
     def remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Dict[str, Any]:
         def task_executor(remover_item: FieldRemover):

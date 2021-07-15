@@ -601,7 +601,7 @@ class BaseCachingTable(BaseTable):
 
     def _update_field_return_old(
             self, middleware: Callable[[List[DatabasePathElement], Any], Tuple[bool, Optional[Any]]],
-            key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
+            key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict], data_validation: bool
     ) -> Tuple[bool, Optional[Any]]:
 
         field_object, field_path_elements, validated_update_data, update_data_is_valid = process_validate_data_and_make_single_rendered_database_path(
@@ -630,9 +630,9 @@ class BaseCachingTable(BaseTable):
                 field_path_elements=field_path_elements,
                 data=validated_update_data
             )
-            return True, (
-                field_value_from_cache if self.debug is not True else
-                {'value': field_value_from_cache, 'fromCache': True}
+            return True, self._item_make_rar(
+                value=field_value_from_cache, data_validation=data_validation,
+                field_object=field_object, from_cache=True
             )
         else:
             update_success, response_attributes = middleware(field_path_elements, validated_update_data)
@@ -650,12 +650,9 @@ class BaseCachingTable(BaseTable):
                 num_keys_to_navigation_into=len(field_path_elements)
             ) if response_attributes is not None else None
 
-            field_object.populate(value=old_item_data)
-            validated_removed_data, removed_data_is_valid = field_object.validate_data()
-
-            return update_success, (
-                validated_removed_data if self.debug is not True else
-                {'value': validated_removed_data, 'fromCache': False}
+            return update_success, self._item_make_rar(
+                value=old_item_data, data_validation=data_validation,
+                field_object=field_object, from_cache=False
             )
 
     def _update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:

@@ -322,16 +322,19 @@ def test_update_field_return_old(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    second_table_retrieved_simple_field_without_data_validation: Optional[Any] = second_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=False
     )
     self.assertEqual((
         simple_field_random_text_value if is_caching is not True else
         {'value': simple_field_random_text_value, 'fromCache': False}
-    ), first_table_retrieved_simple_field)
+    ), second_table_retrieved_simple_field_without_data_validation)
+
+    if is_caching is True:
+        second_table.clear_cached_data()
 
     simple_field_dummy_int_value: int = 42
-    second_table_simple_field_update_success, second_table_retrieved_old_simple_field = second_table.update_field_return_old(
+    second_table_simple_field_update_success, second_table_retrieved_old_simple_field_with_data_validation = second_table.update_field_return_old(
         key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_dummy_int_value
     )
     second_table_retrieved_old_simple_field: Optional[int]
@@ -339,7 +342,7 @@ def test_update_field_return_old(
     self.assertEqual((
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
-    ), second_table_retrieved_old_simple_field)
+    ), second_table_retrieved_old_simple_field_with_data_validation)
 
 
 def test_update_multiple_fields_return_old(

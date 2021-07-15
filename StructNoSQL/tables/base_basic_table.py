@@ -238,7 +238,7 @@ class BaseBasicTable(BaseTable):
 
     def _update_field_return_old(
             self, middleware: Callable[[List[DatabasePathElement], Any], Tuple[bool, Any]],
-            field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
+            field_path: str, value_to_set: Any, query_kwargs: Optional[dict], data_validation: bool
     ) -> Tuple[bool, Optional[Any]]:
         field_object, field_path_elements, validated_update_data, update_data_is_valid = process_validate_data_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
@@ -254,8 +254,11 @@ class BaseBasicTable(BaseTable):
             num_keys_to_navigation_into=len(field_path_elements)
         ) if response_attributes is not None else None
 
-        field_object.populate(value=old_item_data)
-        validated_removed_data, removed_data_is_valid = field_object.validate_data()
+        if data_validation is True:
+            field_object.populate(value=old_item_data)
+            validated_removed_data, removed_data_is_valid = field_object.validate_data()
+        else:
+            validated_removed_data = old_item_data
 
         return update_success, validated_removed_data
 

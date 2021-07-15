@@ -133,7 +133,10 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return response is not None
         return self._update_field(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
-    def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
+    def update_field_return_old(
+            self, key_value: str, field_path: str, value_to_set: Any,
+            query_kwargs: Optional[dict] = None, data_validation: bool = True
+    ) -> Tuple[bool, Optional[Any]]:
         def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any) -> Tuple[bool, Optional[dict]]:
             response: Optional[Response] = self.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
                 index_name=self.primary_index_name,
@@ -144,12 +147,15 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             if response is None:
                 return False, None
 
-            response_attributes: Optional[dict] = (
+            python_response_attributes: Optional[dict] = (
                 DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
                 if response.attributes is not None else None
             )
-            return True, response_attributes
-        return self._update_field_return_old(middleware=middleware, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+            return True, python_response_attributes
+        return self._update_field_return_old(
+            middleware=middleware, field_path=field_path, value_to_set=value_to_set,
+            query_kwargs=query_kwargs, data_validation=data_validation
+        )
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         def middleware(dynamodb_setters: List[FieldPathSetter]) -> bool:

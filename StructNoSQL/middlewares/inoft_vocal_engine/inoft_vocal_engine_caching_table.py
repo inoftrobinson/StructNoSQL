@@ -97,14 +97,20 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
         return self._update_field(key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
-    def update_field_return_old(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> Tuple[bool, Optional[Any]]:
+    def update_field_return_old(
+            self, key_value: str, field_path: str, value_to_set: Any,
+            query_kwargs: Optional[dict] = None, data_validation: bool = True
+    ) -> Tuple[bool, Optional[Any]]:
         def middleware(field_path_elements: List[DatabasePathElement], validated_data: Any) -> Tuple[bool, Optional[Any]]:
             update_success, response_attributes = self._set_update_data_element_to_map_with_default_initialization_return_old(
                 key_value=key_value, value=validated_data,
                 field_path_elements=field_path_elements
             )
             return update_success, response_attributes
-        return self._update_field_return_old(middleware=middleware, key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+        return self._update_field_return_old(
+            middleware=middleware, key_value=key_value, field_path=field_path, value_to_set=value_to_set,
+            query_kwargs=query_kwargs, data_validation=data_validation
+        )
 
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)

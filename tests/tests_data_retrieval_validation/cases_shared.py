@@ -441,3 +441,57 @@ def test_query_field_multi_selectors(
         )
     }}, second_table_retrieved_container_fields)
 
+
+def test_query_multiple_fields(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
+    container_field_two_random_text_value: str = f"container_fieldTwo_randomTextValue_{uuid4()}"
+    first_table_container_fields_update_success: bool = first_table.update_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='container.nestedFieldOne', value_to_set=container_field_one_random_text_value),
+            FieldSetter(field_path='container.nestedFieldTwo', value_to_set=container_field_two_random_text_value)
+        ]
+    )
+    self.assertTrue(first_table_container_fields_update_success)
+
+    if is_caching is True:
+        self.assertTrue(first_table.commit_operations())
+        first_table.clear_cached_data()
+
+    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.query_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='container.nestedFieldOne'),
+            'two': FieldGetter(field_path='container.nestedFieldTwo'),
+        }
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: {
+        'one': (
+            container_field_one_random_text_value if is_caching is not True else
+            {'value': container_field_one_random_text_value, 'fromCache': False}
+        ),
+        'two': (
+            container_field_two_random_text_value if is_caching is not True else
+            {'value': container_field_two_random_text_value, 'fromCache': False}
+        )
+    }}, first_table_retrieved_container_fields)
+
+    second_table_retrieved_container_fields: Dict[str, Optional[int]] = second_table.query_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, getters={
+            'one': FieldGetter(field_path='container.nestedFieldOne'),
+            'two': FieldGetter(field_path='container.nestedFieldTwo'),
+        }
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: {
+        'one': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        ),
+        'two': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        )
+    }}, second_table_retrieved_container_fields)

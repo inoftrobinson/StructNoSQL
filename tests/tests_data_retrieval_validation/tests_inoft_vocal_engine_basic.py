@@ -51,3 +51,6 @@ class TestsInoftVocalEngineBasicTable(unittest.TestCase):
         from tests.tests_data_retrieval_validation.cases_shared import test_query_field
         test_query_field(**self.SHARED_CASE_KWARGS)
 
+    def test_query_field_multi_selectors(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_query_field_multi_selectors
+        test_query_field_multi_selectors(**self.SHARED_CASE_KWARGS)

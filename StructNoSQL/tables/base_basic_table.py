@@ -64,7 +64,15 @@ class BaseBasicTable(BaseTable):
 
     @staticmethod
     def _process_cache_record_item(record_item_data: dict, primary_key_value: str, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]) -> dict:
-        return {item_key: record_item_data.get(item_key, None) for item_key in target_fields_containers.keys()}
+        output_data: dict = {}
+        for item_key, item_container in target_fields_containers.items():
+            item_field_object, item_field_path_elements = item_container
+
+            matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
+            item_field_object.populate(value=matching_item_data)
+            validated_data, is_valid = item_field_object.validate_data()
+            output_data[item_key] = validated_data
+        return output_data
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
@@ -146,8 +154,14 @@ class BaseBasicTable(BaseTable):
             )
             retrieved_records_items_data: Optional[List[Any]] = middleware(single_getters_database_paths_elements, True)
             if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
-                # todo: add data validation
-                return {key_value: retrieved_records_items_data[0]}
+                # Since we query the primary_index, we know for a fact that we will never be returned more than
+                # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                # and that we return a dict with the only one record item being the requested key_value.
+                return {key_value: self._process_cache_record_item(
+                    record_item_data=retrieved_records_items_data[0],
+                    primary_key_value=key_value,
+                    target_fields_containers=single_getters_target_fields_containers
+                )}
             return None
         else:
             return self.inner_query_fields_secondary_index(

@@ -392,3 +392,52 @@ def test_query_field(
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
     )}, second_table_retrieved_simple_field)
+
+
+def test_query_field_multi_selectors(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
+    container_field_two_random_text_value: str = f"container_fieldTwo_randomTextValue_{uuid4()}"
+    first_table_container_fields_update_success: bool = first_table.update_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, setters=[
+            FieldSetter(field_path='container.nestedFieldOne', value_to_set=container_field_one_random_text_value),
+            FieldSetter(field_path='container.nestedFieldTwo', value_to_set=container_field_two_random_text_value)
+        ]
+    )
+    self.assertTrue(first_table_container_fields_update_success)
+    if is_caching is True:
+        self.assertTrue(first_table.commit_operations())
+        first_table.clear_cached_data()
+
+    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.query_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: {
+        'nestedFieldOne': (
+            container_field_one_random_text_value if is_caching is not True else
+            {'value': container_field_one_random_text_value, 'fromCache': False}
+        ),
+        'nestedFieldTwo': (
+            container_field_two_random_text_value if is_caching is not True else
+            {'value': container_field_two_random_text_value, 'fromCache': False}
+        )
+    }}, first_table_retrieved_container_fields)
+
+    second_table_retrieved_container_fields: Dict[str, Optional[int]] = second_table.query_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: {
+        'nestedFieldOne': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        ),
+        'nestedFieldTwo': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        )
+    }}, second_table_retrieved_container_fields)
+

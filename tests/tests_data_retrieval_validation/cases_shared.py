@@ -213,7 +213,7 @@ def test_remove_field_multi_selectors(
         return container_field_one_random_text_value, container_field_two_random_text_value
 
     first_generated_container_field_one_random_text_value, first_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
-    second_table_removed_container_fields_without_data_validation: Dict[str, Optional[Any]] = first_table.remove_field(
+    second_table_removed_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.remove_field(
         key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=False
     )
     self.assertEqual({
@@ -226,6 +226,9 @@ def test_remove_field_multi_selectors(
             {'value': first_generated_container_field_two_random_text_value, 'fromCache': False}
         )
     }, second_table_removed_container_fields_without_data_validation)
+
+    if is_caching is True:
+        second_table.clear_cached_data()
 
     second_generated_container_field_one_random_text_value, second_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
     second_table_removed_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.remove_field(

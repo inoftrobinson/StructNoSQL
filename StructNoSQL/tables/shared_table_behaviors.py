@@ -82,9 +82,9 @@ def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_eleme
 
 def _inner_query_fields_secondary_index(
         middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-        process_record_value: Callable[[Optional[Any], Any, Tuple[BaseField, List[DatabasePathElement]]], Any],
-        process_record_item: Callable[[Optional[Any], Any, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any],
-        primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
+        process_record_value: Callable[[bool, Optional[Any], Any, Tuple[BaseField, List[DatabasePathElement]]], Any],
+        process_record_item: Callable[[bool, dict, Any, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any],
+        data_validation: bool, primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
         target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], has_multiple_fields_path: bool
 ) -> Optional[dict]:
     """
@@ -107,8 +107,8 @@ def _inner_query_fields_secondary_index(
         use key_name. Then, the primary key's will be popped from the response items of each records and be used as the keys of the output dict.
 
     :param middleware:
-    :param process_record_value: Callable[[value: Optional[Any], primary_key_value: Any, field_path_elements: List[DatabasePathElement]], Any]
-    :param process_record_item: Callable[[record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]], Any]
+    :param process_record_value: Callable[[data_validation: bool, value: Optional[Any], primary_key_value: Any, target_field_container: Tuple[BaseField, List[DatabasePathElement]]], Any]
+    :param process_record_item: Callable[[data_validation: bool, record_item_data: dict, primary_key_value: Any, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any]
     :param primary_index_name: str
     :param get_primary_key_database_path: Callable[[], List[DatabasePathElement]]
     :param field_path_elements: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
@@ -128,7 +128,7 @@ def _inner_query_fields_secondary_index(
             records_output: dict = {}
             for record_primary_key_value in retrieved_records_items_data:
                 records_output[record_primary_key_value] = process_record_value(
-                    record_primary_key_value, record_primary_key_value, target_field_container
+                    data_validation, record_primary_key_value, record_primary_key_value, target_field_container
                 )
             return records_output
         else:
@@ -143,7 +143,7 @@ def _inner_query_fields_secondary_index(
                 record_client_requested_value_data: Optional[Any] = record_item_data.get('__VALUE__', None)
                 record_primary_key_value: Optional[Any] = record_item_data.get('__PRIMARY_KEY__', None)
                 records_output[record_primary_key_value] = process_record_value(
-                    record_client_requested_value_data, record_primary_key_value, target_field_container
+                    data_validation, record_client_requested_value_data, record_primary_key_value, target_field_container
                 )
             return records_output
     else:
@@ -164,7 +164,7 @@ def _inner_query_fields_secondary_index(
                 record_primary_key_value: Optional[Any] = record_item_data.get(primary_key_client_retrieval_key, None)
                 if record_primary_key_value is not None:
                     records_output[record_primary_key_value] = process_record_item(
-                        record_item_data, record_primary_key_value, target_field_container
+                        data_validation, record_item_data, record_primary_key_value, target_field_container
                     )
             return records_output
         else:
@@ -187,7 +187,7 @@ def _inner_query_fields_secondary_index(
                 record_primary_key_value: Optional[Any] = record_item_data.pop(free_to_use_getter_key_name, None)
                 if record_primary_key_value is not None:
                     records_output[record_primary_key_value] = process_record_item(
-                        record_item_data, record_primary_key_value, target_field_container
+                        data_validation, record_item_data, record_primary_key_value, target_field_container
                     )
             return records_output
 

@@ -360,3 +360,35 @@ def test_update_multiple_fields_return_old(
             {'value': None, 'fromCache': False}
         )
     }, second_table_retrieved_container_fields)
+
+
+def test_query_field(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
+    first_table_simple_field_update_success: bool = first_table.update_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField', value_to_set=simple_field_random_text_value
+    )
+    self.assertTrue(first_table_simple_field_update_success)
+    if is_caching is True:
+        self.assertTrue(first_table.commit_operations())
+        first_table.clear_cached_data()
+
+    first_table_retrieved_simple_field: Optional[str] = first_table.query_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: (
+        simple_field_random_text_value if is_caching is not True else
+        {'value': simple_field_random_text_value, 'fromCache': False}
+    )}, first_table_retrieved_simple_field)
+
+    second_table_retrieved_simple_field: Optional[int] = second_table.query_field(
+        key_value=TEST_ACCOUNT_ID, field_path='simpleField'
+    )
+    self.assertEqual({TEST_ACCOUNT_ID: (
+        None if is_caching is not True else
+        {'value': None, 'fromCache': False}
+    )}, second_table_retrieved_simple_field)

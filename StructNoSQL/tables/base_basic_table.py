@@ -56,12 +56,15 @@ class BaseBasicTable(BaseTable):
             return output_data
 
     @staticmethod
-    def _process_cache_record_value(value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
-        return value
+    def _process_cache_record_value(value: Any, primary_key_value: Any, target_field_container: Tuple[BaseField, List[DatabasePathElement]]) -> Optional[Any]:
+        field_object, field_path_elements = target_field_container
+        field_object.populate(value=value)
+        validated_data, valid = field_object.validate_data()
+        return validated_data
 
     @staticmethod
-    def _process_cache_record_item(record_item_data: dict, primary_key_value: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> dict:
-        return {item_key: record_item_data.get(item_key, None) for item_key in fields_path_elements.keys()}
+    def _process_cache_record_item(record_item_data: dict, primary_key_value: str, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]) -> dict:
+        return {item_key: record_item_data.get(item_key, None) for item_key in target_fields_containers.keys()}
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
@@ -99,9 +102,6 @@ class BaseBasicTable(BaseTable):
                 field_object, field_path_elements = target_field_container
 
                 retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, False)
-                if retrieved_records_items_data is None:
-                    return None
-
                 if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -109,8 +109,9 @@ class BaseBasicTable(BaseTable):
                     return {key_value: self._process_cache_record_value(
                         value=retrieved_records_items_data[0],
                         primary_key_value=key_value,
-                        field_path_elements=field_path_elements
+                        target_field_container=target_field_container
                     )}
+                return None
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
@@ -126,7 +127,7 @@ class BaseBasicTable(BaseTable):
                     return {key_value: self._process_cache_record_item(
                         record_item_data=retrieved_records_items_data[0],
                         primary_key_value=key_value,
-                        fields_path_elements=fields_paths_elements
+                        target_fields_containers=target_field_container
                     )}
 
     def _query_multiple_fields(

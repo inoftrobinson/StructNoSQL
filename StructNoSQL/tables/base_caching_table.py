@@ -273,29 +273,32 @@ class BaseCachingTable(BaseTable):
                     matching_item_data: Optional[Any] = retrieved_items_data.get(item_key, None)
                     item_field_object.populate(value=matching_item_data)
                     validated_data, is_valid = item_field_object.validate_data()
-                    if is_valid is True:
-                        BaseCachingTable._cache_put_data(
-                            index_cached_data=index_cached_data,
-                            field_path_elements=item_field_path_elements,
-                            data=validated_data
-                        )
+                    # Even if is_valid is False, we still cache the validated_data, which will be None.
+                    BaseCachingTable._cache_put_data(
+                        index_cached_data=index_cached_data,
+                        field_path_elements=item_field_path_elements,
+                        data=validated_data
+                    )
 
-                    # If the valid is not valid, validated_data will be None, so we do not need to add an
-                    # additional check on is_valid in order to know whether we can use validated_data or not.
                     output_items[item_key] = (
                         validated_data if self.debug is not True else
                         {'value': validated_data, 'fromCache': False}
                     )
             return output_items
 
-    def _process_cache_record_value(self, value: Any, primary_key_value: Any, field_path_elements: List[DatabasePathElement]):
-        output = (
-            value if self.debug is not True else
-            {'value': value, 'fromCache': False}
-        )
+    def _process_cache_record_value(self, value: Any, primary_key_value: Any, target_field_container: Tuple[BaseField, List[DatabasePathElement]]):
+        field_object, field_path_elements = target_field_container
+
+        field_object.populate(value=value)
+        validated_data, valid = field_object.validate_data()
+
         record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
         BaseCachingTable._cache_put_data(index_cached_data=record_cached_data, field_path_elements=field_path_elements, data=value)
-        return output
+
+        return (
+            validated_data if self.debug is not True else
+            {'value': validated_data, 'fromCache': False}
+        )
 
     def _process_cache_record_item(
             self, record_item_data: dict, primary_key_value: str,
@@ -309,12 +312,12 @@ class BaseCachingTable(BaseTable):
             record_item_matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
             item_field_object.populate(value=record_item_matching_item_data)
             validated_data, is_valid = item_field_object.validate_data()
-            if is_valid is True:
-                BaseCachingTable._cache_put_data(
-                    index_cached_data=record_cached_data,
-                    field_path_elements=item_field_path_elements,
-                    data=record_item_matching_item_data
-                )
+            # Even if is_valid is False, we still cache the validated_data, which will be None.
+            BaseCachingTable._cache_put_data(
+                index_cached_data=record_cached_data,
+                field_path_elements=item_field_path_elements,
+                data=record_item_matching_item_data
+            )
 
             output[item_key] = (
                 validated_data if self.debug is not True else
@@ -410,17 +413,16 @@ class BaseCachingTable(BaseTable):
                     )}
 
                 retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, has_multiple_fields_path)
-                if retrieved_records_items_data is None:
-                    return None
-
-                records_output: dict = {}
-                for record_primary_key_value in retrieved_records_items_data:
-                    records_output[record_primary_key_value] = self._process_cache_record_value(
-                        value=record_primary_key_value,
-                        primary_key_value=record_primary_key_value,
-                        field_path_elements=field_path_elements
-                    )
-                return records_output
+                if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                    # Since we query the primary_index, we know for a fact that we will never be returned more than
+                    # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                    # and that we return a dict with the only one record item being the requested key_value.
+                    return {key_value: self._process_cache_record_value(
+                        value=retrieved_records_items_data[0],
+                        primary_key_value=key_value,
+                        target_field_container=target_field_container
+                    )}
+                return None
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
                 return self._shared_rar(
@@ -732,7 +734,7 @@ class BaseCachingTable(BaseTable):
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
             item_field_object.populate(value=item_data)
-            validated_data, valid = item_field_object.validate_data()
+            validated_data, is_valid = item_field_object.validate_data()
             output_data[item_key] = (
                 validated_data if self.debug is not True else
                 {'value': validated_data, 'fromCache': False}

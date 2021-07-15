@@ -46,3 +46,8 @@ class TestsInoftVocalEngineBasicTable(unittest.TestCase):
     def test_update_multiple_fields_return_old(self):
         from tests.tests_data_retrieval_validation.cases_shared import test_update_multiple_fields_return_old
         test_update_multiple_fields_return_old(**self.SHARED_CASE_KWARGS)
+
+    def test_query_field(self):
+        from tests.tests_data_retrieval_validation.cases_shared import test_query_field
+        test_query_field(**self.SHARED_CASE_KWARGS)
+

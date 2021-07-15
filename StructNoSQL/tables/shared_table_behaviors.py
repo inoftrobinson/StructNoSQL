@@ -73,7 +73,7 @@ def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_eleme
 
 def _inner_query_fields_secondary_index(
         middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
-        process_record_value: Callable[[Optional[Any], Any, List[DatabasePathElement]], Any],
+        process_record_value: Callable[[Optional[Any], Any, Tuple[BaseField, List[DatabasePathElement]]], Any],
         process_record_item: Callable[[Optional[Any], Any, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any],
         primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
         target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], has_multiple_fields_path: bool
@@ -119,7 +119,7 @@ def _inner_query_fields_secondary_index(
             records_output: dict = {}
             for record_primary_key_value in retrieved_records_items_data:
                 records_output[record_primary_key_value] = process_record_value(
-                    record_primary_key_value, record_primary_key_value, field_path_elements
+                    record_primary_key_value, record_primary_key_value, target_field_container
                 )
             return records_output
         else:
@@ -134,7 +134,7 @@ def _inner_query_fields_secondary_index(
                 record_client_requested_value_data: Optional[Any] = record_item_data.get('__VALUE__', None)
                 record_primary_key_value: Optional[Any] = record_item_data.get('__PRIMARY_KEY__', None)
                 records_output[record_primary_key_value] = process_record_value(
-                    record_client_requested_value_data, record_primary_key_value, field_path_elements
+                    record_client_requested_value_data, record_primary_key_value, target_field_container
                 )
             return records_output
     else:

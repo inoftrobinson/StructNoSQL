@@ -437,44 +437,45 @@ class BaseBasicTable(BaseTable):
             return middleware(targets_paths_elements)
 
     def _grouped_remove_multiple_fields(
-            self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: Dict[str, FieldRemover]
+            self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
+            removers: Dict[str, FieldRemover], data_validation: bool
     ) -> Optional[Dict[str, Any]]:
         if not len(removers) > 0:
             # If no remover has been specified, we do not run the database
             # operation, and since no value has been removed, we return None.
             return None
-        else:
-            removers_field_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
-            grouped_removers_field_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
-            removers_database_paths: List[List[DatabasePathElement]] = []
-            for remover_key, remover_item in removers.items():
-                target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
-                    field_path=remover_item.field_path, fields_switch=self.fields_switch,
-                    query_kwargs=remover_item.query_kwargs
-                )
-                if has_multiple_fields_path is not True:
-                    target_field_container: Tuple[BaseField, List[DatabasePathElement]]
-                    field_object, field_path_elements = target_field_container
+        removers_field_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+        grouped_removers_field_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
-                    removers_field_paths_elements[remover_key] = target_field_container
-                    removers_database_paths.append(field_path_elements)
-                else:
-                    target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
-                    fields_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
-
-                    grouped_removers_field_paths_elements[remover_key] = target_field_container
-                    removers_database_paths.extend(fields_paths_elements)
-
-            response_attributes: Optional[Any] = middleware(removers_database_paths)
-            if response_attributes is None:
-                return None
-
-            return self._unpack_getters_response_item(
-                response_item=response_attributes,
-                single_getters_database_paths_elements=removers_field_paths_elements,
-                grouped_getters_database_paths_elements=grouped_removers_field_paths_elements
+        removers_database_paths: List[List[DatabasePathElement]] = []
+        for remover_key, remover_item in removers.items():
+            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+                field_path=remover_item.field_path, fields_switch=self.fields_switch,
+                query_kwargs=remover_item.query_kwargs
             )
+            if has_multiple_fields_path is not True:
+                target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+                field_object, field_path_elements = target_field_container
+
+                removers_field_paths_elements[remover_key] = target_field_container
+                removers_database_paths.append(field_path_elements)
+            else:
+                target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+                fields_paths_elements: List[List[DatabasePathElement]] = [item[1] for item in target_field_container.values()]
+
+                grouped_removers_field_paths_elements[remover_key] = target_field_container
+                removers_database_paths.extend(fields_paths_elements)
+
+        response_attributes: Optional[Any] = middleware(removers_database_paths)
+        if response_attributes is None:
+            return None
+
+        return self._unpack_getters_response_item(
+            data_validation=data_validation, response_item=response_attributes,
+            single_getters_database_paths_elements=removers_field_paths_elements,
+            grouped_getters_database_paths_elements=grouped_removers_field_paths_elements
+        )
 
     def _grouped_delete_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any], removers: List[FieldRemover],

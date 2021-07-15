@@ -307,6 +307,67 @@ def test_remove_multiple_fields(
     }, second_table_removed_container_fields_with_data_validation)
 
 
+def test_grouped_remove_multiple_fields(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    def generate_update_container_fields_text_values() -> Tuple[str, str]:
+        container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
+        container_field_two_random_text_value: str = f"container_fieldTwo_randomTextValue_{uuid4()}"
+        first_table_container_fields_update_success: bool = first_table.update_multiple_fields(
+            key_value=TEST_ACCOUNT_ID, setters=[
+                FieldSetter(field_path='container.nestedFieldOne', value_to_set=container_field_one_random_text_value),
+                FieldSetter(field_path='container.nestedFieldTwo', value_to_set=container_field_two_random_text_value)
+            ]
+        )
+        self.assertTrue(first_table_container_fields_update_success)
+        if is_caching is True:
+            self.assertTrue(first_table.commit_operations())
+            first_table.clear_cached_data()
+        return container_field_one_random_text_value, container_field_two_random_text_value
+
+    first_generated_container_field_one_random_text_value, first_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
+    second_table_removed_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.grouped_remove_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, data_validation=False, removers={
+            'fieldOne': FieldRemover(field_path='container.nestedFieldOne'),
+            'fieldTwo': FieldRemover(field_path='container.nestedFieldTwo')
+        }
+    )
+    self.assertEqual({
+        'fieldOne': (
+            first_generated_container_field_one_random_text_value if is_caching is not True else
+            {'value': first_generated_container_field_one_random_text_value, 'fromCache': False}
+        ),
+        'fieldTwo': (
+            first_generated_container_field_two_random_text_value if is_caching is not True else
+            {'value': first_generated_container_field_two_random_text_value, 'fromCache': False}
+        )
+    }, second_table_removed_container_fields_without_data_validation)
+
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_generated_container_field_one_random_text_value, second_generated_container_field_two_random_text_value = generate_update_container_fields_text_values()
+    second_table_removed_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.grouped_remove_multiple_fields(
+        key_value=TEST_ACCOUNT_ID, data_validation=True, removers={
+            'fieldOne': FieldRemover(field_path='container.nestedFieldOne'),
+            'fieldTwo': FieldRemover(field_path='container.nestedFieldTwo')
+        }
+    )
+    self.assertEqual({
+        'fieldOne': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        ),
+        'fieldTwo': (
+            None if is_caching is not True else
+            {'value': None, 'fromCache': False}
+        )
+    }, second_table_removed_container_fields_with_data_validation)
+
+
 def test_update_field_return_old(
         self: unittest.TestCase,
         first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],

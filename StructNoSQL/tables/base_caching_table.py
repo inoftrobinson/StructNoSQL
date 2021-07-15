@@ -917,7 +917,7 @@ class BaseCachingTable(BaseTable):
 
     def _grouped_remove_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],
-            key_value: str, removers: Dict[str, FieldRemover]
+            key_value: str, removers: Dict[str, FieldRemover], data_validation: bool
     ) -> Optional[Dict[str, Any]]:
         # todo: do not perform the operation but store it as pending if a matching value exists in the cache
         if not len(removers) > 0:
@@ -969,7 +969,7 @@ class BaseCachingTable(BaseTable):
                 return None
 
             return self._unpack_getters_response_item_v2(
-                response_item=response_attributes,
+                data_validation=data_validation, response_item=response_attributes,
                 single_getters_database_paths_elements=removers_field_paths_elements,
                 grouped_getters_database_paths_elements=grouped_removers_field_paths_elements
             )

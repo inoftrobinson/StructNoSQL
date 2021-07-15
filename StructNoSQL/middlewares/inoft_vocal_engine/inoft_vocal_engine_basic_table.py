@@ -157,12 +157,12 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             )
         return self._async_field_removers_executor(task_executor=task_executor, removers=removers)
 
-    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover]) -> Optional[Dict[str, Any]]:
+    def grouped_remove_multiple_fields(self, key_value: str, removers: Dict[str, FieldRemover], data_validation: bool = True) -> Optional[Dict[str, Any]]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self._remove_data_elements_from_map(
                 key_value=key_value, fields_path_elements=fields_path_elements,
             )
-        return self._grouped_remove_multiple_fields(middleware=middleware, removers=removers)
+        return self._grouped_remove_multiple_fields(middleware=middleware, removers=removers, data_validation=data_validation)
 
     def grouped_delete_multiple_fields(self, key_value: str, removers: List[FieldRemover]) -> bool:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

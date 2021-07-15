@@ -54,18 +54,6 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
 
     return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 
-def process_and_get_fields_paths_objects_from_fields_paths(fields_paths: List[str], fields_switch: dict) -> Dict[str, BaseItem]:
-    print("process_and_get_fields_paths_objects_from_fields_paths is deprecated and will soon be removed")
-    # todo: remove
-    fields_objects_to_get = {}
-    for field_key in fields_paths:
-        field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
-            field_path_key=field_key, fields_switch=fields_switch
-        )
-        # todo: add support for multiple fields path's
-        fields_objects_to_get[field_key] = field_path_object
-    return fields_objects_to_get
-
 
 def make_rendered_database_path(database_path_elements: List[DatabasePathElement], query_kwargs: dict) -> List[DatabasePathElement]:
     output_database_path_elements: List[DatabasePathElement] = []
@@ -147,31 +135,6 @@ def process_validate_data_and_make_single_rendered_database_path(
         return field_object, rendered_database_path_elements, validated_data, True
     else:
         return field_object, rendered_database_path_elements, None, False
-
-
-def make_rendered_fields_paths(fields_paths: List[str], query_kwargs: dict) -> List[str]:
-    for i, field_key in enumerate(fields_paths):
-        # todo: refactor to use a single regex
-        start_variable_first_char_index = field_key.find("{{")
-        if not start_variable_first_char_index == -1:
-            end_variable_first_char_index = field_key.find("}}")
-            if not end_variable_first_char_index == -1:
-                start_variable_last_char_index = start_variable_first_char_index + 2
-                end_variable_last_char_index = end_variable_first_char_index + 2
-
-                variable_key_name = field_key[start_variable_last_char_index:end_variable_first_char_index]
-                variable_matching_kwarg = query_kwargs.get(variable_key_name, None)
-                if variable_matching_kwarg is None:
-                    raise Exception(message_with_vars(
-                        message="A key was required in a field to get, but no matching query kwarg was found.",
-                        vars_dict={
-                            'fields_paths': fields_paths, "field_key": field_key, "variable_key_name": variable_key_name,
-                            "query_kwargs": query_kwargs, "variable_matching_kwarg": variable_matching_kwarg
-                        }
-                    ))
-                fields_paths[i] = f"{field_key[0:start_variable_first_char_index]}{variable_matching_kwarg}{field_key[end_variable_last_char_index:0]}"
-    return fields_paths
-
 
 def join_field_path_elements(field_path_elements: List[DatabasePathElement]) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))

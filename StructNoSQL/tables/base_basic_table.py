@@ -24,6 +24,21 @@ class BaseBasicTable(BaseTable):
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
         return middleware(indexes_keys_selectors) if found_all_indexes is True else False
 
+    def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
+        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
+        deletion_success: bool = middleware(indexes_keys_selectors) if found_all_indexes is True else False
+        if deletion_success is True:
+            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
+        return deletion_success
+
+    def _remove_record(self, middleware: Callable[[dict], Optional[dict]], indexes_keys_selectors: dict) -> Optional[dict]:
+        found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
+        removed_record_data: Optional[dict] = middleware(indexes_keys_selectors) if found_all_indexes is True else None
+        if removed_record_data is not None:
+            # self.fields_switch.
+            self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
+        return removed_record_data
+
     def _get_field(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],
             field_path: str, query_kwargs: Optional[dict] = None

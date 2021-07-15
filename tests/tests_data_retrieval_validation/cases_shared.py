@@ -495,3 +495,37 @@ def test_query_multiple_fields(
             {'value': None, 'fromCache': False}
         )
     }}, second_table_retrieved_container_fields)
+
+
+def test_remove_record(
+        self: unittest.TestCase,
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        is_caching: bool, primary_key_name: str
+):
+    random_record_id: str = f"recordId_{uuid4()}"
+    simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
+
+    first_table_put_record_success: bool = first_table.put_record(
+        record_dict_data={primary_key_name: random_record_id, 'simpleField': simple_field_random_text_value}
+    )
+    self.assertTrue(first_table_put_record_success)
+    if is_caching is True:
+        self.assertTrue(first_table.commit_operations())
+        first_table.clear_cached_data()
+
+    first_table_retrieved_simple_field: Optional[str] = first_table.get_field(
+        key_value=random_record_id, field_path='simpleField'
+    )
+    self.assertEqual((
+        simple_field_random_text_value if is_caching is not True else
+        {'value': simple_field_random_text_value, 'fromCache': False}
+    ), first_table_retrieved_simple_field)
+
+    second_table_removed_record_data: Optional[dict] = second_table.remove_record(
+        indexes_keys_selectors={primary_key_name: random_record_id}
+    )
+    self.assertEqual((
+        {primary_key_name: random_record_id, 'simpleField': None} if is_caching is not True else
+        {'value': {primary_key_name: random_record_id, 'simpleField': None}, 'fromCache': False}
+    ), second_table_removed_record_data)

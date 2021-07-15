@@ -305,7 +305,8 @@ class BaseBasicTable(BaseTable):
         return update_success
 
     def _update_multiple_fields_return_old(
-            self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Dict[str, Optional[Any]]]], setters: Dict[str, FieldSetter]
+            self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Dict[str, Optional[Any]]]],
+            setters: Dict[str, FieldSetter], data_validation: bool
     ) -> Tuple[bool, Dict[str, Optional[Any]]]:
 
         setters_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
@@ -330,9 +331,12 @@ class BaseBasicTable(BaseTable):
                 data=setters_response_attributes, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
-            item_field_object.populate(value=item_data)
-            validated_data, valid = item_field_object.validate_data()
-            output_data[item_key] = validated_data
+            if data_validation is True:
+                item_field_object.populate(value=item_data)
+                validated_data, valid = item_field_object.validate_data()
+                output_data[item_key] = validated_data
+            else:
+                output_data[item_key] = item_data
 
         return update_success, output_data
 

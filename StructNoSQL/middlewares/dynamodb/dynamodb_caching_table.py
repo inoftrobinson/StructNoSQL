@@ -149,7 +149,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def update_multiple_fields(self, key_value: str, setters: List[FieldSetter or UnsafeFieldSetter]) -> bool:
         return self._update_multiple_fields(key_value=key_value, setters=setters)
 
-    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter], data_validation: bool = True) -> Tuple[bool, Dict[str, Optional[Any]]]:
         def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Optional[dict]]:
             response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=self.primary_index_name, key_value=key_value,
@@ -163,7 +163,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 if response.attributes is not None else None
             )
             return True, python_response_attributes
-        return self._update_multiple_fields_return_old(middleware=middleware, key_value=key_value, setters=setters)
+        return self._update_multiple_fields_return_old(middleware=middleware, key_value=key_value, setters=setters, data_validation=data_validation)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):

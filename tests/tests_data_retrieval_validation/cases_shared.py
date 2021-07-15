@@ -364,8 +364,8 @@ def test_update_multiple_fields_return_old(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    first_table_retrieved_container_fields: Dict[str, Optional[str]] = first_table.get_field(
-        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)'
+    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.get_field(
+        key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=False
     )
     self.assertEqual({
         'nestedFieldOne': (
@@ -376,10 +376,13 @@ def test_update_multiple_fields_return_old(
             container_field_two_random_text_value if is_caching is not True else
             {'value': container_field_two_random_text_value, 'fromCache': False}
         )
-    }, first_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_without_data_validation)
 
-    second_table_container_fields_update_success, second_table_retrieved_container_fields = second_table.update_multiple_fields_return_old(
-        key_value=TEST_ACCOUNT_ID, setters={
+    if is_caching is True:
+        second_table.clear_cached_data()
+
+    second_table_container_fields_update_success, second_table_retrieved_container_fields_with_data_validation = second_table.update_multiple_fields_return_old(
+        key_value=TEST_ACCOUNT_ID, data_validation=True, setters={
             'fieldOne': FieldSetter(field_path='container.nestedFieldOne', value_to_set=42),
             'fieldTwo': FieldSetter(field_path='container.nestedFieldTwo', value_to_set=42)
         }
@@ -395,7 +398,7 @@ def test_update_multiple_fields_return_old(
             None if is_caching is not True else
             {'value': None, 'fromCache': False}
         )
-    }, second_table_retrieved_container_fields)
+    }, second_table_retrieved_container_fields_with_data_validation)
 
 
 def test_query_field(

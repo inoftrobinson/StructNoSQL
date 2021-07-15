@@ -166,7 +166,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             return response is not None
         return self._update_multiple_fields(middleware=middleware, setters=setters)
 
-    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter]) -> Tuple[bool, Dict[str, Optional[Any]]]:
+    def update_multiple_fields_return_old(self, key_value: str, setters: Dict[str, FieldSetter], data_validation: bool = True) -> Tuple[bool, Dict[str, Optional[Any]]]:
         def middleware(dynamodb_setters: Dict[str, FieldPathSetter]) -> Tuple[bool, Optional[dict]]:
             response: Optional[Response] = self.dynamodb_client.set_update_multiple_data_elements_to_map(
                 index_name=self.primary_index_name, key_value=key_value,
@@ -180,7 +180,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                 if response.attributes is not None else None
             )
             return True, python_response_attributes
-        return self._update_multiple_fields_return_old(middleware=middleware, setters=setters)
+        return self._update_multiple_fields_return_old(middleware=middleware, setters=setters, data_validation=data_validation)
 
     def remove_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Optional[Any]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Optional[Dict[str, Any]]:

@@ -697,7 +697,7 @@ class BaseCachingTable(BaseTable):
 
     def _update_multiple_fields_return_old(
             self, middleware: Callable[[Dict[str, FieldPathSetter]], Tuple[bool, Optional[dict]]],
-            key_value: str, setters: Dict[str, FieldSetter]
+            key_value: str, setters: Dict[str, FieldSetter], data_validation: bool
     ) -> Tuple[bool, Dict[str, Optional[Any]]]:
 
         setters_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
@@ -729,9 +729,9 @@ class BaseCachingTable(BaseTable):
                         data=validated_data
                     )
 
-                    output_data[setter_key] = (
-                        field_value_from_cache if self.debug is not True else
-                        {'value': field_value_from_cache, 'fromCache': True}
+                    output_data[setter_key] = self._item_make_rar(
+                        value=field_value_from_cache, data_validation=data_validation,
+                        field_object=field_object, from_cache=True
                     )
                 else:
                     setters_containers[setter_key] = (field_object, field_path_elements)
@@ -758,11 +758,9 @@ class BaseCachingTable(BaseTable):
                 data=setters_response_attributes, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
-            item_field_object.populate(value=item_data)
-            validated_data, is_valid = item_field_object.validate_data()
-            output_data[item_key] = (
-                validated_data if self.debug is not True else
-                {'value': validated_data, 'fromCache': False}
+            output_data[item_key] = self._item_make_rar(
+                value=item_data, data_validation=data_validation,
+                field_object=item_field_object, from_cache=False
             )
 
         return update_success, output_data

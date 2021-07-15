@@ -188,6 +188,74 @@ class BaseCachingTable(BaseTable):
                     pending_remove_operations=pending_remove_operations,
                     field_path_elements=item_field_path_elements
                 )
+                
+    @staticmethod
+    def _validate_field_value_if_need_to(value: Any, data_validation: bool, field_object: BaseField) -> Optional[Any]:
+        if data_validation is not True:
+            return value
+        else:
+            field_object.populate(value=value)
+            validated_data, is_valid = field_object.validate_data()
+            # Even if is_valid is False, we still return the validated_data, which will be None.
+            return validated_data
+
+    def _validate_format_field_value_if_need_to(self, value: Any, data_validation: bool, field_object: BaseField, from_cache: bool) -> Optional[Any]:
+        validated_data: Optional[Any] = BaseCachingTable._validate_field_value_if_need_to(
+            value=value, data_validation=data_validation, field_object=field_object
+        )
+        return (
+            validated_data if self.debug is not True else
+            {'value': validated_data, 'fromCache': from_cache}
+        )
+
+    def _validate_cache_format_field_value_if_need_to(
+            self, value: Any, data_validation: bool,
+            field_object: BaseField, field_path_elements: List[DatabasePathElement],
+            index_cached_data: dict, from_cache: bool
+    ) -> Optional[Any]:
+        validated_data: Optional[Any] = BaseCachingTable._validate_field_value_if_need_to(
+            value=value, data_validation=data_validation, field_object=field_object
+        )
+        BaseCachingTable._cache_put_data(
+            index_cached_data=index_cached_data,
+            field_path_elements=field_path_elements,
+            data=validated_data
+        )
+        return (
+            validated_data if self.debug is not True else
+            {'value': validated_data, 'fromCache': from_cache}
+        )
+
+    def _process_cache_record_value(
+            self, data_validation: bool, value: Any, primary_key_value: Any,
+            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
+    ) -> Optional[Any]:
+        field_object, field_path_elements = target_field_container
+
+        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
+        return self._validate_cache_format_field_value_if_need_to(
+            value=value, data_validation=data_validation,
+            field_object=field_object, field_path_elements=field_path_elements,
+            index_cached_data=record_cached_data, from_cache=False
+        )
+
+    def _process_cache_record_item(
+            self, data_validation: bool, record_item_data: dict, primary_key_value: str,
+            target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
+    ) -> dict:
+        output: dict = {}
+        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
+
+        for item_key, item_container in target_fields_containers.items():
+            item_field_object, item_field_path_elements = item_container
+
+            record_item_matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
+            output[item_key] = self._validate_cache_format_field_value_if_need_to(
+                value=record_item_matching_item_data, data_validation=data_validation,
+                field_object=item_field_object, field_path_elements=item_field_path_elements,
+                index_cached_data=record_cached_data, from_cache=False
+            )
+        return output
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
@@ -220,45 +288,9 @@ class BaseCachingTable(BaseTable):
             return None
 
         self._remove_index_from_cached_data(primary_key_value=indexes_keys_selectors[self.primary_index_name])
-        return self._item_make_rar(
+        return self._validate_format_field_value_if_need_to(
             value=removed_record_data, data_validation=data_validation,
             field_object=self.model_virtual_map_field, from_cache=False
-        )
-
-    def _inner_item_make_rar(self, value: Any, data_validation: bool, field_object: BaseField) -> Optional[Any]:
-        if data_validation is not True:
-            return value
-        else:
-            field_object.populate(value=value)
-            validated_data, is_valid = field_object.validate_data()
-            # Even if is_valid is False, we still return the validated_data, which will be None.
-            return validated_data
-
-    def _item_make_rar_cache(
-            self, value: Any, data_validation: bool,
-            field_object: BaseField, field_path_elements: List[DatabasePathElement],
-            index_cached_data: dict, from_cache: bool
-    ):
-        validated_data: Optional[Any] = self._inner_item_make_rar(
-            value=value, data_validation=data_validation, field_object=field_object
-        )
-        BaseCachingTable._cache_put_data(
-            index_cached_data=index_cached_data,
-            field_path_elements=field_path_elements,
-            data=validated_data
-        )
-        return (
-            validated_data if self.debug is not True else
-            {'value': validated_data, 'fromCache': from_cache}
-        )
-
-    def _item_make_rar(self, value: Any, data_validation: bool, field_object: BaseField, from_cache: bool) -> Optional[Any]:
-        validated_data: Optional[Any] = self._inner_item_make_rar(
-            value=value, data_validation=data_validation, field_object=field_object
-        )
-        return (
-            validated_data if self.debug is not True else
-            {'value': validated_data, 'fromCache': from_cache}
         )
 
     def _get_field(
@@ -278,13 +310,13 @@ class BaseCachingTable(BaseTable):
                 primary_key_value=key_value, field_path_elements=field_path_elements
             )
             if found_in_cache is True:
-                return self._item_make_rar(
+                return self._validate_format_field_value_if_need_to(
                     value=field_value_from_cache, data_validation=data_validation,
                     field_object=field_object, from_cache=True
                 )
 
             retrieved_data: Optional[Any] = middleware(field_path_elements, False)
-            return self._item_make_rar_cache(
+            return self._validate_cache_format_field_value_if_need_to(
                 value=retrieved_data, data_validation=data_validation,
                 field_object=field_object, field_path_elements=field_path_elements,
                 index_cached_data=index_cached_data, from_cache=False
@@ -302,7 +334,7 @@ class BaseCachingTable(BaseTable):
                     primary_key_value=key_value, field_path_elements=item_field_path_elements
                 )
                 if found_item_value_in_cache is True:
-                    output_items[item_key] = self._item_make_rar(
+                    output_items[item_key] = self._validate_format_field_value_if_need_to(
                         value=field_item_value_from_cache, data_validation=data_validation,
                         field_object=item_field_object, from_cache=True
                     )
@@ -318,78 +350,12 @@ class BaseCachingTable(BaseTable):
                     item_field_object, item_field_path_elements = item_container
                     matching_item_data: Optional[Any] = retrieved_items_data.get(item_key, None)
 
-                    output_items[item_key] = self._item_make_rar_cache(
+                    output_items[item_key] = self._validate_cache_format_field_value_if_need_to(
                         value=matching_item_data, data_validation=data_validation,
                         field_object=item_field_object, field_path_elements=item_field_path_elements,
                         index_cached_data=index_cached_data, from_cache=False
                     )
             return output_items
-
-    def _process_cache_record_value(
-            self, data_validation: bool, value: Any, primary_key_value: Any,
-            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
-    ) -> Optional[Any]:
-        # todo: deprecate or marge with make_rar series ?
-        field_object, field_path_elements = target_field_container
-
-        if data_validation is True:
-            field_object.populate(value=value)
-            validated_data, valid = field_object.validate_data()
-        else:
-            validated_data = value
-
-        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
-        BaseCachingTable._cache_put_data(index_cached_data=record_cached_data, field_path_elements=field_path_elements, data=value)
-
-        return (
-            validated_data if self.debug is not True else
-            {'value': validated_data, 'fromCache': False}
-        )
-
-    def _process_cache_record_item(
-            self, data_validation: bool, record_item_data: dict, primary_key_value: str,
-            target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
-    ) -> dict:
-        # todo: deprecate or marge with make_rar series ?
-
-        output: dict = {}
-        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
-
-        if data_validation is True:
-            for item_key, item_container in target_fields_containers.items():
-                item_field_object, item_field_path_elements = item_container
-
-                record_item_matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
-                item_field_object.populate(value=record_item_matching_item_data)
-                validated_data, is_valid = item_field_object.validate_data()
-                # Even if is_valid is False, we still cache the validated_data, which will be None.
-                BaseCachingTable._cache_put_data(
-                    index_cached_data=record_cached_data,
-                    field_path_elements=item_field_path_elements,
-                    data=validated_data
-                )
-
-                output[item_key] = (
-                    validated_data if self.debug is not True else
-                    {'fromCache': False, 'value': validated_data}
-                )
-        else:
-            for item_key, item_container in target_fields_containers.items():
-                item_field_object, item_field_path_elements = item_container
-
-                record_item_matching_item_data: Optional[Any] = record_item_data.get(item_key, None)
-                BaseCachingTable._cache_put_data(
-                    index_cached_data=record_cached_data,
-                    field_path_elements=item_field_path_elements,
-                    data=record_item_matching_item_data
-                )
-
-                output[item_key] = (
-                    record_item_matching_item_data if self.debug is not True else
-                    {'fromCache': False, 'value': record_item_matching_item_data}
-                )
-
-        return output
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
@@ -587,7 +553,7 @@ class BaseCachingTable(BaseTable):
                     primary_key_value=key_value, field_path_elements=field_path_elements
                 )
                 if found_value_in_cache is True:
-                    output_data[getter_key] = self._item_make_rar(
+                    output_data[getter_key] = self._validate_format_field_value_if_need_to(
                         value=field_value_from_cache, data_validation=data_validation,
                         field_object=field_object, from_cache=True
                     )
@@ -607,7 +573,7 @@ class BaseCachingTable(BaseTable):
                         primary_key_value=key_value, field_path_elements=item_field_path_elements
                     )
                     if found_item_value_in_cache is True:
-                        container_data[item_key] = self._item_make_rar(
+                        container_data[item_key] = self._validate_format_field_value_if_need_to(
                             value=key_value, data_validation=data_validation,
                             field_object=item_field_object, from_cache=True
                         )
@@ -676,7 +642,7 @@ class BaseCachingTable(BaseTable):
                 field_path_elements=field_path_elements,
                 data=validated_update_data
             )
-            return True, self._item_make_rar(
+            return True, self._validate_format_field_value_if_need_to(
                 value=field_value_from_cache, data_validation=data_validation,
                 field_object=field_object, from_cache=True
             )
@@ -696,7 +662,7 @@ class BaseCachingTable(BaseTable):
                 num_keys_to_navigation_into=len(field_path_elements)
             ) if response_attributes is not None else None
 
-            return update_success, self._item_make_rar(
+            return update_success, self._validate_format_field_value_if_need_to(
                 value=old_item_data, data_validation=data_validation,
                 field_object=field_object, from_cache=False
             )
@@ -775,7 +741,7 @@ class BaseCachingTable(BaseTable):
                         data=validated_data
                     )
 
-                    output_data[setter_key] = self._item_make_rar(
+                    output_data[setter_key] = self._validate_format_field_value_if_need_to(
                         value=field_value_from_cache, data_validation=data_validation,
                         field_object=field_object, from_cache=True
                     )
@@ -804,7 +770,7 @@ class BaseCachingTable(BaseTable):
                 data=setters_response_attributes, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
-            output_data[item_key] = self._item_make_rar(
+            output_data[item_key] = self._validate_format_field_value_if_need_to(
                 value=item_data, data_validation=data_validation,
                 field_object=item_field_object, from_cache=False
             )
@@ -838,7 +804,7 @@ class BaseCachingTable(BaseTable):
                 # Even when we retrieve a removed value from the cache, and that we do not need to perform a remove operation right away to retrieve
                 # the removed value, we still want to add a delete_operation that will be performed on operation commits, because if we remove a value
                 # from the cache, it does not remove a potential older value present in the database, that the remove operation should remove.
-                return self._item_make_rar(
+                return self._validate_format_field_value_if_need_to(
                     value=field_value_from_cache, data_validation=data_validation,
                     field_object=field_object, from_cache=True
                 )
@@ -854,7 +820,7 @@ class BaseCachingTable(BaseTable):
                     data=response_attributes, field_path_elements=field_path_elements,
                     num_keys_to_navigation_into=len(field_path_elements)
                 )
-                return self._item_make_rar(
+                return self._validate_format_field_value_if_need_to(
                     value=removed_item_data, data_validation=data_validation,
                     field_object=field_object, from_cache=False
                 )
@@ -877,7 +843,7 @@ class BaseCachingTable(BaseTable):
                         pending_remove_operations=pending_remove_operations,
                         field_path_elements=item_field_path_elements
                     )
-                    container_output_data[item_key] = self._item_make_rar(
+                    container_output_data[item_key] = self._validate_format_field_value_if_need_to(
                         value=found_item_value_in_cache, data_validation=data_validation,
                         field_object=item_field_object, from_cache=True
                     )
@@ -898,7 +864,7 @@ class BaseCachingTable(BaseTable):
                         data=response_attributes, field_path_elements=item_field_path_elements,
                         num_keys_to_navigation_into=len(item_field_path_elements)
                     )
-                    container_output_data[item_key] = self._item_make_rar(
+                    container_output_data[item_key] = self._validate_format_field_value_if_need_to(
                         value=removed_item_data, data_validation=data_validation,
                         field_object=item_field_object, from_cache=False
                     )

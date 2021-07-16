@@ -45,14 +45,7 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
                     message="Cannot use an attribute selector ( ) without specifying any attribute inside it.",
                     vars_dict={'field_path_key': field_path_key, 'attributes_selectors_string': attributes_selectors_string}
                 ))
-            elif num_attributes_fields == 1:
-                # Treat a single field wrapped inside a
-                # multi-selector as a requested single field
-                return list(attributes_fields_objets.values())[0], False
-            else:
-                return attributes_fields_objets, True
-            # return attributes_fields_objets, True
-            # return attributes_fields_objets, True
+            return attributes_fields_objets, True
 
     return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 

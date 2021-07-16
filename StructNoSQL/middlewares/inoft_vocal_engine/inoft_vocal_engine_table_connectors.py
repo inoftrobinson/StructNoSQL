@@ -88,7 +88,7 @@ class InoftVocalEngineTableConnectors:
         return self._data_api_handler(payload={
             'operationType': 'queryItemsByKey',
             'keyValue': key_value,
-            'hasMultipleFieldsPath': is_multi_selector,
+            'isMultiSelector': is_multi_selector,
             'fieldPathElements': serialized_fields_path_elements,
             'queryLimit': query_limit,
             'filterExpression': filter_expression,

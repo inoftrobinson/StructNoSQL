@@ -20,4 +20,7 @@ def test_basic_record_removal(
     removed_record_data: Optional[dict] = users_table.remove_record(indexes_keys_selectors={primary_key_name: random_record_id})
     # todo: simplify the remove_record and delete_record, since deletion can only be done with the primary index,
     #  replace the (indexes_keys_selectors: dict) argument by a simple (primary_key_value: str)
-    self.assertEqual({primary_key_name: random_record_id, 'value': random_value}, removed_record_data)
+    self.assertEqual((
+        {primary_key_name: random_record_id, 'value': random_value} if is_caching is not True else
+        {'value': {primary_key_name: random_record_id, 'value': random_value}, 'fromCache': False}
+    ), removed_record_data)

@@ -844,7 +844,7 @@ class BaseCachingTable(BaseTable):
                         field_path_elements=item_field_path_elements
                     )
                     container_output_data[item_key] = self._validate_format_field_value_if_need_to(
-                        value=found_item_value_in_cache, data_validation=data_validation,
+                        value=field_item_value_from_cache, data_validation=data_validation,
                         field_object=item_field_object, from_cache=True
                     )
                 else:

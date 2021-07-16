@@ -6,7 +6,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from boto3.exceptions import ResourceNotExistsError
 from boto3.session import Session
-from typing import List, Optional, Type, Any, Dict, Tuple
+from typing import List, Optional, Type, Any, Dict, Tuple, Union
 
 from botocore.exceptions import ClientError
 
@@ -615,11 +615,11 @@ class DynamoDbCoreAdapter:
 
     def query_items_by_key(
             self, index_name: str, key_value: Any,
-            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool,
+            field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool,
             filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
     ) -> Optional[List[Any]]:
         fields_path_elements_list: List[List[DatabasePathElement]] = (
-            [field_path_elements] if has_multiple_fields_path is not True else [*field_path_elements.values()]
+            [field_path_elements] if is_multi_selector is not True else [*field_path_elements.values()]
         )
         response = self.query_response_by_key(
             index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements_list,
@@ -631,7 +631,7 @@ class DynamoDbCoreAdapter:
         output: List[Any] = []
         for record_item_data in response.items:
             if isinstance(record_item_data, dict):
-                if has_multiple_fields_path is not True:
+                if is_multi_selector is not True:
                     field_path_elements: List[DatabasePathElement]
                     output.append(navigate_into_data_with_field_path_elements(
                         data=record_item_data, field_path_elements=field_path_elements,

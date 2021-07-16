@@ -45,13 +45,13 @@ class BaseBasicTable(BaseTable):
             return removed_record_data
 
     def _get_field(
-            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Optional[Any]],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Optional[Any]],
             field_path: str, query_kwargs: Optional[dict], data_validation: bool
     ) -> Optional[Any]:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        if has_multiple_fields_path is not True:
+        if is_multi_selector is not True:
             target_field_container: Tuple[BaseField, List[DatabasePathElement]]
             field_object, field_path_elements = target_field_container
 
@@ -118,9 +118,9 @@ class BaseBasicTable(BaseTable):
         return output_data
 
     def inner_query_fields_secondary_index(
-            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
             target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
-            has_multiple_fields_path: bool, data_validation: bool,
+            is_multi_selector: bool, data_validation: bool,
     ) -> Optional[dict]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
@@ -131,15 +131,15 @@ class BaseBasicTable(BaseTable):
             get_primary_key_database_path=self._get_primary_key_database_path,
             middleware=middleware,
             target_field_container=target_field_container,
-            has_multiple_fields_path=has_multiple_fields_path
+            is_multi_selector=is_multi_selector
         )
 
     def _query_field(
-            self, middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], List[Any]],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], List[Any]],
             key_value: str, field_path: str, query_kwargs: Optional[dict], index_name: Optional[str], data_validation: bool
     ) -> Optional[dict]:
 
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
@@ -147,11 +147,11 @@ class BaseBasicTable(BaseTable):
                 middleware=middleware,
                 data_validation=data_validation,
                 target_field_container=target_field_container,
-                has_multiple_fields_path=has_multiple_fields_path
+                is_multi_selector=is_multi_selector
             )
         else:
             # If requested index is primary index
-            if has_multiple_fields_path is not True:
+            if is_multi_selector is not True:
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
                 field_object, field_path_elements = target_field_container
 
@@ -217,7 +217,7 @@ class BaseBasicTable(BaseTable):
                 middleware=middleware,
                 data_validation=data_validation,
                 target_field_container=single_getters_target_fields_containers,
-                has_multiple_fields_path=True
+                is_multi_selector=True
             )
 
     @staticmethod
@@ -308,7 +308,7 @@ class BaseBasicTable(BaseTable):
             elif isinstance(current_setter, UnsafeFieldSetter):
                 raise Exception(f"UnsafeFieldSetter not supported in basic_table")
 
-                """safe_field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
+                """safe_field_path_object, is_multi_selector = process_and_get_field_path_object_from_field_path(
                     field_path_key=current_setter.safe_base_field_path, fields_switch=self.fields_switch
                 )
                 # todo: add support for multiple fields path
@@ -372,11 +372,11 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], Optional[dict]],
             field_path: str, query_kwargs: Optional[dict], data_validation: bool
     ) -> Optional[Any]:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
 
-        if has_multiple_fields_path is not True:
+        if is_multi_selector is not True:
             target_field_container: Tuple[BaseField, List[DatabasePathElement]]
             field_path_object, field_path_elements = target_field_container
 
@@ -425,10 +425,10 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], bool],
             field_path: str, query_kwargs: Optional[dict] = None
     ) -> bool:
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
-        if has_multiple_fields_path is not None:
+        if is_multi_selector is not None:
             target_field_container: Tuple[BaseField, List[DatabasePathElement]]
             return middleware([target_field_container[1]])
         else:
@@ -450,11 +450,11 @@ class BaseBasicTable(BaseTable):
 
         removers_database_paths: List[List[DatabasePathElement]] = []
         for remover_key, remover_item in removers.items():
-            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
                 field_path=remover_item.field_path, fields_switch=self.fields_switch,
                 query_kwargs=remover_item.query_kwargs
             )
-            if has_multiple_fields_path is not True:
+            if is_multi_selector is not True:
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
                 field_object, field_path_elements = target_field_container
 
@@ -487,11 +487,11 @@ class BaseBasicTable(BaseTable):
 
         removers_database_paths: List[List[DatabasePathElement]] = []
         for current_remover in removers:
-            target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+            target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
                 field_path=current_remover.field_path, fields_switch=self.fields_switch,
                 query_kwargs=current_remover.query_kwargs
             )
-            if has_multiple_fields_path is not True:
+            if is_multi_selector is not True:
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
                 removers_database_paths.append(target_field_container[1])
             else:

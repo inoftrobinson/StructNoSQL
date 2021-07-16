@@ -1,7 +1,7 @@
 from json import JSONDecodeError
 
 import requests
-from typing import List, Optional, Any, Dict, Tuple
+from typing import List, Optional, Any, Dict, Tuple, Union
 
 from StructNoSQL.models import FieldPathSetter, DatabasePathElement
 
@@ -76,19 +76,19 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _query_items_by_key(
-            self, key_value: str, field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
-            has_multiple_fields_path: bool, query_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
+            self, key_value: str, field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]],
+            is_multi_selector: bool, query_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
     ):
         serialized_fields_path_elements: List[dict] or Dict[str, dict] = [
             item.serialize() for item in field_path_elements
-        ] if has_multiple_fields_path is not True else {
+        ] if is_multi_selector is not True else {
             key: [item.serialize() for item in path_elements]
             for key, path_elements in field_path_elements.items()
         }
         return self._data_api_handler(payload={
             'operationType': 'queryItemsByKey',
             'keyValue': key_value,
-            'hasMultipleFieldsPath': has_multiple_fields_path,
+            'hasMultipleFieldsPath': is_multi_selector,
             'fieldPathElements': serialized_fields_path_elements,
             'queryLimit': query_limit,
             'filterExpression': filter_expression,

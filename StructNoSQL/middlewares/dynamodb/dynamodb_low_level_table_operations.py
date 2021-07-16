@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 
 from StructNoSQL.middlewares.dynamodb.backend.models import Response
 from StructNoSQL.models import DatabasePathElement
@@ -7,11 +7,11 @@ from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBT
 
 class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):
     def _get_field_middleware(
-            self, has_multiple_fields_path: bool,
-            field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]],
+            self, is_multi_selector: bool,
+            field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]],
             key_value: str, index_name: Optional[str] = None
     ) -> Any:
-        if has_multiple_fields_path is not True:
+        if is_multi_selector is not True:
             field_path_elements: List[DatabasePathElement]
             response_data = self.dynamodb_client.get_value_in_path_target(
                 index_name=index_name or self.primary_index_name,

@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import Response
@@ -71,11 +71,11 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
             records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Optional[dict]:
-        def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool) -> List[dict]:
+        def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, field_path_elements=field_path_elements,
-                has_multiple_fields_path=has_multiple_fields_path,
+                is_multi_selector=is_multi_selector,
                 query_limit=records_query_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
@@ -92,7 +92,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, field_path_elements=fields_path_elements,
-                has_multiple_fields_path=True,
+                is_multi_selector=True,
                 query_limit=records_query_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
@@ -102,8 +102,8 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         )
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Any:
-        def middleware(field_path_elements: List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], has_multiple_fields_path: bool):
-            if has_multiple_fields_path is not True:
+        def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool):
+            if is_multi_selector is not True:
                 field_path_elements: List[DatabasePathElement]
                 return self.dynamodb_client.get_value_in_path_target(
                     index_name=self.primary_index_name,

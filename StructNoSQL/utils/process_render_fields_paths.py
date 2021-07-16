@@ -39,10 +39,10 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
                     field_path_key=current_attribute_field_path, fields_switch=fields_switch
                 )
 
-            num_attributes_fields = len(attributes_fields_objets)
+            num_attributes_fields: int = len(attributes_fields_objets)
             if not num_attributes_fields > 0:
                 raise Exception(message_with_vars(
-                    message="Cannot use an attribute selector [ ] without specifying any attribute inside it.",
+                    message="Cannot use an attribute selector ( ) without specifying any attribute inside it.",
                     vars_dict={'field_path_key': field_path_key, 'attributes_selectors_string': attributes_selectors_string}
                 ))
             elif num_attributes_fields == 1:
@@ -51,6 +51,8 @@ def process_and_get_field_path_object_from_field_path(field_path_key: str, field
                 return list(attributes_fields_objets.values())[0], False
             else:
                 return attributes_fields_objets, True
+            # return attributes_fields_objets, True
+            # return attributes_fields_objets, True
 
     return _get_field_object_from_field_path(field_path_key=field_path_key, fields_switch=fields_switch), False
 
@@ -98,10 +100,10 @@ def process_and_make_single_rendered_database_path(field_path: str, fields_switc
     ],
     bool
 ]:
-    field_path_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
+    field_path_object, is_multi_selector = process_and_get_field_path_object_from_field_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
-    if has_multiple_fields_path is not True:
+    if is_multi_selector is not True:
         field_path_object: BaseField
         rendered_database_path_elements: List[DatabasePathElement] = make_rendered_database_path(
             database_path_elements=field_path_object.database_path, query_kwargs=query_kwargs
@@ -122,7 +124,7 @@ def process_validate_data_and_make_single_rendered_database_path(
 ) -> Tuple[BaseField, List[DatabasePathElement], Optional[Any], bool]:
 
     # todo: add support for multiple fields path
-    field_object, has_multiple_fields_path = process_and_get_field_path_object_from_field_path(
+    field_object, is_multi_selector = process_and_get_field_path_object_from_field_path(
         field_path_key=field_path, fields_switch=fields_switch
     )
     rendered_database_path_elements: List[DatabasePathElement] = make_rendered_database_path(

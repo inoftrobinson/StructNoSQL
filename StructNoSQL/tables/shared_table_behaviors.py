@@ -81,11 +81,11 @@ def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_eleme
     return False, None
 
 def _inner_query_fields_secondary_index(
-        middleware: Callable[[List[DatabasePathElement] or Dict[str, List[DatabasePathElement]], bool], Any],
+        middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
         process_record_value: Callable[[bool, Optional[Any], Any, Tuple[BaseField, List[DatabasePathElement]]], Any],
         process_record_item: Callable[[bool, dict, Any, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any],
         data_validation: bool, primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
-        target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], has_multiple_fields_path: bool
+        target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], is_multi_selector: bool
 ) -> Optional[dict]:
     """
     This function will force the retrieving of the primary key of the records returned by a secondary index query operations,
@@ -112,10 +112,10 @@ def _inner_query_fields_secondary_index(
     :param primary_index_name: str
     :param get_primary_key_database_path: Callable[[], List[DatabasePathElement]]
     :param field_path_elements: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
-    :param has_multiple_fields_path: bool
+    :param is_multi_selector: bool
     :return: Optional[dict]
     """
-    if has_multiple_fields_path is not True:
+    if is_multi_selector is not True:
         target_field_container: Tuple[BaseField, List[DatabasePathElement]]
         field_object, field_path_elements = target_field_container
 
@@ -202,10 +202,10 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
     grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
     for getter_key, getter_item in getters.items():
-        target_field_container, has_multiple_fields_path = process_and_make_single_rendered_database_path(
+        target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=getter_item.field_path, fields_switch=fields_switch, query_kwargs=getter_item.query_kwargs
         )
-        if has_multiple_fields_path is not True:
+        if is_multi_selector is not True:
             target_field_container: Tuple[BaseField, List[DatabasePathElement]]
             single_getters_database_paths_elements[getter_key] = target_field_container
             getters_database_paths.append(target_field_container[1])

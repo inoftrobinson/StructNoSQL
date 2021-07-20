@@ -1,8 +1,8 @@
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Optional, List, Dict, Any, Tuple, Union, Generator
 
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.middlewares.dynamodb.backend.models import Response
+from StructNoSQL.middlewares.dynamodb.backend.models import Response, QueryMetadata
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
@@ -66,17 +66,20 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             )
         return self._get_multiple_fields(middleware=middleware, getters=getters, data_validation=data_validation)
 
-
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
-            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Optional[dict]:
-        def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
+            data_validation: bool = True, **additional_kwargs
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(
+                field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool
+        ) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, field_path_elements=field_path_elements,
                 is_multi_selector=is_multi_selector,
-                query_limit=records_query_limit, filter_expression=filter_expression,
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
+                exclusive_start_key=exclusive_start_key,
                 **additional_kwargs
             )
         return self._query_field(
@@ -84,15 +87,34 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             query_kwargs=query_kwargs, index_name=index_name, data_validation=data_validation
         )
 
+    def paginated_query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
+            data_validation: bool = True, **additional_kwargs
+    ) -> Generator[Tuple[Optional[dict], QueryMetadata], None, None]:
+        current_exclusive_start_key: Optional[Any] = exclusive_start_key
+        while True:
+            records_data, query_metadata = self.query_field(
+                index_name=index_name, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs,
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
+                exclusive_start_key=current_exclusive_start_key, data_validation=data_validation, **additional_kwargs
+            )
+            yield records_data, query_metadata
+            if query_metadata.last_evaluated_key is None:
+                break
+            current_exclusive_start_key = query_metadata.last_evaluated_key
+
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
-            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Optional[Dict[str, dict]]:
-        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
+            data_validation: bool = True, **additional_kwargs
+    ) -> Tuple[Optional[Dict[str, dict]], QueryMetadata]:
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> Tuple[List[dict], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name, is_multi_selector=True,
                 key_value=key_value, field_path_elements=fields_path_elements,
-                query_limit=records_query_limit, filter_expression=filter_expression,
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
+                exclusive_start_key=exclusive_start_key,
                 **additional_kwargs
             )
         return self._query_multiple_fields(
@@ -100,9 +122,28 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             index_name=index_name, data_validation=data_validation
         )
 
+    def paginated_query_multiple_fields(
+            self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
+            data_validation: bool = True, **additional_kwargs
+    ) -> Generator[Tuple[Optional[Dict[str, dict]], QueryMetadata], None, None]:
+        current_exclusive_start_key: Optional[Any] = exclusive_start_key
+        while True:
+            records_data, query_metadata = self.query_multiple_fields(
+                key_value=key_value, getters=getters, index_name=index_name,
+                pagination_records_limit=pagination_records_limit,
+                filter_expression=filter_expression,
+                exclusive_start_key=current_exclusive_start_key,
+                data_validation=data_validation, **additional_kwargs
+            )
+            yield records_data, query_metadata
+            if query_metadata.last_evaluated_key is None:
+                break
+            current_exclusive_start_key = query_metadata.last_evaluated_key
+
     def lightweight_query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
-            records_query_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
+            pagination_records_limit: Optional[int] = None, filter_expression: Optional[Any] = None, **additional_kwargs
     ) -> Optional[List[dict]]:
 
         getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements = (
@@ -111,7 +152,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         response = self.dynamodb_client.query_response_by_key(
             index_name=index_name or self.primary_index_name, key_value=key_value,
             fields_path_elements=getters_database_paths,
-            query_limit=records_query_limit, filter_expression=filter_expression,
+            pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
             **additional_kwargs
         )
         if response is None:

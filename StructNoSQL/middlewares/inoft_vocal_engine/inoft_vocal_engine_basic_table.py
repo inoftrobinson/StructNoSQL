@@ -38,14 +38,14 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         return self._remove_record(middleware=middleware, indexes_keys_selectors=indexes_keys_selectors, data_validation=data_validation)
 
     def query_field(
-            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, records_query_limit: Optional[int] = None,
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Optional[dict]:
         def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
             return self._query_items_by_key(
                 key_value=key_value, field_path_elements=field_path_elements,
                 is_multi_selector=is_multi_selector,
-                query_limit=records_query_limit, filter_expression=filter_expression,
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
         return self._query_field(
@@ -54,13 +54,13 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
         )
 
     def query_multiple_fields(
-            self, key_value: str, getters: Dict[str, FieldGetter], records_query_limit: Optional[int] = None,
+            self, key_value: str, getters: Dict[str, FieldGetter], pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ):
         def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
             return self._query_items_by_key(
                 key_value=key_value, field_path_elements=fields_path_elements, is_multi_selector=True,
-                query_limit=records_query_limit, filter_expression=filter_expression, **additional_kwargs
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression, **additional_kwargs
             )
         return self._query_multiple_fields(
             middleware=middleware, key_value=key_value, getters=getters,

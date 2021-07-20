@@ -1,7 +1,7 @@
 import random
 import unittest
 from uuid import uuid4
-from typing import Dict, Any
+from typing import Dict, Any, Union, List, Optional
 
 from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable, DynamoDBBasicTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
@@ -9,7 +9,7 @@ from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCO
 
 
 def test_set_get_fields_with_primary_index(
-        self: unittest.TestCase, users_table: DynamoDBBasicTable or DynamoDBCachingTable or InoftVocalEngineBasicTable or InoftVocalEngineCachingTable,
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     if is_caching is True:
@@ -87,3 +87,36 @@ def test_set_get_fields_with_primary_index(
             )
         }}, multiple_fields_with_primary_key
     )
+
+
+def test_set_get_paginated_fields_with_primary_index(
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        primary_key_name: str, is_caching: bool
+):
+    random_type_id: str = f"type_{uuid4()}"
+
+    def make_record() -> str:
+        for i_attempt in range(10):
+            new_record_id: str = str(uuid4())
+            existing_primary_key_value: Optional[Any] = users_table.get_field(
+                key_value=new_record_id, field_path=primary_key_name
+            )
+            if existing_primary_key_value is None:
+                put_record_success: bool = users_table.put_record({
+                    primary_key_name: new_record_id,
+                    'username': 'dummyUsername',
+                    'email': 'dummyEmail',
+                    'type': random_type_id
+                })
+                self.assertTrue(put_record_success)
+                return new_record_id
+        self.fail(msg="Could not generate unique record id after ten attemps")
+
+    created_account_ids: List[str] = [make_record() for _ in range(3)]
+
+    items = users_table.paginated_query_field(
+        index_name='type', key_value=random_type_id,
+        field_path='accountId', pagination_records_limit=2
+    )
+    for item in items:
+        print(item)

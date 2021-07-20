@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Any, Tuple, Callable, Iterable, Union
 
 from StructNoSQL import PrimaryIndex, BaseField
+from StructNoSQL.middlewares.dynamodb.backend.models import QueryMetadata
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
@@ -121,7 +122,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
             target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
             is_multi_selector: bool, data_validation: bool,
-    ) -> Optional[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
             process_record_value=self._process_cache_record_value,
@@ -135,9 +136,9 @@ class BaseBasicTable(BaseTable):
         )
 
     def _query_field(
-            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], List[Any]],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, field_path: str, query_kwargs: Optional[dict], index_name: Optional[str], data_validation: bool
-    ) -> Optional[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
 
         target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
@@ -155,7 +156,7 @@ class BaseBasicTable(BaseTable):
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
                 field_object, field_path_elements = target_field_container
 
-                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, False)
+                retrieved_records_items_data, query_metadata = middleware(field_path_elements, False)
                 if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -165,16 +166,16 @@ class BaseBasicTable(BaseTable):
                         value=retrieved_records_items_data[0],
                         primary_key_value=key_value,
                         target_field_container=target_field_container
-                    )}
-                return None
+                    )}, query_metadata
+                return None, query_metadata
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
                 if not len(target_field_container) > 0:
-                    return {key_value: {}}
+                    return {key_value: {}}, QueryMetadata(count=0, has_reached_end=True, last_evaluated_key=None)
 
                 fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_field_container.items()}
-                retrieved_records_items_data: Optional[List[dict]] = middleware(fields_paths_elements, True)
+                retrieved_records_items_data, query_metadata = middleware(fields_paths_elements, True)
                 if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -184,12 +185,13 @@ class BaseBasicTable(BaseTable):
                         record_item_data=retrieved_records_items_data[0],
                         primary_key_value=key_value,
                         target_fields_containers=target_field_container
-                    )}
+                    )}, query_metadata
+                return None, query_metadata
 
     def _query_multiple_fields(
-            self, middleware: Callable[[Dict[str, List[DatabasePathElement]], bool], List[Any]],
+            self, middleware: Callable[[Dict[str, List[DatabasePathElement]], bool], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str], data_validation: bool
-    ):
+    ) -> Tuple[Optional[dict], QueryMetadata]:
         getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (
             _prepare_getters(fields_switch=self.fields_switch, getters=getters)
         )
@@ -200,7 +202,7 @@ class BaseBasicTable(BaseTable):
             single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = (
                 {key: item[1] for key, item in single_getters_target_fields_containers.items()}
             )
-            retrieved_records_items_data: Optional[List[Any]] = middleware(single_getters_database_paths_elements, True)
+            retrieved_records_items_data, query_metadata = middleware(single_getters_database_paths_elements, True)
             if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                 # Since we query the primary_index, we know for a fact that we will never be returned more than
                 # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -210,8 +212,8 @@ class BaseBasicTable(BaseTable):
                     record_item_data=retrieved_records_items_data[0],
                     primary_key_value=key_value,
                     target_fields_containers=single_getters_target_fields_containers
-                )}
-            return None
+                )}, query_metadata
+            return None, query_metadata
         else:
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,

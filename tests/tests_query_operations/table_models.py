@@ -3,6 +3,7 @@ from StructNoSQL import TableDataModel, BaseField, MapModel
 
 
 class BaseTableModel(TableDataModel):
+    type = BaseField(field_type=str, required=False)
     fieldOne = BaseField(field_type=str, required=False)
     fieldTwo = BaseField(field_type=str, required=False)
     class ContainerModel(MapModel):

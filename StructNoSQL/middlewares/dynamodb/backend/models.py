@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional, List, Type, Any, Dict
 
 from pydantic import BaseModel, validate_arguments
@@ -23,6 +24,12 @@ class Response:
         self.scanned_count: Optional[int] = response_dict.get('ScannedCount', None)
         self.last_evaluated_key: Optional[dict] = response_dict.get('LastEvaluatedKey', None)
         self.has_reached_end = False if self.last_evaluated_key is not None else True
+
+@dataclass
+class QueryMetadata:
+    count: int
+    has_reached_end: bool
+    last_evaluated_key: Optional[dict]
 
 
 class Index(BaseModel):

@@ -14,6 +14,7 @@ class PlaygroundDynamoDBBasicTable(DynamoDBBasicTable):
         globals_secondary_indexes = [
             GlobalSecondaryIndex(hash_key_name='username', hash_key_variable_python_type=str, projection_type='ALL'),
             GlobalSecondaryIndex(hash_key_name='email', hash_key_variable_python_type=str, projection_type='ALL'),
+            GlobalSecondaryIndex(hash_key_name='type', hash_key_variable_python_type=str, projection_type='ALL'),
         ]
         super().__init__(
             table_name="structnosql-playground", region_name="eu-west-2", data_model=data_model,
@@ -24,8 +25,9 @@ class PlaygroundDynamoDBCachingTable(DynamoDBCachingTable):
     def __init__(self, data_model):
         primary_index = PrimaryIndex(hash_key_name="accountId", hash_key_variable_python_type=str)
         globals_secondary_indexes = [
-            GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type="ALL"),
-            GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type="ALL"),
+            GlobalSecondaryIndex(hash_key_name="username", hash_key_variable_python_type=str, projection_type='ALL'),
+            GlobalSecondaryIndex(hash_key_name="email", hash_key_variable_python_type=str, projection_type='ALL'),
+            GlobalSecondaryIndex(hash_key_name='type', hash_key_variable_python_type=str, projection_type='ALL'),
         ]
         super().__init__(
             table_name="structnosql-playground", region_name="eu-west-2", data_model=data_model,

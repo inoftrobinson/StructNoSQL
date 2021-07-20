@@ -19,7 +19,7 @@ class Query:
         self.index_name = index_name
         self._query_limit = None
 
-    def query_limit(self, limit: int):
+    def pagination_records_limit(self, limit: int):
         self._query_limit = limit
 
     def where(self) -> str:

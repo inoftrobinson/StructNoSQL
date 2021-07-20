@@ -2,6 +2,7 @@ import string
 from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable, Union
 
 from StructNoSQL import BaseField
+from StructNoSQL.middlewares.dynamodb.backend.models import QueryMetadata
 from StructNoSQL.models import DatabasePathElement, FieldGetter
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import FieldsSwitch
@@ -81,12 +82,12 @@ def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_eleme
     return False, None
 
 def _inner_query_fields_secondary_index(
-        middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
+        middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Tuple[Optional[List[Any]], QueryMetadata]],
         process_record_value: Callable[[bool, Optional[Any], Any, Tuple[BaseField, List[DatabasePathElement]]], Any],
         process_record_item: Callable[[bool, dict, Any, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any],
         data_validation: bool, primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
         target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], is_multi_selector: bool
-) -> Optional[dict]:
+) -> Tuple[Optional[dict], QueryMetadata]:
     """
     This function will force the retrieving of the primary key of the records returned by a secondary index query operations,
     and retrieve a dict with the primary key of each record as key.
@@ -121,22 +122,22 @@ def _inner_query_fields_secondary_index(
 
         if field_path_elements[0].element_key == primary_index_name:
             # If the specified field is the primary key
-            retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, False)
+            retrieved_records_items_data, query_metadata = middleware(field_path_elements, False)
             if retrieved_records_items_data is None:
-                return None
+                return None, query_metadata
 
             records_output: dict = {}
             for record_primary_key_value in retrieved_records_items_data:
                 records_output[record_primary_key_value] = process_record_value(
                     data_validation, record_primary_key_value, record_primary_key_value, target_field_container
                 )
-            return records_output
+            return records_output, query_metadata
         else:
             # If a single field is requested, but the primary_key is not being requested and needs to be artificially added
             super_target_path_elements = {'__VALUE__': field_path_elements, '__PRIMARY_KEY__': get_primary_key_database_path()}
-            retrieved_records_items_data: Optional[List[Any]] = middleware(super_target_path_elements, True)
+            retrieved_records_items_data, query_metadata = middleware(super_target_path_elements, True)
             if retrieved_records_items_data is None:
-                return None
+                return None, query_metadata
 
             records_output: dict = {}
             for record_item_data in retrieved_records_items_data:
@@ -145,7 +146,7 @@ def _inner_query_fields_secondary_index(
                 records_output[record_primary_key_value] = process_record_value(
                     data_validation, record_client_requested_value_data, record_primary_key_value, target_field_container
                 )
-            return records_output
+            return records_output, query_metadata
     else:
         # If multiple fields are requested
         target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
@@ -155,9 +156,9 @@ def _inner_query_fields_secondary_index(
             _has_primary_key_in_path_elements(primary_index_name=primary_index_name, fields_path_elements=fields_paths_elements)
         )
         if primary_key_is_being_requested_by_client is True:
-            retrieved_records_items_data: Optional[List[Any]] = middleware(fields_paths_elements, True)
+            retrieved_records_items_data, query_metadata = middleware(fields_paths_elements, True)
             if retrieved_records_items_data is None:
-                return None
+                return None, query_metadata
 
             records_output: dict = {}
             for record_item_data in retrieved_records_items_data:
@@ -166,7 +167,7 @@ def _inner_query_fields_secondary_index(
                     records_output[record_primary_key_value] = process_record_item(
                         data_validation, record_item_data, record_primary_key_value, target_field_container
                     )
-            return records_output
+            return records_output, query_metadata
         else:
             free_to_use_getter_key_name: str = '__PRIMARY_KEY__'
             while True:
@@ -178,9 +179,9 @@ def _inner_query_fields_secondary_index(
                 free_to_use_getter_key_name += random.choice(string.ascii_letters)
 
             super_fields_path_elements = {**fields_paths_elements, free_to_use_getter_key_name: get_primary_key_database_path()}
-            retrieved_records_items_data: Optional[List[dict]] = middleware(super_fields_path_elements, True)
+            retrieved_records_items_data, query_metadata = middleware(super_fields_path_elements, True)
             if retrieved_records_items_data is None:
-                return None
+                return None, query_metadata
 
             records_output: dict = {}
             for record_item_data in retrieved_records_items_data:
@@ -189,7 +190,7 @@ def _inner_query_fields_secondary_index(
                     records_output[record_primary_key_value] = process_record_item(
                         data_validation, record_item_data, record_primary_key_value, target_field_container
                     )
-            return records_output
+            return records_output, query_metadata
 
 
 def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter]) -> Tuple[

@@ -12,7 +12,7 @@ from botocore.exceptions import ClientError
 
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
-    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
+    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE, QueryMetadata
 from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
     MapItemInitializerContainer
 from StructNoSQL.practical_logger import message_with_vars
@@ -581,7 +581,8 @@ class DynamoDbCoreAdapter:
     def query_response_by_key(
             self, index_name: str, key_value: Any,
             fields_path_elements: Optional[List[List[DatabasePathElement]]] = None,
-            filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None,
+            exclusive_start_key: Optional[str] = None, **additional_kwargs
     ) -> Response:
         if fields_path_elements is not None:
             kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
@@ -590,17 +591,20 @@ class DynamoDbCoreAdapter:
         if additional_kwargs is not None:
             kwargs = {**kwargs, **additional_kwargs}
 
-        kwargs["KeyConditionExpression"] = Key(index_name).eq(key_value)
+        kwargs['KeyConditionExpression'] = Key(index_name).eq(key_value)
         if index_name != self.primary_index.hash_key_name:
             # If the queried index is the primary_index, it must
             # not be specified, otherwise the request will fail.
-            kwargs["IndexName"] = index_name
+            kwargs['IndexName'] = index_name
 
         if filter_expression is not None:
-            kwargs["FilterExpression"] = filter_expression
+            kwargs['FilterExpression'] = filter_expression
 
-        if query_limit is not None:
-            kwargs["Limit"] = query_limit
+        if pagination_records_limit is not None:
+            kwargs['Limit'] = pagination_records_limit
+
+        if exclusive_start_key is not None:
+            kwargs['ExclusiveStartKey'] = exclusive_start_key
 
         try:
             table = self.dynamodb.Table(self.table_name)
@@ -616,17 +620,24 @@ class DynamoDbCoreAdapter:
     def query_items_by_key(
             self, index_name: str, key_value: Any,
             field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool,
-            filter_expression: Optional[Any] = None, query_limit: Optional[int] = None, **additional_kwargs
-    ) -> Optional[List[Any]]:
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None,
+            exclusive_start_key: Optional[str] = None, **additional_kwargs
+    ) -> Tuple[Optional[List[Any]], QueryMetadata]:
         fields_path_elements_list: List[List[DatabasePathElement]] = (
             [field_path_elements] if is_multi_selector is not True else [*field_path_elements.values()]
         )
         response = self.query_response_by_key(
             index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements_list,
-            filter_expression=filter_expression, query_limit=query_limit, **additional_kwargs
+            filter_expression=filter_expression, pagination_records_limit=pagination_records_limit,
+            exclusive_start_key=exclusive_start_key, **additional_kwargs
         )
         if response is None:
-            return None
+            return None, QueryMetadata(count=0, has_reached_end=True, last_evaluated_key=None)
+        query_metadata = QueryMetadata(
+            count=response.count,
+            has_reached_end=response.has_reached_end,
+            last_evaluated_key=response.last_evaluated_key
+        )
 
         output: List[Any] = []
         for record_item_data in response.items:
@@ -643,8 +654,7 @@ class DynamoDbCoreAdapter:
                         item_data=record_item_data, fields_path_elements=field_path_elements,
                         num_keys_to_stop_at_before_reaching_end_of_item=0, metadata=False
                     ))
-                # todo: add data validation
-        return output
+        return output, query_metadata
 
     def query_single_item_by_key(
             self, index_name: str, key_value: Any,
@@ -657,7 +667,7 @@ class DynamoDbCoreAdapter:
         response = self.query_response_by_key(
             index_name=index_name, key_value=key_value,
             fields_path_elements=fields_path_elements,
-            filter_expression=filter_expression, query_limit=1
+            filter_expression=filter_expression, pagination_records_limit=1
         )
         if response.count == 1:
             return response.items[0]
@@ -689,7 +699,7 @@ class DynamoDbCoreAdapter:
             else:
                 response_items: Optional[List[dict]] = self.query_response_by_key(
                     index_name=index_name, key_value=key_value,
-                    fields_path_elements=fields_path_elements, query_limit=1
+                    fields_path_elements=fields_path_elements, pagination_records_limit=1
                 ).items
                 if isinstance(response_items, list) and len(response_items) > 0:
                     return response_items[0]

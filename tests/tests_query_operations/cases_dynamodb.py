@@ -35,19 +35,19 @@ def test_set_get_fields_with_secondary_index(self: unittest.TestCase, users_tabl
         )
     }, retrieved_values)
 
-    single_field_not_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='fieldOne')
+    single_field_not_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='fieldOne')
     self.assertEqual({TEST_ACCOUNT_ID: (
         field_one_random_value if is_caching is not True else
         {'fromCache': False, 'value': field_one_random_value}
     )}, single_field_not_primary_key)
 
-    single_field_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='accountId')
+    single_field_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='accountId')
     self.assertEqual({TEST_ACCOUNT_ID: (
         TEST_ACCOUNT_ID if is_caching is not True else
         {'fromCache': False, 'value': TEST_ACCOUNT_ID}
     )}, single_field_primary_key)
 
-    multiple_fields_without_primary_key = users_table.query_field(
+    multiple_fields_without_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='(fieldOne, fieldTwo)'
     )
     self.assertEqual({
@@ -63,7 +63,7 @@ def test_set_get_fields_with_secondary_index(self: unittest.TestCase, users_tabl
         }}, multiple_fields_without_primary_key
     )
 
-    multiple_fields_with_primary_key = users_table.query_field(
+    multiple_fields_with_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username',
         field_path='(accountId, fieldOne, fieldTwo)'
     )
@@ -107,12 +107,13 @@ def test_set_get_fields_with_overriding_names(
         commit_success: bool = users_table.commit_operations()
         self.assertTrue(commit_success)
 
-    retrieved_items_values: Dict[str, Any] = users_table.query_multiple_fields(
+    retrieved_items_values, query_metadata = users_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username', getters={
             'item1-value': FieldGetter(field_path='container.{{containerKey}}.fieldOne', query_kwargs={'containerKey': "item1"}),
             'item2-value': FieldGetter(field_path='container.{{containerKey}}.fieldOne', query_kwargs={'containerKey': "item2"}),
         }
     )
+    retrieved_items_values: Dict[str, Any]
     self.assertEqual({
         TEST_ACCOUNT_ID: {
             'item1-value': (
@@ -141,9 +142,10 @@ def test_set_get_fields_with_multi_selectors(
         commit_success: bool = users_table.commit_operations()
         self.assertTrue(commit_success)
 
-    retrieved_items_values: Dict[str, Any] = users_table.query_field(
+    retrieved_items_values, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='(fieldOne, fieldTwo)'
     )
+    retrieved_items_values: Dict[str, Any]
     self.assertEqual({
         TEST_ACCOUNT_ID: {
             'fieldOne': (
@@ -157,10 +159,11 @@ def test_set_get_fields_with_multi_selectors(
         }}, retrieved_items_values
     )
 
-    retrieved_items_values: Dict[str, Any] = users_table.query_multiple_fields(
+    retrieved_items_values, query_metadata = users_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username',
         getters={'item': FieldGetter(field_path='(fieldOne, fieldTwo)')}
     )
+    retrieved_items_values: Dict[str, Any]
     print(retrieved_items_values)
 
 
@@ -187,7 +190,7 @@ def test_set_get_multiple_fields_with_special_inner_keys(
         commit_success: bool = users_table.commit_operations()
         self.assertTrue(commit_success)
 
-    retrieved_items_values: Dict[str, Any] = users_table.query_multiple_fields(
+    retrieved_items_values, query_metadata = users_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_USERNAME, index_name='username',
         getters={
             '__PRIMARY_KEY__': FieldGetter(field_path='fieldOne'),

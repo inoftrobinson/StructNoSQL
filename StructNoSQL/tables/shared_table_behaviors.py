@@ -2,8 +2,7 @@ import string
 from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable, Union
 
 from StructNoSQL import BaseField
-from StructNoSQL.middlewares.dynamodb.backend.models import QueryMetadata
-from StructNoSQL.models import DatabasePathElement, FieldGetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements

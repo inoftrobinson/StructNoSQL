@@ -85,13 +85,13 @@ class TestDynamoDBCachingTable(unittest.TestCase):
             'simpleValue2': {'fromCache': True, 'value': random_field_value_two}
         })
 
-        single_field_not_primary_key = self.users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='simpleValue')
+        single_field_not_primary_key, query_metadata = self.users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='simpleValue')
         self.assertEqual({TEST_ACCOUNT_ID: {'fromCache': False, 'value': random_field_value_one}}, single_field_not_primary_key)
 
-        single_field_primary_key = self.users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='accountId')
+        single_field_primary_key, query_metadata = self.users_table.query_field(key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='accountId')
         self.assertEqual({TEST_ACCOUNT_ID: {'fromCache': False, 'value': TEST_ACCOUNT_ID}}, single_field_primary_key)
 
-        multiple_fields_without_primary_key = self.users_table.query_field(
+        multiple_fields_without_primary_key, query_metadata = self.users_table.query_field(
             key_value=TEST_ACCOUNT_USERNAME, index_name='username', field_path='(simpleValue, simpleValue2)'
         )
         self.assertEqual({
@@ -101,7 +101,7 @@ class TestDynamoDBCachingTable(unittest.TestCase):
             }}, multiple_fields_without_primary_key
         )
 
-        multiple_fields_with_primary_key = self.users_table.query_field(
+        multiple_fields_with_primary_key, query_metadata = self.users_table.query_field(
             key_value=TEST_ACCOUNT_USERNAME, index_name='username',
             field_path='(accountId, simpleValue, simpleValue2)'
         )

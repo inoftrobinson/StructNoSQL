@@ -1,14 +1,11 @@
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Optional, List, Dict, Any, Tuple, Union, Generator
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import Response
-from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
-    FieldPathSetter
-from StructNoSQL.practical_logger import message_with_vars
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
-from StructNoSQL.utils.process_render_fields_paths import join_field_path_elements
 
 
 class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
@@ -70,8 +67,10 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
             pagination_records_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Optional[dict]:
-        def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(
+                field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool
+        ) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, field_path_elements=field_path_elements,
@@ -84,11 +83,28 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             query_kwargs=query_kwargs, index_name=index_name, data_validation=data_validation
         )
 
+    def paginated_query_field(
+            self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, index_name: Optional[str] = None,
+            filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
+            data_validation: bool = True, **additional_kwargs
+    ) -> Generator[Tuple[Optional[dict], QueryMetadata], None, None]:
+        current_exclusive_start_key: Optional[Any] = exclusive_start_key
+        while True:
+            records_data, query_metadata = self.query_field(
+                index_name=index_name, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs,
+                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
+                exclusive_start_key=current_exclusive_start_key, data_validation=data_validation, **additional_kwargs
+            )
+            yield records_data, query_metadata
+            if query_metadata.last_evaluated_key is None:
+                break
+            current_exclusive_start_key = query_metadata.last_evaluated_key
+
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
             pagination_records_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ):
-        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
                 key_value=key_value, field_path_elements=fields_path_elements,

@@ -25,12 +25,6 @@ class Response:
         self.last_evaluated_key: Optional[dict] = response_dict.get('LastEvaluatedKey', None)
         self.has_reached_end = False if self.last_evaluated_key is not None else True
 
-@dataclass
-class QueryMetadata:
-    count: int
-    has_reached_end: bool
-    last_evaluated_key: Optional[dict]
-
 
 class Index(BaseModel):
     hash_key_name: str

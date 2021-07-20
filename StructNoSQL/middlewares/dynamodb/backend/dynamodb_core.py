@@ -12,9 +12,9 @@ from botocore.exceptions import ClientError
 
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
-    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE, QueryMetadata
+    GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
 from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
-    MapItemInitializerContainer
+    MapItemInitializerContainer, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 

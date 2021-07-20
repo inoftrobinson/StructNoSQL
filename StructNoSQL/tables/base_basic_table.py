@@ -1,9 +1,8 @@
 from typing import Optional, List, Dict, Any, Tuple, Callable, Iterable, Union
 
 from StructNoSQL import PrimaryIndex, BaseField
-from StructNoSQL.middlewares.dynamodb.backend.models import QueryMetadata
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
-from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
@@ -120,7 +119,8 @@ class BaseBasicTable(BaseTable):
 
     def inner_query_fields_secondary_index(
             self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
-            target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
+            single_getters_target_fields_containers: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
+            grouped_getters_database_paths_elements: Tuple[BaseField, List[DatabasePathElement]],
             is_multi_selector: bool, data_validation: bool,
     ) -> Tuple[Optional[dict], QueryMetadata]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
@@ -195,8 +195,8 @@ class BaseBasicTable(BaseTable):
         getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (
             _prepare_getters(fields_switch=self.fields_switch, getters=getters)
         )
-        if len(grouped_getters_database_paths_elements) > 0:
-            raise Exception(f"grouped_getters_database_paths_elements not yet supported")
+        """if len(grouped_getters_database_paths_elements) > 0:
+            raise Exception(f"grouped_getters_database_paths_elements not yet supported")"""
 
         if index_name is None or index_name == self.primary_index_name:
             single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]] = (
@@ -218,7 +218,8 @@ class BaseBasicTable(BaseTable):
             return self.inner_query_fields_secondary_index(
                 middleware=middleware,
                 data_validation=data_validation,
-                target_field_container=single_getters_target_fields_containers,
+                single_getters_target_fields_containers=single_getters_target_fields_containers,
+                grouped_getters_database_paths_elements=grouped_getters_database_paths_elements,
                 is_multi_selector=True
             )
 

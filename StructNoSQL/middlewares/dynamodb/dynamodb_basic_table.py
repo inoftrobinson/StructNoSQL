@@ -2,8 +2,9 @@ from typing import Optional, List, Dict, Any, Tuple, Union, Generator
 
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.middlewares.dynamodb.backend.models import Response, QueryMetadata
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
+from StructNoSQL.middlewares.dynamodb.backend.models import Response
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
 from StructNoSQL.middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations

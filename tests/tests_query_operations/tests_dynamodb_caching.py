@@ -17,6 +17,10 @@ class TestsDynamoDBCachingTable(unittest.TestCase):
         from tests.tests_query_operations.cases_shared import test_set_get_fields_with_primary_index
         test_set_get_fields_with_primary_index(**self.SHARED_CASE_KWARGS)
 
+    def test_set_get_paginated_fields_with_primary_index(self):
+        from tests.tests_query_operations.cases_shared import test_set_get_paginated_fields_with_primary_index
+        test_set_get_paginated_fields_with_primary_index(**self.SHARED_CASE_KWARGS)
+
     def test_set_get_fields_with_secondary_index(self):
         from tests.tests_query_operations.cases_dynamodb import test_set_get_fields_with_secondary_index
         test_set_get_fields_with_secondary_index(**self.DYNAMODB_CASE_KWARGS)

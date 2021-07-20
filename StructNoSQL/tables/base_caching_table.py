@@ -1,9 +1,10 @@
 import abc
-from typing import Optional, List, Dict, Any, Tuple, Callable, Union
+from typing import Optional, List, Dict, Any, Tuple, Callable, Union, Generator
 
 from StructNoSQL import BaseField
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, FieldPathSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, \
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_table import BaseTable
 from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys
@@ -113,26 +114,23 @@ class BaseCachingTable(BaseTable):
 
     def _cache_get_data(self, primary_key_value: str, field_path_elements: List[DatabasePathElement]) -> Tuple[bool, Any]:
         if len(field_path_elements) > 0:
-            if field_path_elements[0].element_key == self.primary_index_name:  # todo: replace primary_index_name by primary field name
-                return True, primary_key_value
-            else:
-                index_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
-                navigated_cached_data: dict = index_cached_data
-                
-                for path_element in field_path_elements[:-1]:
-                    stringed_element_key = f'{path_element.element_key}'
-                    # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
-                    # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
-                    navigated_cached_data = (
-                        navigated_cached_data[stringed_element_key]
-                        if stringed_element_key in navigated_cached_data
-                        else path_element.get_default_value()
-                    )
+            index_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
+            navigated_cached_data: dict = index_cached_data
 
-                last_field_path_element: DatabasePathElement = field_path_elements[-1]
-                if last_field_path_element.element_key in navigated_cached_data:
-                    retrieved_item_value: Any = navigated_cached_data[last_field_path_element.element_key]
-                    return True, retrieved_item_value
+            for path_element in field_path_elements[:-1]:
+                stringed_element_key = f'{path_element.element_key}'
+                # We wrap the element_key inside a string, to handle a scenario where we would put an item from a list,
+                # where the element_key will be an int, that could be above zero, and cannot be handled by a classical list.
+                navigated_cached_data = (
+                    navigated_cached_data[stringed_element_key]
+                    if stringed_element_key in navigated_cached_data
+                    else path_element.get_default_value()
+                )
+
+            last_field_path_element: DatabasePathElement = field_path_elements[-1]
+            if last_field_path_element.element_key in navigated_cached_data:
+                retrieved_item_value: Any = navigated_cached_data[last_field_path_element.element_key]
+                return True, retrieved_item_value
         return False, None
 
     def _cache_delete_field(self, index_cached_data: dict, primary_key_value: str, field_path_elements: List[DatabasePathElement]) -> str:
@@ -361,7 +359,7 @@ class BaseCachingTable(BaseTable):
             self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
             target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
             is_multi_selector: bool, data_validation: bool
-    ) -> Optional[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
             process_record_value=self._process_cache_record_value,
@@ -375,9 +373,9 @@ class BaseCachingTable(BaseTable):
         )
 
     def _shared_rar(
-            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], List[Any]],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Tuple[List[Any], QueryMetadata]],
             key_value: str, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]], data_validation: bool
-    ):
+    ) -> Tuple[Optional[dict], QueryMetadata]:
         existing_record_data: dict = {}
 
         keys_fields_already_cached_to_pop: List[str] = []
@@ -396,28 +394,29 @@ class BaseCachingTable(BaseTable):
         for key_to_pop in keys_fields_already_cached_to_pop:
             target_fields_containers.pop(key_to_pop)
 
-        if len(target_fields_containers) > 0:
-            fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_fields_containers.items()}
-            retrieved_records_items_data: Optional[List[dict]] = middleware(fields_paths_elements, True)
-            if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
-                # Since we query the primary_index, we know for a fact that we will never be returned more than
-                # one record item. Hence why we do not have a loop that iterate over the records_items_data,
-                # and that we return a dict with the only one record item being the requested key_value.
-                return {key_value: {
-                    **existing_record_data,
-                    **self._process_cache_record_item(
-                        data_validation=data_validation,
-                        record_item_data=retrieved_records_items_data[0],
-                        primary_key_value=key_value,
-                        target_fields_containers=target_fields_containers
-                    )
-                }}
-        return {key_value: existing_record_data}
+        if not len(target_fields_containers) > 0:
+            return {key_value: existing_record_data}, QueryMetadata(count=1, has_reached_end=True, last_evaluated_key=None)
+
+        fields_paths_elements: Dict[str, List[DatabasePathElement]] = {key: item[1] for key, item in target_fields_containers.items()}
+        retrieved_records_items_data, query_metadata = middleware(fields_paths_elements, True)
+        if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+            # Since we query the primary_index, we know for a fact that we will never be returned more than
+            # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+            # and that we return a dict with the only one record item being the requested key_value.
+            return {key_value: {
+                **existing_record_data,
+                **self._process_cache_record_item(
+                    data_validation=data_validation,
+                    record_item_data=retrieved_records_items_data[0],
+                    primary_key_value=key_value,
+                    target_fields_containers=target_fields_containers
+                )
+            }}, query_metadata
 
     def _query_field(
-            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], List[Any]],
+            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, field_path: str, query_kwargs: Optional[dict], index_name: Optional[str], data_validation: bool
-    ) -> Optional[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
 
         target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
@@ -443,12 +442,14 @@ class BaseCachingTable(BaseTable):
                     # found for the specified index (primary index values are unique). Since the query_field function needs 
                     # to return a Dict[str, Any] with keys being the primary_key_value of the record, the the item being 
                     # the request data, we need to create a dict that wrap our retrieved value as a record result.
+                    query_metadata = QueryMetadata(count=1, has_reached_end=True, last_evaluated_key=None)
+                    # We can also create a representation of what the query metadata should look like, all from the in memory data.
                     return {key_value: (
                         field_value_from_cache if self.debug is not True else
                         {'value': field_value_from_cache, 'fromCache': True}
-                    )}
+                    )}, query_metadata
 
-                retrieved_records_items_data: Optional[List[Any]] = middleware(field_path_elements, is_multi_selector)
+                retrieved_records_items_data, query_metadata = middleware(field_path_elements, is_multi_selector)
                 if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
@@ -458,8 +459,8 @@ class BaseCachingTable(BaseTable):
                         value=retrieved_records_items_data[0],
                         primary_key_value=key_value,
                         target_field_container=target_field_container
-                    )}
-                return None
+                    )}, query_metadata
+                return None, query_metadata
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
                 return self._shared_rar(
@@ -469,7 +470,7 @@ class BaseCachingTable(BaseTable):
                 )
 
     def _query_multiple_fields(
-            self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], List[Any]],
+            self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str], data_validation: bool
     ):
         getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (

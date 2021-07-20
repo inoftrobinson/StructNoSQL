@@ -477,9 +477,10 @@ def test_query_field(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    second_table_retrieved_simple_field_without_data_validation: Optional[Any] = second_table.query_field(
+    second_table_retrieved_simple_field_without_data_validation, query_metadata = second_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=False
     )
+    second_table_retrieved_simple_field_without_data_validation: Optional[Any]
     self.assertEqual({TEST_ACCOUNT_ID: (
         simple_field_random_text_value if is_caching is not True else
         {'value': simple_field_random_text_value, 'fromCache': False}
@@ -488,9 +489,10 @@ def test_query_field(
     if is_caching is True:
         second_table.clear_cached_data()
 
-    second_table_retrieved_simple_field_with_data_validation: Optional[int] = second_table.query_field(
+    second_table_retrieved_simple_field_with_data_validation, query_metadata = second_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='simpleField', data_validation=True
     )
+    second_table_retrieved_simple_field_with_data_validation: Optional[int]
     self.assertEqual({TEST_ACCOUNT_ID: (
         None if is_caching is not True else
         {'value': None, 'fromCache': False}
@@ -516,9 +518,10 @@ def test_query_field_multi_selectors(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.query_field(
+    second_table_retrieved_container_fields_without_data_validation, query_metadata = second_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=False
     )
+    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]]
     self.assertEqual({TEST_ACCOUNT_ID: {
         'nestedFieldOne': (
             container_field_one_random_text_value if is_caching is not True else
@@ -533,9 +536,10 @@ def test_query_field_multi_selectors(
     if is_caching is True:
         second_table.clear_cached_data()
 
-    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.query_field(
+    second_table_retrieved_container_fields_with_data_validation, query_metadata = second_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='container.(nestedFieldOne, nestedFieldTwo)', data_validation=True
     )
+    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]]
     self.assertEqual({TEST_ACCOUNT_ID: {
         'nestedFieldOne': (
             None if is_caching is not True else
@@ -568,12 +572,13 @@ def test_query_multiple_fields(
         self.assertTrue(first_table.commit_operations())
         first_table.clear_cached_data()
 
-    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]] = second_table.query_multiple_fields(
+    second_table_retrieved_container_fields_without_data_validation, query_metadata = second_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_ID, data_validation=False, getters={
             'one': FieldGetter(field_path='container.nestedFieldOne'),
             'two': FieldGetter(field_path='container.nestedFieldTwo'),
         }
     )
+    second_table_retrieved_container_fields_without_data_validation: Dict[str, Optional[Any]]
     self.assertEqual({TEST_ACCOUNT_ID: {
         'one': (
             container_field_one_random_text_value if is_caching is not True else
@@ -588,12 +593,13 @@ def test_query_multiple_fields(
     if is_caching is True:
         second_table.clear_cached_data()
 
-    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]] = second_table.query_multiple_fields(
+    second_table_retrieved_container_fields_with_data_validation, query_metadata = second_table.query_multiple_fields(
         key_value=TEST_ACCOUNT_ID, data_validation=True, getters={
             'one': FieldGetter(field_path='container.nestedFieldOne'),
             'two': FieldGetter(field_path='container.nestedFieldTwo'),
         }
     )
+    second_table_retrieved_container_fields_with_data_validation: Dict[str, Optional[int]]
     self.assertEqual({TEST_ACCOUNT_ID: {
         'one': (
             None if is_caching is not True else

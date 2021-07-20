@@ -30,17 +30,19 @@ class TestRemoveFieldOperations(unittest.TestCase):
         )
         self.assertTrue(success_field_set)
 
-        retrieved_field: Dict[str, dict] = self.users_table.query_field(
+        retrieved_field, query_metadata = self.users_table.query_field(
             key_value=TEST_ACCOUNT_ID,
             field_path='fieldToRemove',
         )
+        retrieved_field: Dict[str, dict]
         self.assertEqual(retrieved_field, {TEST_ACCOUNT_ID: random_value})
 
-        retrieved_fields: Dict[str, dict] = self.users_table.query_multiple_fields(
+        retrieved_fields, query_metadata = self.users_table.query_multiple_fields(
             key_value=TEST_ACCOUNT_ID, getters={
                 'fieldToRemove': FieldGetter(field_path='fieldToRemove')
             }
         )
+        retrieved_fields: Dict[str, dict]
         self.assertEqual(retrieved_fields, {TEST_ACCOUNT_ID: {'fieldToRemove': random_value}})
 
         """success_field_remove = self.users_table.delete_field(

@@ -1,9 +1,10 @@
 import random
 import unittest
 from uuid import uuid4
-from typing import Dict, Any, Union, List, Optional
+from typing import Dict, Any, Union, List, Optional, Generator, Tuple
 
-from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable, DynamoDBBasicTable
+from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, InoftVocalEngineCachingTable, \
+    DynamoDBBasicTable, QueryMetadata
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
@@ -40,19 +41,19 @@ def test_set_get_fields_with_primary_index(
         )
     })
 
-    single_field_not_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path='fieldOne')
+    single_field_not_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path='fieldOne')
     self.assertEqual(single_field_not_primary_key, {TEST_ACCOUNT_ID: (
         field1_random_value if is_caching is not True else
         {'fromCache': True, 'value': field1_random_value}
     )})
 
-    single_field_primary_key = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path=f'{primary_key_name}')
+    single_field_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path=f'{primary_key_name}')
     self.assertEqual(single_field_primary_key, {TEST_ACCOUNT_ID: (
         TEST_ACCOUNT_ID if is_caching is not True else
         {'fromCache': True, 'value': TEST_ACCOUNT_ID}
     )})
 
-    multiple_fields_without_primary_key = users_table.query_field(
+    multiple_fields_without_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='(fieldOne, fieldTwo)'
     )
     self.assertEqual({
@@ -68,7 +69,7 @@ def test_set_get_fields_with_primary_index(
         }}, multiple_fields_without_primary_key
     )
 
-    multiple_fields_with_primary_key = users_table.query_field(
+    multiple_fields_with_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path=f'({primary_key_name}, fieldOne, fieldTwo)'
     )
     self.assertEqual({
@@ -101,7 +102,11 @@ def test_set_get_paginated_fields_with_primary_index(
             existing_primary_key_value: Optional[Any] = users_table.get_field(
                 key_value=new_record_id, field_path=primary_key_name
             )
-            if existing_primary_key_value is None:
+            no_existing_record_found_for_new_record_id: bool = (
+                existing_primary_key_value is None if is_caching is not True else
+                existing_primary_key_value['value'] is None
+            )
+            if no_existing_record_found_for_new_record_id is True:
                 put_record_success: bool = users_table.put_record({
                     primary_key_name: new_record_id,
                     'username': 'dummyUsername',
@@ -110,13 +115,18 @@ def test_set_get_paginated_fields_with_primary_index(
                 })
                 self.assertTrue(put_record_success)
                 return new_record_id
-        self.fail(msg="Could not generate unique record id after ten attemps")
+        self.fail(msg="Could not generate unique record id after ten attempts")
 
-    created_account_ids: List[str] = [make_record() for _ in range(3)]
+    created_account_ids: List[str] = [make_record() for _ in range(5)]
 
-    items = users_table.paginated_query_field(
+    records_paginator: Generator[Tuple[Optional[dict], QueryMetadata], None, None] = users_table.paginated_query_field(
         index_name='type', key_value=random_type_id,
         field_path='accountId', pagination_records_limit=2
     )
-    for item in items:
-        print(item)
+    for records_data, query_metadata in records_paginator:
+        if records_data is not None:
+            for record_item_data in records_data:
+                record_deletion_success: bool = users_table.delete_record(indexes_keys_selectors={
+                    primary_key_name: record_item_data
+                })
+                self.assertTrue(record_deletion_success)

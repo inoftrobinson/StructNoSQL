@@ -7,5 +7,5 @@ from StructNoSQL.middlewares.dynamodb.dynamodb_caching_table import DynamoDBCach
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_caching_table import InoftVocalEngineCachingTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
 from StructNoSQL.utils.objects import NoneType, Undefined, ActiveSelf
-from StructNoSQL.models import FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover
+from StructNoSQL.models import FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, QueryMetadata
 from StructNoSQL.exceptions import *

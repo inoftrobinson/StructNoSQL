@@ -76,3 +76,9 @@ class MapItemInitializer:
 class MapItemInitializerContainer:
     item: MapItemInitializer
     nexts_in_line: Dict[str, Any]
+
+@dataclass
+class QueryMetadata:
+    count: int
+    has_reached_end: bool
+    last_evaluated_key: Optional[dict]

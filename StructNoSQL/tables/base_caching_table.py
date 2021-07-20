@@ -356,20 +356,15 @@ class BaseCachingTable(BaseTable):
             return output_items
 
     def inner_query_fields_secondary_index(
-            self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Any],
-            target_field_container: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
-            is_multi_selector: bool, data_validation: bool
+            self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
+            fields_database_paths: List[List[DatabasePathElement]],
     ) -> Tuple[Optional[dict], QueryMetadata]:
         from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
-            process_record_value=self._process_cache_record_value,
-            process_record_item=self._process_cache_record_item,
-            data_validation=data_validation,
             primary_index_name=self.primary_index_name,
             get_primary_key_database_path=self._get_primary_key_database_path,
             middleware=middleware,
-            target_field_container=target_field_container,
-            is_multi_selector=is_multi_selector
+            fields_paths_elements=fields_database_paths
         )
 
     def _shared_rar(
@@ -422,7 +417,7 @@ class BaseCachingTable(BaseTable):
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs
         )
         if index_name is not None and index_name != self.primary_index_name:
-            return self.inner_query_fields_secondary_index(
+            records_attributes: Optional[dict] = self.inner_query_fields_secondary_index(
                 middleware=middleware,
                 data_validation=data_validation,
                 target_field_container=target_field_container,
@@ -470,7 +465,7 @@ class BaseCachingTable(BaseTable):
                 )
 
     def _query_multiple_fields(
-            self, middleware: Callable[[Dict[str, List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
+            self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str], data_validation: bool
     ):
         getters_database_paths, single_getters_target_fields_containers, grouped_getters_database_paths_elements = (

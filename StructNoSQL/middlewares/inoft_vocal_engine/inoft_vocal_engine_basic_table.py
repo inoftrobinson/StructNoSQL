@@ -57,7 +57,7 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
             self, key_value: str, getters: Dict[str, FieldGetter], pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ):
-        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> List[dict]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> List[dict]:
             return self._query_items_by_key(
                 key_value=key_value, field_path_elements=fields_path_elements, is_multi_selector=True,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression, **additional_kwargs

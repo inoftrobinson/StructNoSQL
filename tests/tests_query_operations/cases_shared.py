@@ -42,10 +42,10 @@ def test_set_get_fields_with_primary_index(
     })
 
     single_field_not_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path='fieldOne')
-    self.assertEqual(single_field_not_primary_key, {TEST_ACCOUNT_ID: (
+    self.assertEqual({TEST_ACCOUNT_ID: (
         field1_random_value if is_caching is not True else
         {'fromCache': True, 'value': field1_random_value}
-    )})
+    )}, single_field_not_primary_key)
 
     single_field_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path=f'{primary_key_name}')
     self.assertEqual(single_field_primary_key, {TEST_ACCOUNT_ID: (

@@ -618,16 +618,12 @@ class DynamoDbCoreAdapter:
                             f"Exception of type {type(e).__name__} occurred: {str(e)}")
 
     def query_items_by_key(
-            self, index_name: str, key_value: Any,
-            field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool,
+            self, index_name: str, key_value: Any, fields_path_elements: List[List[DatabasePathElement]],
             filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None,
             exclusive_start_key: Optional[str] = None, **additional_kwargs
     ) -> Tuple[Optional[List[Any]], QueryMetadata]:
-        fields_path_elements_list: List[List[DatabasePathElement]] = (
-            [field_path_elements] if is_multi_selector is not True else [*field_path_elements.values()]
-        )
         response = self.query_response_by_key(
-            index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements_list,
+            index_name=index_name, key_value=key_value, fields_path_elements=fields_path_elements,
             filter_expression=filter_expression, pagination_records_limit=pagination_records_limit,
             exclusive_start_key=exclusive_start_key, **additional_kwargs
         )
@@ -638,6 +634,7 @@ class DynamoDbCoreAdapter:
             has_reached_end=response.has_reached_end,
             last_evaluated_key=response.last_evaluated_key
         )
+        return response.items, query_metadata
 
         output: List[Any] = []
         for record_item_data in response.items:

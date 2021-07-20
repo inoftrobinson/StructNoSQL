@@ -72,13 +72,10 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
             data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[dict], QueryMetadata]:
-        def middleware(
-                field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool
-        ) -> Tuple[Optional[List[dict]], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=field_path_elements,
-                is_multi_selector=is_multi_selector,
+                key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 exclusive_start_key=exclusive_start_key,
                 **additional_kwargs
@@ -110,10 +107,10 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
             filter_expression: Optional[Any] = None, pagination_records_limit: Optional[int] = None, exclusive_start_key: Optional[Any] = None,
             data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[Dict[str, dict]], QueryMetadata]:
-        def middleware(fields_path_elements: Dict[str, List[DatabasePathElement]], _) -> Tuple[List[dict], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[List[dict], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
-                index_name=index_name or self.primary_index_name, is_multi_selector=True,
-                key_value=key_value, field_path_elements=fields_path_elements,
+                index_name=index_name or self.primary_index_name, key_value=key_value,
+                fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 exclusive_start_key=exclusive_start_key,
                 **additional_kwargs

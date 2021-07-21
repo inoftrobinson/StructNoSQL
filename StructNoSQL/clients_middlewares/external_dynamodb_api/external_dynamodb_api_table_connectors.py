@@ -1,6 +1,10 @@
+import logging
 from typing import List, Optional, Any, Dict, Tuple
 from json import JSONDecodeError
-from StructNoSQL.models import FieldPathSetter, DatabasePathElement
+
+from pydantic import BaseModel, ValidationError
+
+from StructNoSQL.models import FieldPathSetter, DatabasePathElement, QueryMetadata
 import requests
 
 
@@ -72,12 +76,12 @@ class ExternalDynamoDBApiTableConnectors:
     def _query_items_by_key(
             self, key_value: str, fields_path_elements: List[List[DatabasePathElement]],
             pagination_records_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
-    ):
+    ) -> Tuple[Optional[List[dict]], QueryMetadata]:
         serialized_fields_path_elements: List[List[dict]] = [
             [item.serialize() for item in path_elements]
             for path_elements in fields_path_elements
         ]
-        return self._data_api_handler(payload={
+        response_payload: Optional[dict] = self._data_api_handler(payload={
             'operationType': 'queryItemsByKey',
             'keyValue': key_value,
             'fieldsPathElements': serialized_fields_path_elements,
@@ -85,6 +89,25 @@ class ExternalDynamoDBApiTableConnectors:
             'filterExpression': filter_expression,
             **additional_kwargs
         })
+        if response_payload is not None:
+            class ResponseDataModel(BaseModel):
+                data: Optional[List[dict]] = None
+                class MetadataModel(BaseModel):
+                    count: int
+                    hasReachedEnd: bool
+                    lastEvaluatedKey: Optional[dict]
+                metadata: MetadataModel
+            try:
+                response_data = ResponseDataModel(**response_payload)
+                return response_data.data, QueryMetadata(
+                    count=response_data.metadata.count,
+                    has_reached_end=response_data.metadata.hasReachedEnd,
+                    last_evaluated_key=response_data.metadata.lastEvaluatedKey
+                )
+            except ValidationError as e:
+                logging.warning(e)
+        return None, QueryMetadata(count=0, has_reached_end=True, last_evaluated_key=None)
+
 
     def _set_update_data_element_to_map_with_default_initialization(
             self, key_value: Any, field_path_elements: List[DatabasePathElement], value: Any

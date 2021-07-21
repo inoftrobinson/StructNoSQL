@@ -37,15 +37,12 @@ class ExternalDynamoDBApiBasicTable(BaseBasicTable, ExternalDynamoDBApiTableConn
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[dict], QueryMetadata]:
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[List[dict], QueryMetadata]:
-            response: Optional[dict] = self._query_items_by_key(
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
+            return self._query_items_by_key(
                 key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
-            class QueryMetadataModel(BaseModel):
-                pass
-            raise Exception("Not implemented")
         return self._query_field(
             middleware=middleware, key_value=key_value, field_path=field_path,
             query_kwargs=query_kwargs, index_name=None, data_validation=data_validation
@@ -56,8 +53,6 @@ class ExternalDynamoDBApiBasicTable(BaseBasicTable, ExternalDynamoDBApiTableConn
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[dict], QueryMetadata]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
-            # todo: deserialize the query_metadata and the records_attributes
-            raise Exception("not implemented")
             return self._query_items_by_key(
                 key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit,

@@ -53,8 +53,6 @@ class ExternalDynamoDBApiCachingTable(BaseCachingTable, ExternalDynamoDBApiTable
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[dict], QueryMetadata]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
-            # todo: deserialize query_metadata
-            raise Exception("not implemented")
             return self._query_items_by_key(
                 key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
@@ -70,8 +68,6 @@ class ExternalDynamoDBApiCachingTable(BaseCachingTable, ExternalDynamoDBApiTable
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
     ) -> Tuple[Optional[dict], QueryMetadata]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
-            # todo: deserialize query_metadata and records_attributes
-            raise Exception("not implemented")
             return self._query_items_by_key(
                 key_value=key_value, fields_path_elements=fields_path_elements, is_multi_selector=True,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression, **additional_kwargs

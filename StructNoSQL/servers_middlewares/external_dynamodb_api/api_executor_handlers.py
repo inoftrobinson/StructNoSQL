@@ -59,13 +59,13 @@ def queryItemsByKey(table: DynamoDBLowLevelTableClient, data: dict):
             )
             for item in path_elements
         ]
-        for key, path_elements in request_data.fieldsPathElements
+        for path_elements in request_data.fieldsPathElements
     ]
-    response_data = table.dynamodb_client.query_items_by_key(
+    records_attributes, query_metadata = table.dynamodb_client.query_items_by_key(
         index_name='accountProjectUserId', key_value=request_data.keyValue, fields_path_elements=fields_path_elements,
-        query_limit=request_data.paginationRecordsLimit, filter_expression=request_data.filterExpression
+        pagination_records_limit=request_data.paginationRecordsLimit, filter_expression=request_data.filterExpression
     )
-    return True, response_data, {}
+    return True, {'data': records_attributes, 'metadata': query_metadata.serialize()}, {}
 
 
 def getOrQuerySingleItem(table: DynamoDBLowLevelTableClient, data: dict):

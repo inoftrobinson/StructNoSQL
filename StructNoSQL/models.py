@@ -82,3 +82,10 @@ class QueryMetadata:
     count: int
     has_reached_end: bool
     last_evaluated_key: Optional[dict]
+
+    def serialize(self) -> dict:
+        return {
+            'count': self.count,
+            'hasReachedEnd': self.has_reached_end,
+            'lastEvaluatedKey': self.last_evaluated_key
+        }

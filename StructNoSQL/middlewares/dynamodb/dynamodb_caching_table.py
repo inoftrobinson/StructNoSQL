@@ -71,7 +71,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=fields_path_elements,
+                key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
@@ -104,7 +104,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, field_path_elements=fields_path_elements,
+                key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )

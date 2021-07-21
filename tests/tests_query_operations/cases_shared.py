@@ -30,7 +30,7 @@ def test_set_get_fields_with_primary_index(
         self.assertTrue(update_commit_success)
 
     retrieved_values = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='(fieldOne, fieldTwo)')
-    self.assertEqual(retrieved_values, {
+    self.assertEqual({
         'fieldOne': (
             field1_random_value if is_caching is not True else
             {'fromCache': True, 'value': field1_random_value}
@@ -39,7 +39,7 @@ def test_set_get_fields_with_primary_index(
             field2_random_value if is_caching is not True else
             {'fromCache': True, 'value': field2_random_value}
         )
-    })
+    }, retrieved_values)
 
     single_field_not_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path='fieldOne')
     self.assertEqual({TEST_ACCOUNT_ID: (
@@ -48,10 +48,10 @@ def test_set_get_fields_with_primary_index(
     )}, single_field_not_primary_key)
 
     single_field_primary_key, query_metadata = users_table.query_field(key_value=TEST_ACCOUNT_ID, field_path=f'{primary_key_name}')
-    self.assertEqual(single_field_primary_key, {TEST_ACCOUNT_ID: (
+    self.assertEqual({TEST_ACCOUNT_ID: (
         TEST_ACCOUNT_ID if is_caching is not True else
-        {'fromCache': True, 'value': TEST_ACCOUNT_ID}
-    )})
+        {'fromCache': False, 'value': TEST_ACCOUNT_ID}
+    )}, single_field_primary_key)
 
     multiple_fields_without_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path='(fieldOne, fieldTwo)'
@@ -66,8 +66,8 @@ def test_set_get_fields_with_primary_index(
                 field2_random_value if is_caching is not True else
                 {'fromCache': True, 'value': field2_random_value}
             )
-        }}, multiple_fields_without_primary_key
-    )
+        }
+    }, multiple_fields_without_primary_key)
 
     multiple_fields_with_primary_key, query_metadata = users_table.query_field(
         key_value=TEST_ACCOUNT_ID, field_path=f'({primary_key_name}, fieldOne, fieldTwo)'
@@ -86,8 +86,8 @@ def test_set_get_fields_with_primary_index(
                 field2_random_value if is_caching is not True else
                 {'fromCache': True, 'value': field2_random_value}
             )
-        }}, multiple_fields_with_primary_key
-    )
+        }
+    }, multiple_fields_with_primary_key)
 
 
 def test_set_get_paginated_fields_with_primary_index(

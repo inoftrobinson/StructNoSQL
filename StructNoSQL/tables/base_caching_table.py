@@ -22,6 +22,25 @@ class BaseCachingTable(BaseTable):
         self._pending_update_operations_per_primary_key: Dict[str, Dict[str, FieldPathSetter]] = {}
         self._pending_remove_operations_per_primary_key: Dict[str, Dict[str, List[DatabasePathElement]]] = {}
         self._debug = False
+        self._wrap_item_value = BaseCachingTable._without_debug_wrap_item_value
+
+    @staticmethod
+    def _without_debug_wrap_item_value(item_value: Any, from_cache: bool) -> Any:
+        return item_value
+
+    @staticmethod
+    def _with_debug_wrap_item_value(item_value: Any, from_cache: bool) -> Any:
+        return {'value': item_value, 'fromCache': from_cache}
+
+    @property
+    def wrap_item_value(self):
+        return self._wrap_item_value
+
+    def wrap_item_value_from_cache(self, item_value: Any) -> Any:
+        return self._wrap_item_value(item_value=item_value, from_cache=True)
+
+    def wrap_item_value_not_from_cache(self, item_value: Any) -> Any:
+        return self._wrap_item_value(item_value=item_value, from_cache=False)
 
     @property
     def debug(self) -> bool:
@@ -30,6 +49,11 @@ class BaseCachingTable(BaseTable):
     @debug.setter
     def debug(self, debug: bool):
         self._debug = debug
+        self._wrap_item_value = (
+            BaseCachingTable._with_debug_wrap_item_value
+            if debug is True else
+            BaseCachingTable._without_debug_wrap_item_value
+        )
 
     def clear_cached_data(self):
         self._cached_data_per_primary_key = {}
@@ -190,18 +214,22 @@ class BaseCachingTable(BaseTable):
                 )
                 
     def _validate_cache_format_field_value_if_need_to(
-            self, value: Any, field_path_elements: List[DatabasePathElement],
+            self, value: Any, data_validation: bool,
+            field_object: BaseField, field_path_elements: List[DatabasePathElement],
             index_cached_data: dict, from_cache: bool
     ) -> Optional[Any]:
+        if data_validation is True:
+            field_object.populate(value=value)
+            validated_data, is_valid = field_object.validate_data()
+        else:
+            validated_data = value
+
         BaseCachingTable._cache_put_data(
             index_cached_data=index_cached_data,
             field_path_elements=field_path_elements,
-            data=value
+            data=validated_data
         )
-        return (
-            value if self.debug is not True else
-            {'value': value, 'fromCache': from_cache}
-        )
+        return self.wrap_item_value(item_value=validated_data, from_cache=from_cache)
 
     def _process_cache_record_value(
             self, data_validation: bool, value: Any, primary_key_value: Any,
@@ -248,10 +276,7 @@ class BaseCachingTable(BaseTable):
         validated_data: Optional[Any] = BaseCachingTable._validate_field_value_if_need_to(
             value=value, data_validation=data_validation, field_object=field_object
         )
-        return (
-            validated_data if self.debug is not True else
-            {'value': validated_data, 'fromCache': from_cache}
-        )
+        return self.wrap_item_value(item_value=validated_data, from_cache=from_cache)
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
@@ -368,12 +393,10 @@ class BaseCachingTable(BaseTable):
     def format_item_value_if_need_to(self, item_value: Any):
         pass
 
-
-
     def unpack_validate_cache_getters_record_attributes_if_need_to(
-            self, data_validation: bool, record_attributes: dict, index_cached_data: dict,
-            single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-            grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
+            self, single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+            grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
+            data_validation: bool, record_attributes: dict, index_cached_data: dict, base_output_values: Optional[Dict[str, Any]] = None
     ):
         def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
             BaseCachingTable._cache_put_data(
@@ -381,80 +404,15 @@ class BaseCachingTable(BaseTable):
                 field_path_elements=item_field_path_elements,
                 data=item_value
             )
-            return (
-                item_value if self.debug is not True else
-                {'value': item_value, 'fromCache': False}
-            )
+            return self.wrap_item_value(item_value=item_value, from_cache=False)
 
         from StructNoSQL.tables.shared_table_behaviors import _unpack_validate_getters_record_attributes_if_need_to
         return _unpack_validate_getters_record_attributes_if_need_to(
-            item_mutator=item_mutator, data_validation=data_validation, record_attributes=record_attributes,
             single_getters_target_fields_containers=single_getters_target_fields_containers,
-            grouped_getters_target_fields_containers=grouped_getters_target_fields_containers
+            grouped_getters_target_fields_containers=grouped_getters_target_fields_containers,
+            item_mutator=item_mutator, data_validation=data_validation,
+            record_attributes=record_attributes, base_output_values=base_output_values
         )
-
-    def shared_rar_v3(
-            self, key_value: Any, data_validation: bool,
-            single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-            grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
-    ):
-        output_values: Dict[str, Any] = {}
-        for item_key, item_container in single_getters_target_fields_containers.items():
-            item_field_object, item_field_path_elements = item_container
-            item_value: Optional[Any] = attributes_item_processor(item_field_path_elements)
-            if data_validation is True:
-                item_field_object.populate(value=item_value)
-                validated_data, is_valid = item_field_object.validate_data()
-            else:
-                validated_data = item_value
-
-            output_values[item_key] = item_value_mutator(validated_data, item_field_path_elements)
-
-        for fields_container_key, fields_container_item in grouped_getters_target_fields_containers.items():
-            current_container_fields_data: Dict[str, Any] = {}
-            for child_field_key, child_field_container in fields_container_item.items():
-                child_field_object, child_field_path_elements = child_field_container
-                item_value: Optional[Any] = attributes_item_processor(child_field_path_elements)
-                if data_validation is True:
-                    child_field_object.populate(value=item_value)
-                    validated_data, is_valid = child_field_object.validate_data()
-                else:
-                    validated_data = item_value
-
-                current_container_fields_data[child_field_key] = item_value_mutator(validated_data,
-                                                                                    child_field_path_elements)
-
-            output_values[fields_container_key] = current_container_fields_data
-        return output_values
-
-    def _shared_rar_v2(
-            self, key_value: Any, data_validation: bool,
-            single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-            grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
-    ):
-        keys_fields_already_cached_to_pop: List[str] = []
-        def attributes_item_processor(item_field_path_elements: List[DatabasePathElement]) -> Any:
-            found_item_value_in_cache, field_item_value_from_cache = self._cache_get_data(
-                primary_key_value=key_value, field_path_elements=item_field_path_elements
-            )
-            if found_item_value_in_cache is True:
-                keys_fields_already_cached_to_pop.append(item_key)
-
-        def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
-            return (
-                item_value if self.debug is not True else
-                {'value': item_value, 'fromCache': False}
-            )
-
-        existing_record_data: dict = _unpack_validate_getters_record_attributes_if_need_to_v2(
-            attributes_item_processor=attributes_item_processor, item_value_mutator=item_mutator,
-            data_validation=data_validation,
-            single_getters_target_fields_containers=single_getters_target_fields_containers,
-            grouped_getters_target_fields_containers=grouped_getters_target_fields_containers
-        )
-
-        for key_to_pop in keys_fields_already_cached_to_pop:
-            target_fields_containers.pop(key_to_pop)
 
     def _shared_rar(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[List[Any], QueryMetadata]],
@@ -469,10 +427,7 @@ class BaseCachingTable(BaseTable):
                 primary_key_value=key_value, field_path_elements=item_field_path_elements
             )
             if found_item_value_in_cache is True:
-                existing_record_data[item_key] = (
-                    field_item_value_from_cache if self.debug is not True else
-                    {'value': field_item_value_from_cache, 'fromCache': True}
-                )
+                existing_record_data[item_key] = self.wrap_item_value(item_value=field_item_value_from_cache, from_cache=True)
                 keys_fields_already_cached_to_pop.append(item_key)
 
         for key_to_pop in keys_fields_already_cached_to_pop:
@@ -518,7 +473,8 @@ class BaseCachingTable(BaseTable):
                     output_records_values[record_key] = unpack_validate_retrieved_field_if_need_to(
                         record_attributes=record_attributes,
                         target_field_container=target_field_container,
-                        data_validation=data_validation
+                        data_validation=data_validation,
+                        item_mutator=self.wrap_item_value_not_from_cache
                     )
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
@@ -527,11 +483,12 @@ class BaseCachingTable(BaseTable):
                 records_attributes, query_metadata = self.inner_query_fields_secondary_index(
                     middleware=middleware, fields_database_paths=fields_database_paths
                 )
-                for record_key, record_attributes in records_attributes.items():
+                for record_key, record_item_attributes in records_attributes.items():
                     output_records_values[record_key] = unpack_validate_multiple_retrieved_fields_if_need_to(
-                        record_attributes=record_attributes,
                         target_fields_containers=target_field_container,
-                        data_validation=data_validation
+                        record_attributes=record_item_attributes,
+                        data_validation=data_validation,
+                        item_mutator=self.wrap_item_value_not_from_cache,
                     )
             return output_records_values, query_metadata
         else:
@@ -550,22 +507,28 @@ class BaseCachingTable(BaseTable):
                     # the request data, we need to create a dict that wrap our retrieved value as a record result.
                     query_metadata = QueryMetadata(count=1, has_reached_end=True, last_evaluated_key=None)
                     # We can also create a representation of what the query metadata should look like, all from the in memory data.
-                    return {key_value: (
-                        field_value_from_cache if self.debug is not True else
-                        {'value': field_value_from_cache, 'fromCache': True}
-                    )}, query_metadata
 
-                retrieved_records_items_data, query_metadata = middleware([field_path_elements])
-                if retrieved_records_items_data is not None and len(retrieved_records_items_data) > 0:
+                    output_item_value = self.wrap_item_value(item_value=field_value_from_cache, from_cache=True)
+                    return {key_value: output_item_value}, query_metadata
+
+                records_attributes, query_metadata = middleware([field_path_elements])
+                if records_attributes is not None and len(records_attributes) > 0:
                     # Since we query the primary_index, we know for a fact that we will never be returned more than
                     # one record item. Hence why we do not have a loop that iterate over the records_items_data,
                     # and that we return a dict with the only one record item being the requested key_value.
-                    return {key_value: self._process_cache_record_value(
-                        data_validation=data_validation,
-                        value=retrieved_records_items_data[0],
-                        primary_key_value=key_value,
-                        target_field_container=target_field_container
-                    )}, query_metadata
+                    single_record_attributes: dict = records_attributes[0]
+                    navigated_record_item_value: Optional[Any] = navigate_into_data_with_field_path_elements(
+                        data=single_record_attributes,
+                        field_path_elements=field_path_elements,
+                        num_keys_to_navigation_into=len(field_path_elements)
+                    )
+                    index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
+                    validated_record_item_value: Optional[Any] = self._validate_cache_format_field_value_if_need_to(
+                        value=navigated_record_item_value, data_validation=data_validation,
+                        field_object=field_object, field_path_elements=field_path_elements,
+                        index_cached_data=index_cached_data, from_cache=False
+                    )
+                    return {key_value: validated_record_item_value}, query_metadata
                 return None, query_metadata
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
@@ -602,7 +565,7 @@ class BaseCachingTable(BaseTable):
                         validated_data, is_valid = field_object.validate_data()
                     else:
                         validated_data = field_item_value_from_cache
-                    existing_values[getter_key] = validated_data
+                    existing_values[getter_key] = self.wrap_item_value(item_value=validated_data, from_cache=True)
                 else:
                     single_getters_target_fields_containers[getter_key] = target_field_container
                     getters_database_paths.append(target_field_container[1])
@@ -627,12 +590,12 @@ class BaseCachingTable(BaseTable):
                             validated_data, is_valid = item_field_object.validate_data()
                         else:
                             validated_data = field_item_value_from_cache
-                        container_existing_values[item_key] = validated_data
+                        container_existing_values[item_key] = self.wrap_item_value(item_value=validated_data, from_cache=True)
                     else:
                         container_fields[getter_key] = item_target_field_container
                         getters_database_paths.append(item_field_path_elements)
 
-                grouped_getters_target_fields_containers[getter_key] = getters_database_paths
+                grouped_getters_target_fields_containers[getter_key] = container_fields
                 existing_values[getter_key] = container_existing_values
 
         return existing_values, getters_database_paths, single_getters_target_fields_containers, grouped_getters_target_fields_containers
@@ -641,19 +604,24 @@ class BaseCachingTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
             key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str], data_validation: bool
     ):
-        getters_database_paths, single_getters_target_fields_containers, grouped_getters_target_fields_containers = (
-            _prepare_getters(fields_switch=self.fields_switch, getters=getters)
+        existing_values, getters_database_paths, single_getters_target_fields_containers, grouped_getters_target_fields_containers = (
+            self._prepare_getters_with_cache(data_validation=data_validation, key_value=key_value, getters=getters)
         )
-        if len(grouped_getters_target_fields_containers) > 0:
-            # todo: add grouped_getters_target_fields_containers support
-            raise Exception(f"grouped_getters_target_fields_containers not yet supported")
-
         if index_name is None or index_name == self.primary_index_name:
-            return self._shared_rar(
-                middleware=middleware,  key_value=key_value,
-                target_fields_containers=single_getters_target_fields_containers,
-                data_validation=data_validation
-            )
+            records_attributes, query_metadata = middleware(getters_database_paths)
+            if records_attributes is not None and not len(records_attributes) > 0:
+                # Since we query the primary_index, we know for a fact that we will never be returned more than
+                # one record item. Hence why we do not have a loop that iterate over the records_items_data,
+                # and that we return a dict with the only one record item being the requested key_value.
+                index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
+                record_values: Dict[str, Any] = self.unpack_validate_cache_getters_record_attributes_if_need_to(
+                    single_getters_target_fields_containers=single_getters_target_fields_containers,
+                    grouped_getters_target_fields_containers=grouped_getters_target_fields_containers,
+                    data_validation=data_validation, record_attributes=records_attributes[0],
+                    index_cached_data=index_cached_data, base_output_values=existing_values
+                )
+                return {key_value: record_values}, query_metadata
+            return None, query_metadata
         else:
             records_attributes, query_metadata = self.inner_query_fields_secondary_index(
                 middleware=middleware, fields_database_paths=getters_database_paths
@@ -666,7 +634,7 @@ class BaseCachingTable(BaseTable):
                     grouped_getters_target_fields_containers=grouped_getters_target_fields_containers
                 ) for record_key, record_item_attributes in records_attributes.items()
             }
-            return output_records_values
+            return output_records_values, query_metadata
 
     def _get_multiple_fields(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Any],

@@ -1,15 +1,14 @@
 import abc
-from typing import Optional, List, Dict, Any, Tuple, Callable, Union, Generator
+from typing import Optional, List, Dict, Any, Tuple, Callable, Union
 
 from StructNoSQL import BaseField
 from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, \
     FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.tables.base_table import BaseTable, FieldsSwitch
-from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys, \
-    unpack_validate_retrieved_field_if_need_to, unpack_validate_multiple_retrieved_fields_if_need_to, \
-    _unpack_validate_getters_record_attributes_if_need_to_v2
+from StructNoSQL.tables.base_table import BaseTable
+from StructNoSQL.tables.shared_table_behaviors import _model_contain_all_index_keys, \
+    unpack_validate_retrieved_field_if_need_to, unpack_validate_multiple_retrieved_fields_if_need_to
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path, \
     process_validate_data_and_make_single_rendered_database_path, join_field_path_elements
@@ -212,7 +211,7 @@ class BaseCachingTable(BaseTable):
                     pending_remove_operations=pending_remove_operations,
                     field_path_elements=item_field_path_elements
                 )
-                
+
     def _validate_cache_format_field_value_if_need_to(
             self, value: Any, data_validation: bool,
             field_object: BaseField, field_path_elements: List[DatabasePathElement],
@@ -432,15 +431,24 @@ class BaseCachingTable(BaseTable):
             # Since we query the primary_index, we know for a fact that we will never be returned more than
             # one record item. Hence why we do not have a loop that iterate over the records_items_data,
             # and that we return a dict with the only one record item being the requested key_value.
-            item_value: Optional[Any] = unpack_validate_multiple_retrieved_fields_if_need_to(
+            index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
+            def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
+                BaseCachingTable._cache_put_data(
+                    index_cached_data=index_cached_data,
+                    field_path_elements=item_field_path_elements,
+                    data=item_value
+                )
+                return self.wrap_item_value(item_value=item_value, from_cache=False)
+
+            rar_item_value: Optional[Any] = unpack_validate_multiple_retrieved_fields_if_need_to(
                 target_fields_containers=target_fields_containers,
                 data_validation=data_validation,
                 record_attributes=retrieved_records_items_data[0],
-                item_mutator=self.wrap_item_value_not_from_cache,
+                item_mutator=item_mutator,
                 base_output_values=existing_record_data
             )
-            # todo: cache data
-            return {key_value: item_value}, query_metadata
+            # todo: rename rar_item_value
+            return {key_value: rar_item_value}, query_metadata
 
     def _query_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
@@ -452,6 +460,16 @@ class BaseCachingTable(BaseTable):
         )
         if index_name is not None and index_name != self.primary_index_name:
             output_records_values: dict = {}
+
+            index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
+            def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
+                BaseCachingTable._cache_put_data(
+                    index_cached_data=index_cached_data,
+                    field_path_elements=item_field_path_elements,
+                    data=item_value
+                )
+                return self.wrap_item_value(item_value=item_value, from_cache=False)
+
             if is_multi_selector is not True:
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
                 fields_database_paths: List[List[DatabasePathElement]] = [target_field_container[1]]
@@ -464,7 +482,7 @@ class BaseCachingTable(BaseTable):
                         record_attributes=record_attributes,
                         target_field_container=target_field_container,
                         data_validation=data_validation,
-                        item_mutator=self.wrap_item_value_not_from_cache
+                        item_mutator=item_mutator
                     )
             else:
                 target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
@@ -478,7 +496,7 @@ class BaseCachingTable(BaseTable):
                         target_fields_containers=target_field_container,
                         record_attributes=record_item_attributes,
                         data_validation=data_validation,
-                        item_mutator=self.wrap_item_value_not_from_cache,
+                        item_mutator=item_mutator,
                     )
             return output_records_values, query_metadata
         else:

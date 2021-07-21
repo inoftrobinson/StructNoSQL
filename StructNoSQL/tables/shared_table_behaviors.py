@@ -1,5 +1,4 @@
-import string
-from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable, Union
+from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable
 
 from StructNoSQL import BaseField
 from StructNoSQL.models import DatabasePathElement, FieldGetter, QueryMetadata
@@ -9,24 +8,13 @@ from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 
 
-def unpack_retrieved_field(
-        record_attributes: dict, item_field_path_elements: List[DatabasePathElement],
-) -> Optional[Any]:
-    if not len(item_field_path_elements) > 0:
-        return None
-
-    return navigate_into_data_with_field_path_elements(
-        data=record_attributes, field_path_elements=item_field_path_elements,
-        num_keys_to_navigation_into=len(item_field_path_elements)
-    )
-
 def unpack_validate_retrieved_field(
         record_attributes: dict, target_field_container: Tuple[BaseField, List[DatabasePathElement]],
 ) -> Optional[Any]:
     item_field_object, item_field_path_elements = target_field_container
-    item_data: Optional[Any] = unpack_retrieved_field(
-        record_attributes=record_attributes, 
-        item_field_path_elements=item_field_path_elements
+    item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
+        data=record_attributes, field_path_elements=item_field_path_elements,
+        num_keys_to_navigation_into=len(item_field_path_elements)
     )
     item_field_object.populate(value=item_data)
     validated_data, is_valid = item_field_object.validate_data()
@@ -35,36 +23,42 @@ def unpack_validate_retrieved_field(
 def unpack_validate_retrieved_field_if_need_to(
         target_field_container: Tuple[BaseField, List[DatabasePathElement]],
         data_validation: bool, record_attributes: dict,
-        item_mutator: Optional[Callable[[Any], Any]] = lambda item_value: item_value
+        item_mutator: Optional[Callable[[Any, List[DatabasePathElement]], Any]] = lambda item_value, _: item_value
 ) -> Optional[Any]:
+    field_object, field_path_elements = target_field_container
     if data_validation is True:
         return item_mutator(unpack_validate_retrieved_field(
             record_attributes=record_attributes, 
             target_field_container=target_field_container
-        ))
+        ), field_path_elements)
     else:
-        return item_mutator(unpack_retrieved_field(
-            record_attributes=record_attributes, 
-            item_field_path_elements=target_field_container[1]
-        ))
+        return item_mutator(navigate_into_data_with_field_path_elements(
+            data=record_attributes, field_path_elements=field_path_elements,
+            num_keys_to_navigation_into=len(field_path_elements)
+        ), field_path_elements)
 
 def unpack_validate_multiple_retrieved_fields_if_need_to(
         target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
         data_validation: bool, record_attributes: dict,
-        item_mutator: Optional[Callable[[Any], Any]] = lambda item_value: item_value,
+        item_mutator: Optional[Callable[[Any, List[DatabasePathElement]], Any]] = lambda item_value, _: item_value,
         base_output_values: Optional[Dict[str, Any]] = None
 ):
     output_values: Dict[str, Any] = base_output_values or {}
     if data_validation is True:
         for item_key, item_container in target_fields_containers.items():
+            item_field_object, item_field_path_elements = item_container
+
             output_values[item_key] = item_mutator(unpack_validate_retrieved_field(
                 record_attributes=record_attributes, target_field_container=item_container
-            ))
+            ), item_field_path_elements)
     else:
         for item_key, item_container in target_fields_containers.items():
-            output_values[item_key] = item_mutator(unpack_retrieved_field(
-                record_attributes=record_attributes, item_field_path_elements=item_container[1]
-            ))
+            item_field_object, item_field_path_elements = item_container
+
+            output_values[item_key] = item_mutator(navigate_into_data_with_field_path_elements(
+                data=record_attributes, field_path_elements=item_field_path_elements,
+                num_keys_to_navigation_into=len(item_field_path_elements)
+            ), item_field_path_elements)
     return output_values
 
 
@@ -93,41 +87,6 @@ def _base_unpack_getters_response_item(
     return output_data
 
 # todo: make a function that validate, and one that does not, to have only one if check on validation
-def _unpack_validate_getters_record_attributes_if_need_to_v2(
-        attributes_item_processor: Callable[[List[DatabasePathElement]], Any],
-        item_value_mutator: Callable[[Any, List[DatabasePathElement]], Any],
-        data_validation: bool,
-        single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-        grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
-) -> Dict[str, Any]:
-    output_values: Dict[str, Any] = {}
-    for item_key, item_container in single_getters_target_fields_containers.items():
-        item_field_object, item_field_path_elements = item_container
-        item_value: Optional[Any] = attributes_item_processor(item_field_path_elements)
-        if data_validation is True:
-            item_field_object.populate(value=item_value)
-            validated_data, is_valid = item_field_object.validate_data()
-        else:
-            validated_data = item_value
-
-        output_values[item_key] = item_value_mutator(validated_data, item_field_path_elements)
-
-    for fields_container_key, fields_container_item in grouped_getters_target_fields_containers.items():
-        current_container_fields_data: Dict[str, Any] = {}
-        for child_field_key, child_field_container in fields_container_item.items():
-            child_field_object, child_field_path_elements = child_field_container
-            item_value: Optional[Any] = attributes_item_processor(child_field_path_elements)
-            if data_validation is True:
-                child_field_object.populate(value=item_value)
-                validated_data, is_valid = child_field_object.validate_data()
-            else:
-                validated_data = item_value
-
-            current_container_fields_data[child_field_key] = item_value_mutator(validated_data, child_field_path_elements)
-
-        output_values[fields_container_key] = current_container_fields_data
-    return output_values
-
 def _unpack_validate_getters_record_attributes_if_need_to(
         single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
         grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],

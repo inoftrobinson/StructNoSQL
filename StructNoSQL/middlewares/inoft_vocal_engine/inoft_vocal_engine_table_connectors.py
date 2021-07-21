@@ -76,20 +76,17 @@ class InoftVocalEngineTableConnectors:
         })
 
     def _query_items_by_key(
-            self, key_value: str, field_path_elements: Union[List[DatabasePathElement], List[List[DatabasePathElement]]],
-            is_multi_selector: bool, pagination_records_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
+            self, key_value: str, fields_path_elements: List[List[DatabasePathElement]],
+            pagination_records_limit: int, filter_expression: Optional[Any] = None, **additional_kwargs
     ):
-        serialized_fields_path_elements: List[dict] or Dict[str, dict] = [
-            item.serialize() for item in field_path_elements
-        ] if is_multi_selector is not True else {
-            key: [item.serialize() for item in path_elements]
-            for key, path_elements in field_path_elements
-        }
+        serialized_fields_path_elements: List[List[dict]] = [
+            [item.serialize() for item in path_elements]
+            for path_elements in fields_path_elements
+        ]
         return self._data_api_handler(payload={
             'operationType': 'queryItemsByKey',
             'keyValue': key_value,
-            'isMultiSelector': is_multi_selector,
-            'fieldPathElements': serialized_fields_path_elements,
+            'fieldsPathElements': serialized_fields_path_elements,
             'paginationRecordsLimit': pagination_records_limit,
             'filterExpression': filter_expression,
             **additional_kwargs

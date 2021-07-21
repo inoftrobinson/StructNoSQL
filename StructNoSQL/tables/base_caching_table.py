@@ -231,25 +231,12 @@ class BaseCachingTable(BaseTable):
         )
         return self.wrap_item_value(item_value=validated_data, from_cache=from_cache)
 
-    def _process_cache_record_value(
-            self, data_validation: bool, value: Any, primary_key_value: Any,
-            target_field_container: Tuple[BaseField, List[DatabasePathElement]]
-    ) -> Optional[Any]:
-        field_object, field_path_elements = target_field_container
-
-        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
-        return self._validate_cache_format_field_value_if_need_to(
-            value=value, data_validation=data_validation,
-            field_object=field_object, field_path_elements=field_path_elements,
-            index_cached_data=record_cached_data, from_cache=False
-        )
-
-    def _process_cache_record_item(
+    def _validate_cache_format_fields_values_if_need_to(
             self, data_validation: bool, record_item_data: dict, primary_key_value: str,
             target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
     ) -> dict:
         output: dict = {}
-        record_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
+        index_cached_data: dict = self._index_cached_data(primary_key_value=primary_key_value)
 
         for item_key, item_container in target_fields_containers.items():
             item_field_object, item_field_path_elements = item_container
@@ -258,7 +245,7 @@ class BaseCachingTable(BaseTable):
             output[item_key] = self._validate_cache_format_field_value_if_need_to(
                 value=record_item_matching_item_data, data_validation=data_validation,
                 field_object=item_field_object, field_path_elements=item_field_path_elements,
-                index_cached_data=record_cached_data, from_cache=False
+                index_cached_data=index_cached_data, from_cache=False
             )
         return output
 
@@ -427,7 +414,10 @@ class BaseCachingTable(BaseTable):
                 primary_key_value=key_value, field_path_elements=item_field_path_elements
             )
             if found_item_value_in_cache is True:
-                existing_record_data[item_key] = self.wrap_item_value(item_value=field_item_value_from_cache, from_cache=True)
+                existing_record_data[item_key] = self._validate_format_field_value_if_need_to(
+                    value=field_item_value_from_cache, data_validation=data_validation,
+                    field_object=item_field_object, from_cache=True
+                )
                 keys_fields_already_cached_to_pop.append(item_key)
 
         for key_to_pop in keys_fields_already_cached_to_pop:
@@ -442,15 +432,15 @@ class BaseCachingTable(BaseTable):
             # Since we query the primary_index, we know for a fact that we will never be returned more than
             # one record item. Hence why we do not have a loop that iterate over the records_items_data,
             # and that we return a dict with the only one record item being the requested key_value.
-            return {key_value: {
-                **existing_record_data,
-                **self._process_cache_record_item(
-                    data_validation=data_validation,
-                    record_item_data=retrieved_records_items_data[0],
-                    primary_key_value=key_value,
-                    target_fields_containers=target_fields_containers
-                )
-            }}, query_metadata
+            item_value: Optional[Any] = unpack_validate_multiple_retrieved_fields_if_need_to(
+                target_fields_containers=target_fields_containers,
+                data_validation=data_validation,
+                record_attributes=retrieved_records_items_data[0],
+                item_mutator=self.wrap_item_value_not_from_cache,
+                base_output_values=existing_record_data
+            )
+            # todo: cache data
+            return {key_value: item_value}, query_metadata
 
     def _query_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
@@ -609,7 +599,7 @@ class BaseCachingTable(BaseTable):
         )
         if index_name is None or index_name == self.primary_index_name:
             records_attributes, query_metadata = middleware(getters_database_paths)
-            if records_attributes is not None and not len(records_attributes) > 0:
+            if records_attributes is not None and len(records_attributes) > 0:
                 # Since we query the primary_index, we know for a fact that we will never be returned more than
                 # one record item. Hence why we do not have a loop that iterate over the records_items_data,
                 # and that we return a dict with the only one record item being the requested key_value.
@@ -693,8 +683,9 @@ class BaseCachingTable(BaseTable):
         if record_attributes is None:
             return output_data
 
+        index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
         unpacked_retrieved_items: dict = self.unpack_validate_cache_getters_record_attributes_if_need_to(
-            data_validation=data_validation, record_attributes=record_attributes,
+            data_validation=data_validation, record_attributes=record_attributes, index_cached_data=index_cached_data,
             single_getters_target_fields_containers=single_getters_target_fields_containers,
             grouped_getters_target_fields_containers=grouped_getters_target_fields_containers
         )
@@ -1039,8 +1030,9 @@ class BaseCachingTable(BaseTable):
             if record_attributes is None:
                 return None
 
+            index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
             return self.unpack_validate_cache_getters_record_attributes_if_need_to(
-                data_validation=data_validation, record_attributes=record_attributes,
+                data_validation=data_validation, record_attributes=record_attributes, index_cached_data=index_cached_data,
                 single_getters_target_fields_containers=removers_field_paths_elements,
                 grouped_getters_target_fields_containers=grouped_removers_field_paths_elements
             )

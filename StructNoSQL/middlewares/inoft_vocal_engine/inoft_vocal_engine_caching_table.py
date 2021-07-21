@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any, Tuple, Union
 
 from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
-    FieldPathSetter
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
@@ -58,11 +58,12 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Optional[dict]:
-        def middleware(field_path_elements: Union[List[DatabasePathElement], List[List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
+            # todo: deserialize query_metadata
+            raise Exception("not implemented")
             return self._query_items_by_key(
-                key_value=key_value, field_path_elements=field_path_elements,
-                is_multi_selector=is_multi_selector,
+                key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
@@ -74,10 +75,12 @@ class InoftVocalEngineCachingTable(BaseCachingTable, InoftVocalEngineTableConnec
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ):
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> List[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
+            # todo: deserialize query_metadata and records_attributes
+            raise Exception("not implemented")
             return self._query_items_by_key(
-                key_value=key_value, field_path_elements=fields_path_elements, is_multi_selector=True,
+                key_value=key_value, fields_path_elements=fields_path_elements, is_multi_selector=True,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression, **additional_kwargs
             )
         return self._query_multiple_fields(

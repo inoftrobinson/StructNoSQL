@@ -1,7 +1,10 @@
 from typing import Optional, List, Dict, Any, Tuple, Union
 
+from pydantic import BaseModel
+
 from StructNoSQL import PrimaryIndex
-from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, FieldPathSetter
+from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
+    FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables.base_basic_table import BaseBasicTable
 from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_table_connectors import InoftVocalEngineTableConnectors
@@ -40,14 +43,16 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
     def query_field(
             self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Optional[dict]:
-        def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool) -> List[dict]:
-            return self._query_items_by_key(
-                key_value=key_value, field_path_elements=field_path_elements,
-                is_multi_selector=is_multi_selector,
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[List[dict], QueryMetadata]:
+            response: Optional[dict] = self._query_items_by_key(
+                key_value=key_value, fields_path_elements=fields_path_elements,
                 pagination_records_limit=pagination_records_limit, filter_expression=filter_expression,
                 **additional_kwargs
             )
+            class QueryMetadataModel(BaseModel):
+                pass
+            raise Exception("Not implemented")
         return self._query_field(
             middleware=middleware, key_value=key_value, field_path=field_path,
             query_kwargs=query_kwargs, index_name=None, data_validation=data_validation
@@ -56,11 +61,14 @@ class InoftVocalEngineBasicTable(BaseBasicTable, InoftVocalEngineTableConnectors
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ):
-        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> List[dict]:
+    ) -> Tuple[Optional[dict], QueryMetadata]:
+        def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
+            # todo: deserialize the query_metadata and the records_attributes
+            raise Exception("not implemented")
             return self._query_items_by_key(
-                key_value=key_value, field_path_elements=fields_path_elements, is_multi_selector=True,
-                pagination_records_limit=pagination_records_limit, filter_expression=filter_expression, **additional_kwargs
+                key_value=key_value, fields_path_elements=fields_path_elements,
+                pagination_records_limit=pagination_records_limit,
+                filter_expression=filter_expression, **additional_kwargs
             )
         return self._query_multiple_fields(
             middleware=middleware, key_value=key_value, getters=getters,

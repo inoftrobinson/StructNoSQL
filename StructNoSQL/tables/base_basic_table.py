@@ -445,12 +445,12 @@ class BaseBasicTable(BaseTable):
                 grouped_removers_field_paths_elements[remover_key] = target_field_container
                 removers_database_paths.extend(fields_paths_elements)
 
-        response_attributes: Optional[Any] = middleware(removers_database_paths)
-        if response_attributes is None:
+        record_attributes: Optional[dict] = middleware(removers_database_paths)
+        if record_attributes is None:
             return None
 
         return self.unpack_validate_getters_record_attributes_if_need_to(
-            data_validation=data_validation, response_item=response_attributes,
+            data_validation=data_validation, record_attributes=record_attributes,
             single_getters_target_fields_containers=removers_field_paths_elements,
             grouped_getters_target_fields_containers=grouped_removers_field_paths_elements
         )

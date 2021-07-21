@@ -51,20 +51,21 @@ def unpack_validate_retrieved_field_if_need_to(
 def unpack_validate_multiple_retrieved_fields_if_need_to(
         target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
         data_validation: bool, record_attributes: dict,
-        item_mutator: Optional[Callable[[Any], Any]] = lambda item_value: item_value
+        item_mutator: Optional[Callable[[Any], Any]] = lambda item_value: item_value,
+        base_output_values: Optional[Dict[str, Any]] = None
 ):
-    output: Dict[str, Any] = {}
+    output_values: Dict[str, Any] = base_output_values or {}
     if data_validation is True:
         for item_key, item_container in target_fields_containers.items():
-            output[item_key] = item_mutator(unpack_validate_retrieved_field(
+            output_values[item_key] = item_mutator(unpack_validate_retrieved_field(
                 record_attributes=record_attributes, target_field_container=item_container
             ))
     else:
         for item_key, item_container in target_fields_containers.items():
-            output[item_key] = item_mutator(unpack_retrieved_field(
+            output_values[item_key] = item_mutator(unpack_retrieved_field(
                 record_attributes=record_attributes, item_field_path_elements=item_container[1]
             ))
-    return output
+    return output_values
 
 
 # todo: remove the _base_unpack_getters_response_item function

@@ -1,8 +1,8 @@
 import abc
-from typing import Optional, List, Dict, Any, Tuple, Callable, Union
+from typing import Optional, List, Dict, Any, Tuple, Callable, Union, Type
 
-from StructNoSQL import BaseField
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
+from StructNoSQL import BaseField, TableDataModel
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldRemover, FieldSetter, UnsafeFieldSetter, \
     FieldPathSetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
@@ -15,7 +15,7 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 
 class BaseCachingTable(BaseTable):
-    def __init__(self, data_model, primary_index: PrimaryIndex):
+    def __init__(self, data_model: Type[TableDataModel], primary_index: PrimaryIndex):
         super().__init__(data_model=data_model, primary_index=primary_index)
         self._cached_data_per_primary_key: Dict[str, Any] = {}
         self._pending_update_operations_per_primary_key: Dict[str, Dict[str, FieldPathSetter]] = {}

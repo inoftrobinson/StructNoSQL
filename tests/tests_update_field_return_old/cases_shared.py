@@ -2,13 +2,13 @@ import unittest
 from typing import Optional, Union, Dict, Any
 from uuid import uuid4
 
-from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineCachingTable, FieldSetter
-from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_basic_table import InoftVocalEngineBasicTable
+from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable, FieldSetter
+from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID
 
 
 def test_update_field_return_old(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     simple_text_field_first_random_value: str = f"simpleTextField_firstRandomValue_{uuid4()}"
@@ -45,7 +45,7 @@ def test_update_field_return_old(
 
 
 def test_update_multiple_fields_return_old(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, InoftVocalEngineBasicTable, InoftVocalEngineCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     container_field_one_first_random_value: str = f"container_fieldOne_firstRandomValue_{uuid4()}"

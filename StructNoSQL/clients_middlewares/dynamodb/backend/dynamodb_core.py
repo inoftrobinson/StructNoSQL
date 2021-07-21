@@ -10,8 +10,8 @@ from typing import List, Optional, Type, Any, Dict, Tuple, Union
 
 from botocore.exceptions import ClientError
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.clients_middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
     GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
 from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
     MapItemInitializerContainer, QueryMetadata

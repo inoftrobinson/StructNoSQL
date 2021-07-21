@@ -1,6 +1,6 @@
 from typing import Optional, List, Any
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import Response
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import Response
 from StructNoSQL.models import DatabasePathElement
 
 

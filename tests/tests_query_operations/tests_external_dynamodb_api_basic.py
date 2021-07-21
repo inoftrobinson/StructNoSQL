@@ -1,13 +1,13 @@
 import unittest
 
 from tests.components.playground_table_clients import PlaygroundInoftVocalEngineBasicTable
-from tests.tests_caching_table.table_models import InoftVocalEngineTableModel
+from tests.tests_caching_table.table_models import ExternalDynamoDBApiTableModel
 
 
-class TestsInoftVocalEngineCachingTable(unittest.TestCase):
+class TestsExternalDynamoDBApiCachingTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.users_table = PlaygroundInoftVocalEngineBasicTable(data_model=InoftVocalEngineTableModel)
+        self.users_table = PlaygroundInoftVocalEngineBasicTable(data_model=ExternalDynamoDBApiTableModel)
         self.users_table.debug = True
 
         self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectUserId', 'is_caching': False}

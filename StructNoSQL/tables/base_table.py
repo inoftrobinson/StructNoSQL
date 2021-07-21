@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict
+from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict, Type
 from copy import copy
 
 from StructNoSQL import PrimaryIndex
@@ -28,7 +28,7 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(self, data_model, primary_index: PrimaryIndex):
+    def __init__(self, data_model: Type[TableDataModel], primary_index: PrimaryIndex):
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 

@@ -1,24 +1,18 @@
+from typing import List, Optional, Any, Dict, Tuple
 from json import JSONDecodeError
-
-import requests
-from typing import List, Optional, Any, Dict, Tuple, Union
-
 from StructNoSQL.models import FieldPathSetter, DatabasePathElement
+import requests
 
 
-class InoftVocalEngineTableConnectors:
-    def __setup_connectors__(self, engine_account_id: str, engine_project_id: str, engine_api_key: str, table_id: str, region_name: str):
-        self.engine_account_id = engine_account_id
-        self.engine_project_id = engine_project_id
-        self.engine_api_key = engine_api_key
-        self.table_id = table_id
-        self.region_name = region_name
-        self.database_client_api_endpoint_url = f'http://127.0.0.1:5000/api/v1/{self.engine_account_id}/{self.engine_project_id}/database-client'
+class ExternalDynamoDBApiTableConnectors:
+    def __setup_connectors__(self, api_http_endpoint: str, base_payload: Optional[dict] = None):
+        self.api_http_endpoint = api_http_endpoint
+        self.base_payload = base_payload or {}
 
     def _base_api_handler(self, payload: dict) -> Optional[dict]:
         response = requests.post(
-            url=self.database_client_api_endpoint_url,
-            json={**payload, 'accessToken': self.engine_api_key}
+            url=self.api_http_endpoint,
+            json={**payload, **self.base_payload}
         )
         if not response.ok:
             print("Response not ok")

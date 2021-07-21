@@ -1,20 +1,18 @@
 import unittest
 
-from tests.components.playground_table_clients import PlaygroundInoftVocalEngineCachingTable
-from tests.tests_data_retrieval_validation.table_models import InoftVocalEngineFirstTableModel, InoftVocalEngineSecondTableModel
+from tests.components.playground_table_clients import PlaygroundInoftVocalEngineBasicTable
+from tests.tests_data_retrieval_validation.table_models import ExternalDynamoDBApiFirstTableModel, ExternalDynamoDBApiSecondTableModel
 
 
-class TestsInoftVocalEngineCachingTable(unittest.TestCase):
+class TestsExternalDynamoDBApiBasicTable(unittest.TestCase):
     def __init__(self, method_name: str):
         super().__init__(methodName=method_name)
-        self.first_table = PlaygroundInoftVocalEngineCachingTable(data_model=InoftVocalEngineFirstTableModel)
-        self.first_table.debug = True
-        self.second_table = PlaygroundInoftVocalEngineCachingTable(data_model=InoftVocalEngineSecondTableModel)
-        self.second_table.debug = True
+        self.first_table = PlaygroundInoftVocalEngineBasicTable(data_model=ExternalDynamoDBApiFirstTableModel)
+        self.second_table = PlaygroundInoftVocalEngineBasicTable(data_model=ExternalDynamoDBApiSecondTableModel)
 
         self.SHARED_CASE_KWARGS = {
             'self': self, 'first_table': self.first_table, 'second_table': self.second_table,
-            'is_caching': True, 'primary_key_name': 'accountProjectUserId'
+            'is_caching': False, 'primary_key_name': 'accountProjectUserId'
         }
 
     def test_get_field(self):

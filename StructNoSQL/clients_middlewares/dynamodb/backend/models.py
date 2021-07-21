@@ -3,7 +3,7 @@ from typing import Optional, List, Type, Any, Dict
 
 from pydantic import BaseModel, validate_arguments
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import PythonToDynamoDBTypesConvertor
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import PythonToDynamoDBTypesConvertor
 
 
 HASH_KEY_TYPE = "HASH"

@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from ApiMiddlewareServer.executor_handlers import getSingleValueInPathTarget, \
+from StructNoSQL.servers_middlewares.external_dynamodb_api.api_executor_handlers import getSingleValueInPathTarget, \
     getValuesInMultiplePathTarget, setUpdateMultipleDataElementsToMap, setUpdateMultipleDataElementsToMapWithDefaultInitialization,\
     removeDataElementsFromMap, deleteDataElementsFromMap, getOrQuerySingleItem, deleteRecord, removeRecord, putRecord, queryItemsByKey
 

@@ -21,7 +21,7 @@ class DynamoDBFirstTableModel(BaseFirstTableModel):
 class DynamoDBSecondTableModel(BaseSecondTableModel):
     accountId = BaseField(field_type=str, required=True)
 
-class InoftVocalEngineFirstTableModel(BaseFirstTableModel):
+class ExternalDynamoDBApiFirstTableModel(BaseFirstTableModel):
     accountProjectUserId = BaseField(field_type=str, required=True)
-class InoftVocalEngineSecondTableModel(BaseSecondTableModel):
+class ExternalDynamoDBApiSecondTableModel(BaseSecondTableModel):
     accountProjectUserId = BaseField(field_type=str, required=True)

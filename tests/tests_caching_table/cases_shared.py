@@ -3,15 +3,15 @@ import unittest
 from typing import List, Callable, Dict, Optional
 from uuid import uuid4
 from StructNoSQL import FieldRemover, FieldSetter, FieldGetter
-from StructNoSQL.middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
-from StructNoSQL.middlewares.inoft_vocal_engine.inoft_vocal_engine_caching_table import InoftVocalEngineCachingTable
+from StructNoSQL.clients_middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
+from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_caching_table import ExternalDynamoDBApiCachingTable
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
 
 # todo: add an unit test that make sure that what matter with the field are the field names, not their variable names
 
 
-def test_simple_get_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_simple_get_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
 
     first_response_data = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
@@ -20,7 +20,7 @@ def test_simple_get_field(self: unittest.TestCase, users_table: DynamoDBCachingT
     second_response_data = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
     self.assertEqual(second_response_data['fromCache'], True)
 
-def test_set_then_get_field_from_cache(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_then_get_field_from_cache(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value = random.randint(0, 100)
 
@@ -30,7 +30,7 @@ def test_set_then_get_field_from_cache(self: unittest.TestCase, users_table: Dyn
     retrieve_response_data = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
     self.assertEqual(retrieve_response_data['fromCache'], True)
 
-def test_set_then_get_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_then_get_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
 
     random_field_one_value = random.randint(0, 99)
@@ -49,7 +49,7 @@ def test_set_then_get_multiple_fields(self: unittest.TestCase, users_table: Dyna
     self.assertEqual(retrieve_response_data.get('one', None), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(retrieve_response_data.get('two', None), {'value': random_field_two_value, 'fromCache': True})
 
-def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
 
     random_field_one_value = random.randint(0, 99)
@@ -88,7 +88,7 @@ def test_set_then_get_pack_values_with_one_of_them_present_in_cache(self: unitte
     self.assertEqual(get_multiple_fields_response_data.get('one', None), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(get_multiple_fields_response_data.get('two', None), {'value': random_field_two_value, 'fromCache': False})
 
-def test_debug_simple_set_commit_then_get_field_from_database(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_debug_simple_set_commit_then_get_field_from_database(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value = random.randint(0, 100)
 
@@ -101,7 +101,7 @@ def test_debug_simple_set_commit_then_get_field_from_database(self: unittest.Tes
     retrieve_response_data = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='simpleValue')
     self.assertEqual(retrieve_response_data, {'fromCache': False, 'value': random_field_value})
 
-def test_update_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_update_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_one_value = random.randint(0, 99)
     random_field_two_value = random.randint(100, 199)
@@ -116,7 +116,7 @@ def test_update_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCa
     self.assertEqual(retrieved_data.get('simpleValue', None), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(retrieved_data.get('simpleValue2', None), {'value': random_field_two_value, 'fromCache': True})
 
-def test_set_delete_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_delete_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value = random.randint(0, 100)
 
@@ -137,7 +137,7 @@ def test_set_delete_field(self: unittest.TestCase, users_table: DynamoDBCachingT
     retrieved_expected_empty_value_from_database = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToDelete')
     self.assertEqual(retrieved_expected_empty_value_from_database, {'fromCache': False, 'value': None})
 
-def test_set_remove_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_remove_field(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value = random.randint(0, 100)
 
@@ -158,7 +158,7 @@ def test_set_remove_field(self: unittest.TestCase, users_table: DynamoDBCachingT
     retrieved_expected_empty_value_from_database = users_table.get_field(key_value=TEST_ACCOUNT_ID, field_path='fieldToRemove')
     self.assertEqual(retrieved_expected_empty_value_from_database, {'fromCache': False, 'value': None})
 
-def test_dict_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_dict_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     """
     Data unpacking handle the scenario where an object would be put in the cache (like a dictionary, that has been
     updated as an object, instead of doing it field per field), and then later on, we try to access from the cache
@@ -184,7 +184,7 @@ def test_dict_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachi
     self.assertEqual(removed_value.get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(removed_value.get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
 
-def test_list_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_list_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     """
     Data unpacking handle the scenario where an object would be put in the cache (like a dictionary, that has been
     updated as an object, instead of doing it field per field), and then later on, we try to access from the cache
@@ -217,7 +217,7 @@ def test_list_data_unpacking(self: unittest.TestCase, users_table: DynamoDBCachi
     self.assertEqual(removed_values.get('fieldOne', {}), {'value': random_field_one_value, 'fromCache': True})
     self.assertEqual(removed_values.get('fieldTwo', {}), {'value': random_field_two_value, 'fromCache': True})
 
-def test_set_remove_multi_selector_field_and_field_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_remove_multi_selector_field_and_field_unpacking(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_one_value = f"field_one_{uuid4()}"
     random_field_two_value = f"field_two_{uuid4()}"
@@ -241,7 +241,7 @@ def test_set_remove_multi_selector_field_and_field_unpacking(self: unittest.Test
         'fieldThree': {'fromCache': False, 'value': random_field_three_value}
     })
 
-def test_set_delete_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_delete_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value_one = random.randint(0, 100)
     random_field_value_two = random.randint(100, 200)
@@ -283,7 +283,7 @@ def test_set_delete_multiple_fields(self: unittest.TestCase, users_table: Dynamo
     self.assertFalse(retrieved_expected_empty_value_two_from_database['fromCache'])
     self.assertIsNone(retrieved_expected_empty_value_two_from_database['value'])
 
-def test_set_remove_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or InoftVocalEngineCachingTable):
+def test_set_remove_multiple_fields(self: unittest.TestCase, users_table: DynamoDBCachingTable or ExternalDynamoDBApiCachingTable):
     users_table.clear_cached_data_and_pending_operations()
     random_field_value_one = random.randint(0, 100)
     random_field_value_two = random.randint(100, 200)

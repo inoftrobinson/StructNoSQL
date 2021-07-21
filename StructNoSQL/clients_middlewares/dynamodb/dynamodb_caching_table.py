@@ -1,17 +1,19 @@
-from typing import Optional, List, Dict, Any, Tuple, Union, Generator
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.middlewares.dynamodb.backend.models import Response
+from typing import Optional, List, Dict, Any, Tuple, Union, Generator, Type
+
+from StructNoSQL import TableDataModel
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.clients_middlewares.dynamodb.backend.models import Response
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
 from StructNoSQL.tables.base_caching_table import BaseCachingTable
-from StructNoSQL.middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.clients_middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
 
 
 class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def __init__(
-            self, table_name: str, region_name: str, data_model,
-            primary_index: PrimaryIndex,
+            self, table_name: str, region_name: str,
+            data_model: Type[TableDataModel], primary_index: PrimaryIndex,
             billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
             global_secondary_indexes: List[GlobalSecondaryIndex] = None,
             auto_create_table: bool = True

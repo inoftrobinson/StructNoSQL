@@ -3,7 +3,7 @@ from sys import getsizeof
 from typing import Dict
 
 from StructNoSQL import FieldRemover, BaseField, TableDataModel
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import EXPRESSION_MAX_BYTES_SIZE
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import EXPRESSION_MAX_BYTES_SIZE
 from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 

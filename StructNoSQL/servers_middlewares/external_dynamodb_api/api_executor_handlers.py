@@ -1,12 +1,12 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_core import Response
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import Response
 
 from StructNoSQL.models import DatabasePathElement, FieldPathSetter
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
-from ApiMiddlewareServer.database_client import DynamoDBLowLevelTableClient
-from ApiMiddlewareServer.models import FieldPathElementItemModel
+from StructNoSQL.servers_middlewares.external_dynamodb_api.low_level_table_client import DynamoDBLowLevelTableClient
+from StructNoSQL.servers_middlewares.external_dynamodb_api.models import FieldPathElementItemModel
 
 
 def putRecord(table: DynamoDBLowLevelTableClient, data: dict):
@@ -167,7 +167,7 @@ def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data:
     if response is None:
         return False, None, {}
 
-    from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+    from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
     response_attributes: Optional[dict] = (
         DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
         if response.attributes is not None else None
@@ -197,7 +197,7 @@ def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBL
     if response is None:
         return False, None
 
-    from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+    from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
     response_attributes: Optional[Dict[str, Any]] = (
         DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
         if response.attributes is not None else None

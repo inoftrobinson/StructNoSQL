@@ -2,7 +2,7 @@ import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
 
 from StructNoSQL.utils.objects import NoneType
-from StructNoSQL.middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars

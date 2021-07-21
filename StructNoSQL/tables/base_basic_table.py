@@ -1,6 +1,6 @@
-from typing import Optional, List, Dict, Any, Tuple, Callable, Union
+from typing import Optional, List, Dict, Any, Tuple, Callable, Union, Type
 
-from StructNoSQL import PrimaryIndex, BaseField
+from StructNoSQL import PrimaryIndex, BaseField, TableDataModel
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
 from StructNoSQL.tables.base_table import BaseTable
@@ -12,7 +12,7 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 
 class BaseBasicTable(BaseTable):
-    def __init__(self, data_model, primary_index: PrimaryIndex):
+    def __init__(self, data_model: Type[TableDataModel], primary_index: PrimaryIndex):
         super().__init__(data_model=data_model, primary_index=primary_index)
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:

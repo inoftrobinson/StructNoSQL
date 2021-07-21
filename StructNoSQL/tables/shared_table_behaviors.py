@@ -9,20 +9,77 @@ from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 
 
+def unpack_retrieved_field(
+        record_attributes: dict, item_field_path_elements: List[DatabasePathElement],
+) -> Optional[Any]:
+    if not len(item_field_path_elements) > 0:
+        return None
+
+    return navigate_into_data_with_field_path_elements(
+        data=record_attributes, field_path_elements=item_field_path_elements,
+        num_keys_to_navigation_into=len(item_field_path_elements)
+    )
+
+def unpack_validate_retrieved_field(
+        record_attributes: dict, target_field_container: Tuple[BaseField, List[DatabasePathElement]],
+) -> Optional[Any]:
+    item_field_object, item_field_path_elements = target_field_container
+    item_data: Optional[Any] = unpack_retrieved_field(
+        record_attributes=record_attributes, 
+        item_field_path_elements=item_field_path_elements
+    )
+    item_field_object.populate(value=item_data)
+    validated_data, is_valid = item_field_object.validate_data()
+    return validated_data
+
+def unpack_validate_retrieved_field_if_need_to(
+        data_validation: bool, record_attributes: dict,
+        target_field_container: Tuple[BaseField, List[DatabasePathElement]],
+) -> Optional[Any]:
+    if data_validation is True:
+        return unpack_validate_retrieved_field(
+            record_attributes=record_attributes, 
+            target_field_container=target_field_container
+        )
+    else:
+        return unpack_retrieved_field(
+            record_attributes=record_attributes, 
+            item_field_path_elements=target_field_container[1]
+        )
+
+def unpack_validate_multiple_retrieved_fields_if_need_to(
+        data_validation: bool, record_attributes: dict,
+        target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+):
+    output: Dict[str, Any] = {}
+    if data_validation is True:
+        for item_key, item_container in target_fields_containers.items():
+            output[item_key] = unpack_validate_retrieved_field(
+                record_attributes=record_attributes, target_field_container=item_container
+            )
+    else:
+        for item_key, item_container in target_fields_containers.items():
+            output[item_key] = unpack_retrieved_field(
+                record_attributes=record_attributes, item_field_path_elements=item_container[1]
+            )
+    return output
+
+
+# todo: remove the _base_unpack_getters_response_item function
 def _base_unpack_getters_response_item(
         item_mutator: Callable[[Any], Any], response_item: dict,
-        single_getters_database_paths_elements: Dict[str, List[DatabasePathElement]],
-        grouped_getters_database_paths_elements: Dict[str, Dict[str, List[DatabasePathElement]]]
+        single_getters_target_fields_containers: Dict[str, List[DatabasePathElement]],
+        grouped_getters_target_fields_containers: Dict[str, Dict[str, List[DatabasePathElement]]]
 ) -> Dict[str, Any]:
     output_data: Dict[str, Any] = {}
-    for item_key, item_field_path_elements in single_getters_database_paths_elements.items():
+    for item_key, item_field_path_elements in single_getters_target_fields_containers.items():
         retrieved_item_data = navigate_into_data_with_field_path_elements(
             data=response_item, field_path_elements=item_field_path_elements,
             num_keys_to_navigation_into=len(item_field_path_elements)
         )
         output_data[item_key] = item_mutator(retrieved_item_data)
 
-    for container_key, container_items_field_path_elements in grouped_getters_database_paths_elements.items():
+    for container_key, container_items_field_path_elements in grouped_getters_target_fields_containers.items():
         container_data: Dict[str, Any] = {}
         for child_item_key, child_item_field_path_elements in container_items_field_path_elements.items():
             container_data[child_item_key] = navigate_into_data_with_field_path_elements(
@@ -32,16 +89,52 @@ def _base_unpack_getters_response_item(
         output_data[container_key] = item_mutator(container_data)
     return output_data
 
-def _base_unpack_getters_response_item_v2(
-        item_mutator: Callable[[Any], Any], data_validation: bool, response_item: dict,
-        single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
-        grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
+# todo: make a function that validate, and one that does not, to have only one if check on validation
+def _unpack_validate_getters_record_attributes_if_need_to_v2(
+        attributes_item_processor: Callable[[List[DatabasePathElement]], Any],
+        item_value_mutator: Callable[[Any, List[DatabasePathElement]], Any],
+        data_validation: bool,
+        single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+        grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
 ) -> Dict[str, Any]:
-    output_data: Dict[str, Any] = {}
-    for item_key, item_container in single_getters_database_paths_elements.items():
+    output_values: Dict[str, Any] = {}
+    for item_key, item_container in single_getters_target_fields_containers.items():
+        item_field_object, item_field_path_elements = item_container
+        item_value: Optional[Any] = attributes_item_processor(item_field_path_elements)
+        if data_validation is True:
+            item_field_object.populate(value=item_value)
+            validated_data, is_valid = item_field_object.validate_data()
+        else:
+            validated_data = item_value
+
+        output_values[item_key] = item_value_mutator(validated_data, item_field_path_elements)
+
+    for fields_container_key, fields_container_item in grouped_getters_target_fields_containers.items():
+        current_container_fields_data: Dict[str, Any] = {}
+        for child_field_key, child_field_container in fields_container_item.items():
+            child_field_object, child_field_path_elements = child_field_container
+            item_value: Optional[Any] = attributes_item_processor(child_field_path_elements)
+            if data_validation is True:
+                child_field_object.populate(value=item_value)
+                validated_data, is_valid = child_field_object.validate_data()
+            else:
+                validated_data = item_value
+
+            current_container_fields_data[child_field_key] = item_value_mutator(validated_data, child_field_path_elements)
+
+        output_values[fields_container_key] = current_container_fields_data
+    return output_values
+
+def _unpack_validate_getters_record_attributes_if_need_to(
+        item_mutator: Callable[[Any, List[DatabasePathElement]], Any], data_validation: bool, record_attributes: dict,
+        single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
+        grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
+) -> Dict[str, Any]:
+    output_values: Dict[str, Any] = {}
+    for item_key, item_container in single_getters_target_fields_containers.items():
         item_field_object, item_field_path_elements = item_container
         item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-            data=response_item, field_path_elements=item_field_path_elements,
+            data=record_attributes, field_path_elements=item_field_path_elements,
             num_keys_to_navigation_into=len(item_field_path_elements)
         )
         if data_validation is True:
@@ -50,14 +143,14 @@ def _base_unpack_getters_response_item_v2(
         else:
             validated_data = item_data
 
-        output_data[item_key] = item_mutator(validated_data)
+        output_values[item_key] = item_mutator(validated_data, item_field_path_elements)
 
-    for fields_container_key, fields_container_item in grouped_getters_database_paths_elements.items():
+    for fields_container_key, fields_container_item in grouped_getters_target_fields_containers.items():
         current_container_fields_data: Dict[str, Any] = {}
         for child_field_key, child_field_container in fields_container_item.items():
             child_field_object, child_field_path_elements = child_field_container
             item_data: Optional[Any] = navigate_into_data_with_field_path_elements(
-                data=response_item, field_path_elements=child_field_path_elements,
+                data=record_attributes, field_path_elements=child_field_path_elements,
                 num_keys_to_navigation_into=len(child_field_path_elements)
             )
             if data_validation is True:
@@ -66,10 +159,10 @@ def _base_unpack_getters_response_item_v2(
             else:
                 validated_data = item_data
 
-            current_container_fields_data[child_field_key] = item_mutator(validated_data)
+            current_container_fields_data[child_field_key] = item_mutator(validated_data, child_field_path_elements)
 
-        output_data[fields_container_key] = current_container_fields_data
-    return output_data
+        output_values[fields_container_key] = current_container_fields_data
+    return output_values
 
 
 def _has_primary_key_in_path_elements(primary_index_name: str, fields_path_elements: Dict[str, List[DatabasePathElement]]) -> Tuple[bool, Optional[str]]:
@@ -88,75 +181,33 @@ def _has_primary_key_in_path_elements_v2(primary_index_name: str, fields_path_el
                 return True
     return False
 
+# todo: deprecate ?
 def _inner_query_fields_secondary_index(
         middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
         primary_index_name: str, get_primary_key_database_path: Callable[[], List[DatabasePathElement]],
         fields_paths_elements: List[List[DatabasePathElement]]
 ) -> Tuple[Optional[dict], QueryMetadata]:
     """
-    This function will force the retrieving of the primary key of the records returned by a secondary index query operations,
-    and retrieve a dict with the primary key of each record as key.
-
-    There is four different behaviors :
-    1 - A single field is requested, and it is the primary key field. No additional field will be requested, and the retrieved
-        values for each record from the middleware function will be use both as the key and value of the output dict.
-    2 - A single field is requested, but it is not the primary key index. We will force the requesting of the primary key's of
-        the records, by constructing a dict of fields to request with both the primary index key, and the field the user is actually
-        requesting. We then force the middleware to request multiple fields, and when we receiving the response containing the records
-        items, we will use the primary key as the key's for each record, and the client requested values as value.
-    3 - Multiple fields are requested, and the primary key field is one of the requested field. We will get the client key of the getter that
-        is tasked to retrieved the primary key field, and once we receive the records items, we can use the value found at the primary key
-        getter, as the key's for the output dict.
-    4 - Multiple fields are requested, and the primary key is not requested. Similarly to the second case, we will force the retrieval of the
-        primary key field. But this time, we add the primary key field getter to the existing field to retrieve, by using the '__PRIMARY_KEY__'
-        key_name. If the key_name is already being used by the client, we will randomly add characters to the key_name, until we find a free to
-        use key_name. Then, the primary key's will be popped from the response items of each records and be used as the keys of the output dict.
-
-    :param middleware:
-    :param process_record_value: Callable[[data_validation: bool, value: Optional[Any], primary_key_value: Any, target_field_container: Tuple[BaseField, List[DatabasePathElement]]], Any]
-    :param process_record_item: Callable[[data_validation: bool, record_item_data: dict, primary_key_value: Any, target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]], Any]
-    :param primary_index_name: str
-    :param get_primary_key_database_path: Callable[[], List[DatabasePathElement]]
-    :param field_path_elements: Union[Tuple[BaseField, List[DatabasePathElement]], Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
-    :param is_multi_selector: bool
-    :return: Optional[dict]
+    This function will force the retrieving of the primary key of the records returned by a
+    secondary index query operations and retrieve a dict with the primary key of each record as key.
     """
 
-    # If multiple fields are requested
-
-    primary_key_is_being_requested_by_client = (
+    primary_key_is_being_requested_by_client: bool = (
         _has_primary_key_in_path_elements_v2(primary_index_name=primary_index_name, fields_path_elements=fields_paths_elements)
     )
-    if primary_key_is_being_requested_by_client is True:
-        retrieved_records_items_data, query_metadata = middleware(fields_paths_elements)
-        if retrieved_records_items_data is None:
-            return None, query_metadata
+    super_fields_path_elements: List[List[DatabasePathElement]] = (
+        fields_paths_elements if primary_key_is_being_requested_by_client is not True else
+        [*fields_paths_elements, get_primary_key_database_path()]
+    )
+    retrieved_records_items_data, query_metadata = middleware(super_fields_path_elements)
+    if retrieved_records_items_data is None:
+        return None, query_metadata
 
-        records_attributes: dict = {}
-        for record_item_data in retrieved_records_items_data:
-            record_primary_key_value: Optional[Any] = record_item_data.get(primary_index_name, None)
-            records_attributes[record_primary_key_value] = record_item_data
-        return records_attributes, query_metadata
-    else:
-        """free_to_use_getter_key_name: str = '__PRIMARY_KEY__'
-        while True:
-            # If the key_name is already being used by the client, we will randomly
-            # add characters to the key_name, until we find a free to use key_name.
-            if free_to_use_getter_key_name not in fields_paths_elements:
-                break
-            import random
-            free_to_use_getter_key_name += random.choice(string.ascii_letters)"""
-
-        super_fields_path_elements = [*fields_paths_elements, get_primary_key_database_path()]
-        retrieved_records_items_data, query_metadata = middleware(super_fields_path_elements)
-        if retrieved_records_items_data is None:
-            return None, query_metadata
-
-        records_attributes: dict = {}
-        for record_item_data in retrieved_records_items_data:
-            record_primary_key_value: Optional[Any] = record_item_data.get(primary_index_name, None)
-            records_attributes[record_primary_key_value] = record_item_data
-        return records_attributes, query_metadata
+    records_attributes: dict = {}
+    for record_item_data in retrieved_records_items_data:
+        record_primary_key_value: Optional[Any] = record_item_data.get(primary_index_name, None)
+        records_attributes[record_primary_key_value] = record_item_data
+    return records_attributes, query_metadata
 
 
 def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter]) -> Tuple[
@@ -165,8 +216,8 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
     Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]]
 ]:
     getters_database_paths: List[List[DatabasePathElement]] = []
-    single_getters_database_paths_elements: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
-    grouped_getters_database_paths_elements: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
+    single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
+    grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]] = {}
 
     for getter_key, getter_item in getters.items():
         target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
@@ -174,7 +225,7 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
         )
         if is_multi_selector is not True:
             target_field_container: Tuple[BaseField, List[DatabasePathElement]]
-            single_getters_database_paths_elements[getter_key] = target_field_container
+            single_getters_target_fields_containers[getter_key] = target_field_container
             getters_database_paths.append(target_field_container[1])
         else:
             target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
@@ -182,11 +233,11 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
             field_path_object: Dict[str, BaseField]
             getter_field_path_elements: Dict[str, List[DatabasePathElement]]
 
-            grouped_getters_database_paths_elements[getter_key] = target_field_container
+            grouped_getters_target_fields_containers[getter_key] = target_field_container
             for item_target_field_container in target_field_container.values():
                 getters_database_paths.append(item_target_field_container[1])
 
-    return getters_database_paths, single_getters_database_paths_elements, grouped_getters_database_paths_elements
+    return getters_database_paths, single_getters_target_fields_containers, grouped_getters_target_fields_containers
 
 
 def _model_contain_all_index_keys(model: Any, indexes_keys: Iterable[str]) -> bool:

@@ -40,7 +40,7 @@ def database_client(account_id: str, project_id: str):
         if not isinstance(request_payload, dict):
             return jsonify(success=False, errorKey='expectedDictPayload')
 
-        return InoftVocalEngineExternalDynamoDBApiExecutor().execute(request.get_json())
+        return InoftVocalEngineExternalDynamoDBApiExecutor().execute(request_payload)
 
     except JSONDecodeError as e:
         return jsonify(success=False, errorKey='payloadInvalidJSONFormat', error=str(e))

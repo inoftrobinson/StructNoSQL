@@ -68,7 +68,7 @@ class InoftVocalEngineCachingTable(ExternalDynamoDBApiCachingTable):
 INOFT_VOCAL_ENGINE_PLAYGROUND_TABLE_KWARGS = {
     'engine_account_id': "b1fe5939-032b-462d-92e0-a942cd445096",
     'engine_project_id': "4ede8b70-46f6-4ae2-b09c-05a549194c8e",
-    'engine_api_key': "a2bf5ff8-bbd3-4d01-b695-04138ee19b42",
+    'engine_api_key': "daisybelle",
     'table_id': "structnosql-playground",
     'region_name': "eu-west-2",
 }

@@ -51,7 +51,7 @@ class ExternalDynamoDBApiBasicTable(BaseBasicTable, ExternalDynamoDBApiTableConn
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], pagination_records_limit: Optional[int] = None,
             filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ) -> Tuple[Optional[dict], QueryMetadata]:
+    ) -> Tuple[Optional[Dict[str, Any]], QueryMetadata]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self._query_items_by_key(
                 key_value=key_value, fields_path_elements=fields_path_elements,

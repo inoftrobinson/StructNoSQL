@@ -102,7 +102,7 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
     def query_multiple_fields(
             self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None,
             pagination_records_limit: Optional[int] = None, filter_expression: Optional[Any] = None, data_validation: bool = True, **additional_kwargs
-    ):
+    ) -> Tuple[Optional[Dict[str, dict]], QueryMetadata]:
         def middleware(fields_path_elements: List[List[DatabasePathElement]]) -> Tuple[Optional[List[dict]], QueryMetadata]:
             return self.dynamodb_client.query_items_by_key(
                 index_name=index_name or self.primary_index_name,

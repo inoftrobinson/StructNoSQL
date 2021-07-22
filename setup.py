@@ -5,7 +5,7 @@ setup(
     version="2.6.0",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=["pydantic", "boto3"],
+    install_requires=["pydantic", "boto3", "requests"],
     url="https://github.com/Robinson04/StructNoSQL",
     license="MIT",
     author="Inoft",

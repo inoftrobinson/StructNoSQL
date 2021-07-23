@@ -452,7 +452,8 @@ class BaseCachingTable(BaseTable):
 
     def _query_field(
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
-            key_value: str, field_path: str, query_kwargs: Optional[dict], index_name: Optional[str], data_validation: bool
+            key_value: str, field_path: str, query_kwargs: Optional[dict], index_name: Optional[str],
+            data_validation: bool
     ) -> Tuple[Optional[dict], QueryMetadata]:
 
         target_field_container, is_multi_selector = process_and_make_single_rendered_database_path(
@@ -460,15 +461,6 @@ class BaseCachingTable(BaseTable):
         )
         if index_name is not None and index_name != self.primary_index_name:
             output_records_values: dict = {}
-
-            index_cached_data: dict = self._index_cached_data(primary_key_value=key_value)
-            def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
-                BaseCachingTable._cache_put_data(
-                    index_cached_data=index_cached_data,
-                    field_path_elements=item_field_path_elements,
-                    data=item_value
-                )
-                return self.wrap_item_value(item_value=item_value, from_cache=False)
 
             if is_multi_selector is not True:
                 target_field_container: Tuple[BaseField, List[DatabasePathElement]]
@@ -478,6 +470,15 @@ class BaseCachingTable(BaseTable):
                     middleware=middleware, fields_database_paths=fields_database_paths
                 )
                 for record_key, record_attributes in records_attributes.items():
+                    index_cached_data: dict = self._index_cached_data(primary_key_value=record_key)
+                    def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
+                        BaseCachingTable._cache_put_data(
+                            index_cached_data=index_cached_data,
+                            field_path_elements=item_field_path_elements,
+                            data=item_value
+                        )
+                        return self.wrap_item_value(item_value=item_value, from_cache=False)
+
                     output_records_values[record_key] = unpack_validate_retrieved_field_if_need_to(
                         record_attributes=record_attributes,
                         target_field_container=target_field_container,
@@ -492,6 +493,15 @@ class BaseCachingTable(BaseTable):
                     middleware=middleware, fields_database_paths=fields_database_paths
                 )
                 for record_key, record_item_attributes in records_attributes.items():
+                    index_cached_data: dict = self._index_cached_data(primary_key_value=record_key)
+                    def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
+                        BaseCachingTable._cache_put_data(
+                            index_cached_data=index_cached_data,
+                            field_path_elements=item_field_path_elements,
+                            data=item_value
+                        )
+                        return self.wrap_item_value(item_value=item_value, from_cache=False)
+
                     output_records_values[record_key] = unpack_validate_multiple_retrieved_fields_if_need_to(
                         target_fields_containers=target_field_container,
                         record_attributes=record_item_attributes,

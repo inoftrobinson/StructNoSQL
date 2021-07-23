@@ -2,6 +2,7 @@ from typing import Optional, Any, Type
 from StructNoSQL import DynamoDBBasicTable, PrimaryIndex, GlobalSecondaryIndex, DynamoDBCachingTable, \
     ExternalDynamoDBApiCachingTable, ExternalDynamoDBApiBasicTable, TableDataModel
 
+
 TEST_ACCOUNT_ID = "5ae5938d-d4b5-41a7-ad33-40f3c1476211"
 TEST_PROJECT_ID = "defcc77c-1d6d-46a4-8cbe-506d12b824b7"
 TEST_ACCOUNT_EMAIL = "yay.com"
@@ -46,7 +47,7 @@ class InoftVocalEngineBasicTable(ExternalDynamoDBApiBasicTable):
         self.engine_project_id = engine_project_id
         super().__init__(
             api_http_endpoint=f'http://127.0.0.1:5000/api/v1/{self.engine_account_id}/{self.engine_project_id}/database-client',
-            primary_index=PrimaryIndex(hash_key_name='accountProjectUserId', hash_key_variable_python_type=str),
+            primary_index=PrimaryIndex(hash_key_name='accountProjectTableKeyId', hash_key_variable_python_type=str),
             data_model=data_model, base_payload={'accessToken': engine_api_key, 'tableId': table_id, 'regionName': region_name}
         )
 
@@ -60,7 +61,7 @@ class InoftVocalEngineCachingTable(ExternalDynamoDBApiCachingTable):
         self.engine_project_id = engine_project_id
         super().__init__(
             api_http_endpoint=f'http://127.0.0.1:5000/api/v1/{self.engine_account_id}/{self.engine_project_id}/database-client',
-            primary_index=PrimaryIndex(hash_key_name='accountProjectUserId', hash_key_variable_python_type=str),
+            primary_index=PrimaryIndex(hash_key_name='accountProjectTableKeyId', hash_key_variable_python_type=str),
             data_model=data_model, base_payload={'accessToken': engine_api_key, 'tableId': table_id, 'regionName': region_name}
         )
 

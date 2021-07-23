@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import Response
 
@@ -9,7 +9,7 @@ from StructNoSQL.servers_middlewares.external_dynamodb_api.low_level_table_clien
 from StructNoSQL.servers_middlewares.external_dynamodb_api.models import FieldPathElementItemModel
 
 
-def putRecord(table: DynamoDBLowLevelTableClient, data: dict):
+def putRecord(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         recordItemData: dict
 
@@ -20,7 +20,7 @@ def putRecord(table: DynamoDBLowLevelTableClient, data: dict):
     return success, None, {}
 
 
-def deleteRecord(table: DynamoDBLowLevelTableClient, data: dict):
+def deleteRecord(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         indexesKeysSelectors: Dict[str, Any]
 
@@ -31,7 +31,7 @@ def deleteRecord(table: DynamoDBLowLevelTableClient, data: dict):
     return record_deletion_success, None, {}
 
 
-def removeRecord(table: DynamoDBLowLevelTableClient, data: dict):
+def removeRecord(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         indexesKeysSelectors: Dict[str, Any]
 
@@ -42,7 +42,7 @@ def removeRecord(table: DynamoDBLowLevelTableClient, data: dict):
     return (True, removed_record_data, {}) if removed_record_data is not None else (False, {}, {})
 
 
-def queryItemsByKey(table: DynamoDBLowLevelTableClient, data: dict):
+def queryItemsByKey(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldsPathElements: List[List[FieldPathElementItemModel]]
@@ -62,13 +62,13 @@ def queryItemsByKey(table: DynamoDBLowLevelTableClient, data: dict):
         for path_elements in request_data.fieldsPathElements
     ]
     records_attributes, query_metadata = table.dynamodb_client.query_items_by_key(
-        index_name='accountProjectUserId', key_value=request_data.keyValue, fields_path_elements=fields_path_elements,
+        index_name=table.primary_index_name, key_value=request_data.keyValue, fields_path_elements=fields_path_elements,
         pagination_records_limit=request_data.paginationRecordsLimit, filter_expression=request_data.filterExpression
     )
     return True, {'data': records_attributes, 'metadata': query_metadata.serialize()}, {}
 
 
-def getOrQuerySingleItem(table: DynamoDBLowLevelTableClient, data: dict):
+def getOrQuerySingleItem(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldsPathElements: List[List[FieldPathElementItemModel]]
@@ -86,13 +86,13 @@ def getOrQuerySingleItem(table: DynamoDBLowLevelTableClient, data: dict):
         for path_elements_container in request_data.fieldsPathElements
     ]
     response_data = table.dynamodb_client.get_or_query_single_item(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         fields_path_elements=fields_path_elements
     )
     return True, response_data, {}
 
 
-def getSingleValueInPathTarget(table: DynamoDBLowLevelTableClient, data: dict):
+def getSingleValueInPathTarget(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldPathElements: List[FieldPathElementItemModel]
@@ -107,13 +107,13 @@ def getSingleValueInPathTarget(table: DynamoDBLowLevelTableClient, data: dict):
         for item in request_data.fieldPathElements
     ]
     response_data = table.dynamodb_client.get_value_in_path_target(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         field_path_elements=field_path_elements
     )
     return True, response_data, {}
 
 
-def getValuesInMultiplePathTarget(table: DynamoDBLowLevelTableClient, data: dict):
+def getValuesInMultiplePathTarget(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldsPathElements: Dict[str, List[FieldPathElementItemModel]]
@@ -131,12 +131,12 @@ def getValuesInMultiplePathTarget(table: DynamoDBLowLevelTableClient, data: dict
         for key, path_elements_container in request_data.fieldsPathElements.items()
     }
     response_data = table.dynamodb_client.get_values_in_multiple_path_target(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         fields_path_elements=fields_path_elements, metadata=False
     )
     return (True, response_data, {}) if response_data is not None else (False, {}, {})
 
-def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data: dict):
+def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         class SetterItemModel(BaseModel):
@@ -161,7 +161,7 @@ def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data:
         for setter_item in request_data.setters
     ]
     response: Optional[Response] = table.dynamodb_client.set_update_multiple_data_elements_to_map(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         setters=setters, return_old_values=request_data.returnOldValues
     )
     if response is None:
@@ -174,7 +174,7 @@ def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data:
     )
     return True, response_attributes, {}
 
-def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBLowLevelTableClient, data: dict):
+def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldPathElements: List[FieldPathElementItemModel]
@@ -191,11 +191,11 @@ def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBL
         for item in request_data.fieldPathElements
     ]
     response: Optional[Response] = table.dynamodb_client.set_update_data_element_to_map_with_default_initialization(
-        index_name='accountProjectUserId', key_value=request_data.keyValue, field_path_elements=field_path_elements,
+        index_name=table.primary_index_name, key_value=request_data.keyValue, field_path_elements=field_path_elements,
         return_old_value=request_data.returnOldValue, value=request_data.value,
     )
     if response is None:
-        return False, None
+        return False, None, {}
 
     from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
     response_attributes: Optional[Dict[str, Any]] = (
@@ -204,7 +204,7 @@ def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBL
     )
     return True, response_attributes, {}
 
-def removeDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict):
+def removeDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldsPathElements: List[List[FieldPathElementItemModel]]
@@ -222,13 +222,13 @@ def removeDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict):
         for path_elements_container in request_data.fieldsPathElements
     ]
     response_data = table.dynamodb_client.remove_data_elements_from_map(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         targets_path_elements=fields_path_elements,
         retrieve_removed_elements=True
     )
-    return (True, response_data, {})if response_data is not None else (False, {}, {})
+    return (True, response_data, {}) if response_data is not None else (False, {}, {})
 
-def deleteDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict):
+def deleteDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict) -> Tuple[bool, Optional[dict], dict]:
     class RequestDataModel(BaseModel):
         keyValue: str
         fieldsPathElements: List[List[FieldPathElementItemModel]]
@@ -246,7 +246,7 @@ def deleteDataElementsFromMap(table: DynamoDBLowLevelTableClient, data: dict):
         for path_elements_container in request_data.fieldsPathElements
     ]
     response_data = table.dynamodb_client.remove_data_elements_from_map(
-        index_name='accountProjectUserId', key_value=request_data.keyValue,
+        index_name=table.primary_index_name, key_value=request_data.keyValue,
         targets_path_elements=fields_path_elements,
         retrieve_removed_elements=False
     )

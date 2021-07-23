@@ -14,7 +14,7 @@ class TestsExternalDynamoDBApiCachingTable(unittest.TestCase):
 
         self.SHARED_CASE_KWARGS = {
             'self': self, 'first_table': self.first_table, 'second_table': self.second_table,
-            'is_caching': True, 'primary_key_name': 'accountProjectUserId'
+            'is_caching': True, 'primary_key_name': 'accountProjectTableKeyId'
         }
 
     def test_get_field(self):

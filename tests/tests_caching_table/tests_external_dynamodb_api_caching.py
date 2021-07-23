@@ -64,7 +64,7 @@ class TestExternalDynamoDBApiCachingTable(unittest.TestCase):
 
     def test_set_get_fields_with_primary_index(self):
         from tests.tests_query_operations.cases_shared import test_set_get_fields_with_primary_index
-        test_set_get_fields_with_primary_index(self, users_table=self.users_table, primary_key_name='accountProjectUserId', is_caching=True)
+        test_set_get_fields_with_primary_index(self, users_table=self.users_table, primary_key_name='accountProjectTableKeyId', is_caching=True)
 
 
 if __name__ == '__main__':

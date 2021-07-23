@@ -10,7 +10,7 @@ class TestsExternalDynamoDBApiCachingTable(unittest.TestCase):
         self.users_table = PlaygroundInoftVocalEngineCachingTable(data_model=ExternalDynamoDBApiTableModel)
         self.users_table.debug = True
 
-        self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectUserId', 'is_caching': True}
+        self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectTableKeyId', 'is_caching': True}
 
     def test_set_get_fields_with_primary_index(self):
         from tests.tests_query_operations.cases_shared import test_set_get_fields_with_primary_index

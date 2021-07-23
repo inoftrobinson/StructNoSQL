@@ -12,4 +12,4 @@ class DynamoDBTableModel(BaseTableModel):
     accountId = BaseField(field_type=str, required=True)
 
 class ExternalDynamoDBApiTableModel(BaseTableModel):
-    accountProjectUserId = BaseField(field_type=str, required=True)
+    accountProjectTableKeyId = BaseField(field_type=str, required=True)

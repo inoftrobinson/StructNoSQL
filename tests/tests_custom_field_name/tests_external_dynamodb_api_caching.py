@@ -10,7 +10,7 @@ class TestsExternalDynamoDBApiCachingTable(unittest.TestCase):
         self.users_table = PlaygroundInoftVocalEngineCachingTable(data_model=ExternalDynamoDBApiTableModel)
         self.users_table.debug = True
 
-        self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectUserId', 'is_caching': True}
+        self.SHARED_CASE_KWARGS = {'self': self, 'users_table': self.users_table, 'primary_key_name': 'accountProjectTableKeyId', 'is_caching': True}
 
     def test_set_update_field_with_custom_name(self):
         from tests.tests_custom_field_name.cases_shared import test_set_update_field_with_custom_name

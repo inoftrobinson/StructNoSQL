@@ -266,7 +266,7 @@ class BaseCachingTable(BaseTable):
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
-        validated_data, is_valid = self.model_virtual_map_field.validate_data()
+        validated_data, is_valid = self.model_virtual_map_field.validate_serialize_data_to_dynamodb()
         put_record_success: bool = middleware(validated_data) if is_valid is True else False
         if put_record_success is True:
             self._cached_data_per_primary_key[record_dict_data[self.primary_index_name]] = record_dict_data

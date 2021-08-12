@@ -1,4 +1,5 @@
-from typing import Optional, Tuple, List, Any
+from decimal import Decimal
+from typing import Optional, Tuple, List, Any, Callable
 
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
@@ -7,13 +8,42 @@ from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serial
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item
 
 
-def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: Optional[BaseItem] = None) -> Tuple[Any, bool]:
+def _types_match(type_to_check: type, expected_type: type) -> bool:
+    processed_expected_type: type = try_to_get_primitive_default_type_of_item(expected_type)
+    # The type_to_check will always be a primitive Python type, where as the expected_type can also be a StructNoSQL
+    # model type. In which case, we try_to_get_primitive_default_type_of_item. If the type was not a StructNoSQL
+    # model type and did not had a primitive_default_type, the returned type will be the source type we passed.
+    if processed_expected_type is Any:
+        return True
+    elif type_to_check != processed_expected_type:
+        return False
+    return True
+
+def _recursive_mutator(
+        item: Any,
+        float_mutator: Callable[[float], Any]
+) -> Any:
+    if isinstance(item, dict):
+        for key, value in item.items():
+            item[key] = float_to_decimal_serializer(item=value)
+    elif isinstance(item, list):
+        for i, value in enumerate(item):
+            item[i] = float_to_decimal_serializer(item=value)
+    elif isinstance(item, float):
+        item = float_mutator(item)
+    return item
+
+def _base_validate_data(
+        value: Any, expected_value_type: Any,
+        float_mutator: Callable[[float], Any],
+        item_type_to_return_to: Optional[BaseItem] = None
+) -> Tuple[Any, bool]:
     value_type = type(value)
     # We do not try_to_get_primitive_default_type_of_item here, because depending on the value_type, we might trigger different behaviors.
     # For example, a list or tuple will be considered as collection of multiple fields types that needs to be looked at individually.
 
     if expected_value_type == Any:
-        return float_to_decimal_serializer(value), True
+        return _recursive_mutator(item=value, float_mutator=float_mutator), True
 
     if type(expected_value_type) in [list, tuple]:
         has_found_match = False
@@ -59,9 +89,10 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                 for key, item in value.items():
                     item_matching_validation_model_variable: Optional[BaseField] = getattr(item_type_to_return_to.map_model, key, None)
                     if item_matching_validation_model_variable is not None:
-                        item, valid = validate_data(
+                        item, valid = base_validate_data(
                             value=item, item_type_to_return_to=item_matching_validation_model_variable,
                             expected_value_type=item_matching_validation_model_variable.field_type,
+                            float_mutator=float_mutator,
                         )
                         if valid is True:
                             value[key] = item
@@ -127,9 +158,10 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
                                         item_matching_validation_model_variable, element_item_key, None
                                     )
                                     if element_item_matching_validation_model_variable is not None:
-                                        element_item_value, valid = validate_data(
+                                        element_item_value, valid = base_validate_data(
                                             value=element_item_value, item_type_to_return_to=element_item_matching_validation_model_variable,
                                             expected_value_type=element_item_matching_validation_model_variable.field_type,
+                                            float_mutator=float_mutator
                                         )
                                         if valid is True:
                                             item[element_item_key] = element_item_value
@@ -181,11 +213,17 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
             indexes_to_pop: List[int] = []
             for i, item in enumerate(value):
                 if item_type_to_return_to.map_model is not None:
-                    item, valid = validate_data(value=item, expected_value_type=item_type_to_return_to.map_model)
+                    item, valid = base_validate_data(
+                        value=item, expected_value_type=item_type_to_return_to.map_model,
+                        float_mutator=float_mutator
+                    )
                     if valid is False:
                         indexes_to_pop.append(i)
                 elif item_type_to_return_to.items_excepted_type is not None:
-                    item, valid = validate_data(value=item, expected_value_type=item_type_to_return_to.items_excepted_type)
+                    item, valid = base_validate_data(
+                        value=item, expected_value_type=item_type_to_return_to.items_excepted_type,
+                        float_mutator=float_mutator
+                    )
                     if valid is False:
                         indexes_to_pop.append(i)
                 # If no map validator has been found, this means we have an untyped list. So, we will
@@ -231,18 +269,35 @@ def validate_data(value: Any, expected_value_type: Any, item_type_to_return_to: 
 
     elif value_type == float:
         # DynamoDB does not support float types. They must be converted to Decimal's.
-        return float_to_decimal(float_number=value), True
+        return float_mutator(value), True
 
     return value, True
 
+def validate_data(
+        value: Any, expected_value_type: Any,
+        item_type_to_return_to: Optional[BaseItem] = None
+):
+    def float_mutator(item: float) -> float:
+        return item
 
-def _types_match(type_to_check: type, expected_type: type) -> bool:
-    processed_expected_type: type = try_to_get_primitive_default_type_of_item(expected_type)
-    # The type_to_check will always be a primitive Python type, where as the expected_type can also be a StructNoSQL
-    # model type. In which case, we try_to_get_primitive_default_type_of_item. If the type was not a StructNoSQL
-    # model type and did not had a primitive_default_type, the returned type will be the source type we passed.
-    if processed_expected_type is Any:
-        return True
-    elif type_to_check != processed_expected_type:
-        return False
-    return True
+    return _base_validate_data(
+        value=value, expected_value_type=expected_value_type,
+        item_type_to_return_to=item_type_to_return_to,
+        float_mutator=float_mutator
+    )
+
+def validate_serialize_data_to_dynamodb(
+        value: Any, expected_value_type: Any,
+        item_type_to_return_to: Optional[BaseItem] = None
+):
+    """def float_mutator(item: float) -> Decimal:
+        return float_to_decimal(float_number=item)"""
+
+    def float_mutator(item: float) -> float:
+        return item
+
+    return _base_validate_data(
+        value=value, expected_value_type=expected_value_type,
+        item_type_to_return_to=item_type_to_return_to,
+        float_mutator=float_mutator
+    )

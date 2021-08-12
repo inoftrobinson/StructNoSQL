@@ -1,10 +1,11 @@
 import decimal
 from decimal import Decimal, Context
-from typing import Any, List, Optional, Callable, Set
+from typing import Any, List, Optional, Callable, Set, Union
 
 from boto3.dynamodb.types import Binary
 
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.utils.decimals import float_to_decimal
 
 
 def _decimal_to_python(decimal_number: Decimal) -> float or int:
@@ -78,6 +79,8 @@ class DynamoDBUtils:
 
     @staticmethod
     def dynamodb_to_python(dynamodb_object: Any):
+        # todo: deprecate
+        print("dynamodb_to_python is deprecated")
         if isinstance(dynamodb_object, Decimal):
             return _decimal_to_python(decimal_number=dynamodb_object)
         elif isinstance(dynamodb_object, list):
@@ -124,6 +127,16 @@ class DynamoDBUtils:
             return dynamodb_object
         return dynamodb_object
 
+    @staticmethod
+    def python_to_dynamodb_higher_level(python_object: Any):
+        if isinstance(python_object, float):
+            return float_to_decimal(float_number=python_object)
+        elif isinstance(python_object, list):
+            return [DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item) for item in python_object]
+        elif isinstance(python_object, dict):
+            # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
+            return {key: DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item) for key, item in python_object.items()}
+        return python_object
 
 class DynamoDBToPythonValuesConvertor:
     """This class deserializes DynamoDB types to Python types."""
@@ -208,12 +221,13 @@ class PythonToDynamoDBValuesConvertor:
     """
 
     @staticmethod
-    def _number_handler(python_object: int or float):
+    def _number_handler(python_object: Union[int, float]):
         return {DynamoDBUtils.TYPE_NUMBER: _python_to_decimal(python_number=python_object)}
 
     @staticmethod
     def _int_handler(python_object: int):
-        return PythonToDynamoDBValuesConvertor._number_handler(python_object=python_object)
+        return {DynamoDBUtils.TYPE_NUMBER: python_object}
+        # return PythonToDynamoDBValuesConvertor._number_handler(python_object=python_object)
 
     @staticmethod
     def _float_handler(python_object: float):
@@ -256,7 +270,7 @@ class PythonToDynamoDBValuesConvertor:
         object_type: type = type(python_object)
         handler: Callable[[Any], dict] = getattr(
             PythonToDynamoDBValuesConvertor,
-            f'_${object_type.__name__.lower()}_handler',
+            f'_{object_type.__name__.lower()}_handler',
             PythonToDynamoDBValuesConvertor._default_handler
         )
         return handler(python_object)

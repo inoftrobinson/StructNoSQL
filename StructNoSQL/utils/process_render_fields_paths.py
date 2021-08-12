@@ -59,7 +59,7 @@ def make_rendered_database_path(database_path_elements: List[DatabasePathElement
             # when other invocations of queries and operations will use the same path element instance.
             output_database_path_elements.append(path_element)
         else:
-            variable_name = path_element.element_key.replace("$key$:", "")
+            variable_name = path_element.element_key.replace('$key$:', '')
             if query_kwargs is not None:
                 matching_kwarg: Optional[Any] = query_kwargs.get(variable_name, None)
                 if matching_kwarg is not None:
@@ -125,7 +125,7 @@ def process_validate_data_and_make_single_rendered_database_path(
     )
 
     field_object.populate(value=data_to_validate)
-    validated_data, valid = field_object.validate_data()
+    validated_data, valid = field_object.validate_serialize_data_to_dynamodb()
     if valid is True:
         return field_object, rendered_database_path_elements, validated_data, True
     else:
@@ -133,9 +133,3 @@ def process_validate_data_and_make_single_rendered_database_path(
 
 def join_field_path_elements(field_path_elements: List[DatabasePathElement]) -> str:
     return '.'.join((f'{item.element_key}' for item in field_path_elements))
-
-def map_record_data_to_fields(data: dict, table_model: BaseField):
-    # todo: finish to implement
-    for key, item in data.items():
-        # table_model.
-        matching_field = table_model.childrens_map.get(key, None)

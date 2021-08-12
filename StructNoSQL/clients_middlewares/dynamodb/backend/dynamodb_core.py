@@ -131,8 +131,8 @@ class DynamoDbCoreAdapter:
             kwargs = self._fields_paths_elements_to_expressions(fields_path_elements=fields_path_elements)
         else:
             kwargs = {}
-        kwargs["Key"] = {index_name: key_value}
-        kwargs["ConsistentRead"] = True
+        kwargs['Key'] = {index_name: key_value}
+        kwargs['ConsistentRead'] = True
 
         try:
             table = self.dynamodb.Table(self.table_name)
@@ -369,6 +369,7 @@ class DynamoDbCoreAdapter:
             else:
                 update_expression += " = :item"
 
+        serialized_value = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=value)
         update_query_kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},
@@ -376,7 +377,7 @@ class DynamoDbCoreAdapter:
             "UpdateExpression": update_expression,
             "ExpressionAttributeNames": expression_attribute_names_dict,
             "ExpressionAttributeValues": {
-                ":item": value
+                ":item": serialized_value
             }
         }
         return update_query_kwargs

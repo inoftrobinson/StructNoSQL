@@ -1,10 +1,8 @@
-from decimal import Decimal
-from typing import Optional, Tuple, List, Any, Callable
+from typing import Optional, Tuple, List, Any
 
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.utils.decimals import float_to_decimal, float_to_decimal_serializer
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item
 
 

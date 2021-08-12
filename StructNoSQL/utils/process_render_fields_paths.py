@@ -125,7 +125,7 @@ def process_validate_data_and_make_single_rendered_database_path(
     )
 
     field_object.populate(value=data_to_validate)
-    validated_data, valid = field_object.validate_serialize_data_to_dynamodb()
+    validated_data, valid = field_object.validate_data()
     if valid is True:
         return field_object, rendered_database_path_elements, validated_data, True
     else:

@@ -17,7 +17,7 @@ class BaseBasicTable(BaseTable):
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
-        validated_data, is_valid = self.model_virtual_map_field.validate_serialize_data_to_dynamodb()
+        validated_data, is_valid = self.model_virtual_map_field.validate_data()
         return middleware(validated_data) if is_valid is True else False
 
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:

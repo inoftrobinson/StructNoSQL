@@ -11,7 +11,7 @@ class TestsExternalDynamoDBApiCachingTable(unittest.TestCase):
         self.table_client.debug = True
 
         self.SHARED_CASE_KWARGS = {
-            'self': self, 'first_table': self.table_client,
+            'self': self, 'table_client': self.table_client,
             'is_caching': True, 'primary_key_name': 'accountProjectTableKeyId'
         }
 

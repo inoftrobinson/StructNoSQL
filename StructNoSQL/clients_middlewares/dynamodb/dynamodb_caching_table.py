@@ -31,7 +31,6 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 index_name=self.primary_index_name, key_value=primary_key_value,
                 setters=list(dynamodb_setters.values()), return_old_values=False
             )
-            print(response)
         self._pending_update_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 
@@ -42,7 +41,6 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
                 targets_path_elements=list(dynamodb_setters.values())
             )
             # delete operations can be cached, where as remove operations need to be executed immediately
-            print(response)
         self._pending_remove_operations_per_primary_key = {}
         return True  # todo: create a real success status instead of always True
 

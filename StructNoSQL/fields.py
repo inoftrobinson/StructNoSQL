@@ -183,15 +183,6 @@ class BaseItem:
         self._value = validated_data
         return validated_data, valid
 
-    def validate_serialize_data_to_dynamodb(self) -> Tuple[Optional[Any], bool]:
-        from StructNoSQL.validator import validate_serialize_data_to_dynamodb
-        validated_data, valid = validate_serialize_data_to_dynamodb(
-            value=self._value, item_type_to_return_to=self,
-            expected_value_type=self._field_type,
-        )
-        self._value = validated_data
-        return validated_data, valid
-
     def populate(self, value: Any):
         self._value = value
         # self.validate_data()

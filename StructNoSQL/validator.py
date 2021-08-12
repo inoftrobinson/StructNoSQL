@@ -19,23 +19,8 @@ def _types_match(type_to_check: type, expected_type: type) -> bool:
         return False
     return True
 
-def _recursive_mutator(
-        item: Any,
-        float_mutator: Callable[[float], Any]
-) -> Any:
-    if isinstance(item, dict):
-        for key, value in item.items():
-            item[key] = float_to_decimal_serializer(item=value)
-    elif isinstance(item, list):
-        for i, value in enumerate(item):
-            item[i] = float_to_decimal_serializer(item=value)
-    elif isinstance(item, float):
-        item = float_mutator(item)
-    return item
-
-def _base_validate_data(
+def validate_data(
         value: Any, expected_value_type: Any,
-        float_mutator: Callable[[float], Any],
         item_type_to_return_to: Optional[BaseItem] = None
 ) -> Tuple[Any, bool]:
     value_type = type(value)
@@ -43,7 +28,7 @@ def _base_validate_data(
     # For example, a list or tuple will be considered as collection of multiple fields types that needs to be looked at individually.
 
     if expected_value_type == Any:
-        return _recursive_mutator(item=value, float_mutator=float_mutator), True
+        return value, True
 
     if type(expected_value_type) in [list, tuple]:
         has_found_match = False
@@ -89,10 +74,9 @@ def _base_validate_data(
                 for key, item in value.items():
                     item_matching_validation_model_variable: Optional[BaseField] = getattr(item_type_to_return_to.map_model, key, None)
                     if item_matching_validation_model_variable is not None:
-                        item, valid = base_validate_data(
+                        item, valid = validate_data(
                             value=item, item_type_to_return_to=item_matching_validation_model_variable,
-                            expected_value_type=item_matching_validation_model_variable.field_type,
-                            float_mutator=float_mutator,
+                            expected_value_type=item_matching_validation_model_variable.field_type
                         )
                         if valid is True:
                             value[key] = item
@@ -158,10 +142,9 @@ def _base_validate_data(
                                         item_matching_validation_model_variable, element_item_key, None
                                     )
                                     if element_item_matching_validation_model_variable is not None:
-                                        element_item_value, valid = base_validate_data(
+                                        element_item_value, valid = validate_data(
                                             value=element_item_value, item_type_to_return_to=element_item_matching_validation_model_variable,
                                             expected_value_type=element_item_matching_validation_model_variable.field_type,
-                                            float_mutator=float_mutator
                                         )
                                         if valid is True:
                                             item[element_item_key] = element_item_value
@@ -213,16 +196,14 @@ def _base_validate_data(
             indexes_to_pop: List[int] = []
             for i, item in enumerate(value):
                 if item_type_to_return_to.map_model is not None:
-                    item, valid = base_validate_data(
+                    item, valid = validate_data(
                         value=item, expected_value_type=item_type_to_return_to.map_model,
-                        float_mutator=float_mutator
                     )
                     if valid is False:
                         indexes_to_pop.append(i)
                 elif item_type_to_return_to.items_excepted_type is not None:
-                    item, valid = base_validate_data(
+                    item, valid = validate_data(
                         value=item, expected_value_type=item_type_to_return_to.items_excepted_type,
-                        float_mutator=float_mutator
                     )
                     if valid is False:
                         indexes_to_pop.append(i)
@@ -267,37 +248,12 @@ def _base_validate_data(
                 return value, True
         return value, True
 
+    """
+    # Even tough DynamoDB does not support float types, the conversion 
+    between floats to Decimal is being done in the DynamoDBCore functions
     elif value_type == float:
         # DynamoDB does not support float types. They must be converted to Decimal's.
-        return float_mutator(value), True
+        return value, True
+    """
 
     return value, True
-
-def validate_data(
-        value: Any, expected_value_type: Any,
-        item_type_to_return_to: Optional[BaseItem] = None
-):
-    def float_mutator(item: float) -> float:
-        return item
-
-    return _base_validate_data(
-        value=value, expected_value_type=expected_value_type,
-        item_type_to_return_to=item_type_to_return_to,
-        float_mutator=float_mutator
-    )
-
-def validate_serialize_data_to_dynamodb(
-        value: Any, expected_value_type: Any,
-        item_type_to_return_to: Optional[BaseItem] = None
-):
-    """def float_mutator(item: float) -> Decimal:
-        return float_to_decimal(float_number=item)"""
-
-    def float_mutator(item: float) -> float:
-        return item
-
-    return _base_validate_data(
-        value=value, expected_value_type=expected_value_type,
-        item_type_to_return_to=item_type_to_return_to,
-        float_mutator=float_mutator
-    )

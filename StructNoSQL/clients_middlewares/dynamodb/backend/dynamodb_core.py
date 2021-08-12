@@ -89,9 +89,10 @@ class DynamoDbCoreAdapter:
                     raise Exception(f"Request to create the table if not exist failed: Exception of type {type(e).__name__} occurred {str(e)}")
 
     def put_record(self, item_dict: dict) -> bool:
+        serialized_item_dict = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item_dict)
         try:
             table = self.dynamodb.Table(self.table_name)
-            response = table.put_item(Item=item_dict)
+            response = table.put_item(Item=serialized_item_dict)
             return True if response is not None else False
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to save attributes to DynamoDb table.")
@@ -119,7 +120,7 @@ class DynamoDbCoreAdapter:
             response_attributes: Optional[dict] = response_data.get('Attributes', None)
             if response_attributes is None:
                 return None
-            return DynamoDBUtils.dynamodb_to_python(response_attributes)
+            return DynamoDBUtils.dynamodb_to_python_higher_level(response_attributes)
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to remove_record in DynamoDb table.")
         except Exception as e:
@@ -168,6 +169,7 @@ class DynamoDbCoreAdapter:
             return None
 
     def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
+        serialized_elements_values: List[Any] = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=element_values)
         kwargs = {
             'TableName': self.table_name,
             'Key': {index_name: key_value},
@@ -176,7 +178,7 @@ class DynamoDbCoreAdapter:
             # The if_not_exists inside the list_append, will create an empty
             # list before adding the newItems, only if the field do not exist.
             'ExpressionAttributeValues': {
-                ':newItems': element_values,
+                ':newItems': serialized_elements_values,
                 ':emptyList': []
             }
         }
@@ -407,8 +409,9 @@ class DynamoDbCoreAdapter:
         all_initializers_containers: Dict[str, MapItemInitializerContainer] = {}
 
         for setter in setters:
-            current_absolute_target_path = str()
+            current_absolute_target_path: str = ""
             last_map_initializer_container: Optional[MapItemInitializerContainer] = None
+            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=setter.value_to_set)
 
             for i_path, path_element in enumerate(setter.field_path_elements):
                 current_absolute_target_path = DynamoDbCoreAdapter._add_database_path_element_to_string_path(
@@ -416,7 +419,7 @@ class DynamoDbCoreAdapter:
                 )
                 existing_container: Optional[MapItemInitializerContainer] = all_initializers_containers.get(current_absolute_target_path, None)
                 if existing_container is None:
-                    overriding_init_value: Optional[Any] = setter.value_to_set if i_path + 1 >= len(setter.field_path_elements) else None
+                    overriding_init_value: Optional[Any] = setter_serialized_value_to_set if i_path + 1 >= len(setter.field_path_elements) else None
                     current_map_initializer = DynamoDbCoreAdapter._prepare_map_initialization(
                         i=i_path, current_path_element=path_element, overriding_init_value=overriding_init_value,
                         previous_element_initializer_container=last_map_initializer_container
@@ -426,7 +429,7 @@ class DynamoDbCoreAdapter:
                     # We must use the current_absolute_target_path as key, because the all_initializers_containers dict is a flattened dict.
 
                     # We can use the element_key instead of the absolute path as key for both the root_initializers_containers and last_map_initializer_container
-                    # dict's since they are layered dictionnaries, unlike the all_initializers_containers dict which is a flattened dict.
+                    # dict's since they are layered dictionaries, unlike the all_initializers_containers dict which is a flattened dict.
                     if last_map_initializer_container is None:
                         # If the last_map_initializer_container is None, this means that we are in the first iteration of the
                         # field_path_elements loop, which means that the current_map_initializer_container is a root initializer.
@@ -443,7 +446,7 @@ class DynamoDbCoreAdapter:
                         message="Successfully tidied duplicate DatabasePathElement initializer",
                         vars_dict={
                             'trimmedPathElementKey': path_element.element_key,
-                            'trimmedSetterValueToSet': setter.value_to_set,
+                            'trimmedSetterSerializedValueToSet': setter_serialized_value_to_set,
                             'existingContainerItemPathTarget': existing_container.item.path_target,
                             'existingContainerItemDefaultValue': existing_container.item.item_default_value
                         }
@@ -519,6 +522,8 @@ class DynamoDbCoreAdapter:
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
             current_setter_attribute_names, current_setter_attribute_values = {}, {}
+            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=current_setter.value_to_set)
+
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"
                 current_setter_update_expression, new_expression_attribute_names = DynamoDbCoreAdapter._add_database_path_element_to_string_expression(
@@ -528,7 +533,7 @@ class DynamoDbCoreAdapter:
 
                 if i_path >= (len(current_setter.field_path_elements) - 1):
                     current_setter_update_expression += f" = :item{i_setter}"
-                    current_setter_attribute_values[f":item{i_setter}"] = current_setter.value_to_set
+                    current_setter_attribute_values[f":item{i_setter}"] = setter_serialized_value_to_set
 
             complete_update_expression_bytes_size = getsizeof(update_expression)
             # complete_update_query_attribute_names_bytes_size = getsizeof(expression_attribute_names_dict)

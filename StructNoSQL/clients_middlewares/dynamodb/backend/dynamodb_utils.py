@@ -132,10 +132,10 @@ class DynamoDBUtils:
         if isinstance(python_object, float):
             return float_to_decimal(float_number=python_object)
         elif isinstance(python_object, list):
-            return [DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item) for item in python_object]
+            return [DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item) for item in python_object]
         elif isinstance(python_object, dict):
             # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
-            return {key: DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item) for key, item in python_object.items()}
+            return {key: DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item) for key, item in python_object.items()}
         return python_object
 
 class DynamoDBToPythonValuesConvertor:

@@ -46,18 +46,23 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
         def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool):
             if is_multi_selector is not True:
                 field_path_elements: List[DatabasePathElement]
-                response_data = self.dynamodb_client.get_value_in_path_target(
+                response_data: Optional[Any] = self.dynamodb_client.get_value_in_path_target(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, field_path_elements=field_path_elements
                 )
                 return response_data
             else:
                 field_path_elements: Dict[str, List[DatabasePathElement]]
-                response_data = self.dynamodb_client.get_values_in_multiple_path_target(
+                response_data: Optional[Dict[str, Any]] = self.dynamodb_client.get_values_in_multiple_path_target(
                     index_name=index_name or self.primary_index_name,
                     key_value=key_value, fields_path_elements=field_path_elements
                 )
-                return response_data
+                if response_data is not None:
+                    return {key: response_data.get(key, None) for key in field_path_elements.keys()}
+                else:
+                    # When using multi-selectors, the middleware is always expected to return a dict with all the
+                    # 'getters' keys present, hence why the dict with None values if the response_data is None.
+                    return {key: None for key in field_path_elements.keys()}
         return self._get_field(middleware=middleware, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None, data_validation: bool = True) -> Optional[dict]:

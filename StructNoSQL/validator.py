@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, List, Any
 
 from StructNoSQL.models import DatabasePathElement
-from StructNoSQL.fields import BaseItem, BaseField, MapModel
+from StructNoSQL.fields import BaseItem, BaseField, MapModel, DictModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item
 
@@ -65,7 +65,10 @@ def validate_data(
         #  we get is a dict that has only key and one item, instead of returning the dict, we will return the value in the dict
         item_keys_to_pop: List[str] = []
         if item_type_to_return_to is not None:
-            if item_type_to_return_to.map_model is not None:
+            if (
+                item_type_to_return_to.map_model is not None and
+                not isinstance(item_type_to_return_to.map_model, DictModel)
+            ):
                 populated_required_fields: List[BaseField] = []
 
                 item_keys_to_pop: List[str] = []

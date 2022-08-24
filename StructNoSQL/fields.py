@@ -338,11 +338,25 @@ class BaseField(BaseItem):
         _raise_if_field_name_is_invalid(field_name=value)
         self._field_name = value
 
-        # When field_name is set, if the field_type is one of the field_type's requiring a key_name and the
-        # key_name has not be set by the user, we create a default key_name by adding 'Key' to the field_name.
-        if self.field_type in [dict, set] or type(self.field_type) == _GenericAlias:
-            if self._key_name is None:
-                self._key_name = f"{self.field_name}Key"
+        # When field_name is set, if the/any of the field_type is one of the field_type's requiring a key_name and the
+        # key_name has not been set by the user, we create a default key_name by adding 'Key' to the field_name.
+        if self.map_model is None:
+            # When map_model is not None, this can mean that the field_type was a MapModel, which is then
+            # converted to the primitive dict field_type, while we use map_model to conserve the MapModel.
+            def attempt_to_set_default_key_name():
+                if self._key_name is None:
+                    self._key_name = f"{self.field_name}Key"
+
+            if isinstance(self._field_type, (list, tuple)):
+                # If it's a list or a tuple, we perform an 'any' check
+                if (
+                    any(field_type in [dict, set] for field_type in self._field_type) or
+                    any(type(field_type) == _GenericAlias for field_type in self._field_type)
+                ):
+                    attempt_to_set_default_key_name()
+            else:
+                if self.field_type in [dict, set] or type(self.field_type) == _GenericAlias:
+                    attempt_to_set_default_key_name()
 
     @property
     def key_name(self) -> Optional[str]:
@@ -385,8 +399,9 @@ class DictModel(BaseItem):
 
     def __init__(self, key_type: Any, item_type: Any, key_name: Optional[str] = None):
         super().__init__()
-        self.key_type = key_type
+        self._key_expected_type = key_type
         self.item_type = item_type
+        self._items_excepted_type = item_type
         self.key_name = key_name
         self._database_path = None
 

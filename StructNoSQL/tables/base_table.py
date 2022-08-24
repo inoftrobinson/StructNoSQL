@@ -4,7 +4,7 @@ from copy import copy
 
 from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldRemover
-from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item, make_dict_key_var_name
 from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
@@ -93,15 +93,16 @@ class Processor:
         if current_path_elements is None:
             current_path_elements = []
 
+        field_is_valid: bool = False
         try:
             if isinstance(variable_item, DictModel):
                 variable_item: DictModel
 
-                new_database_path_element = DatabasePathElement(
+                """new_database_path_element = DatabasePathElement(
                     element_key=variable_item.key_name,
                     default_type=variable_item.item_type
-                )
-                variable_item._database_path = [*current_path_elements, new_database_path_element]
+                )"""
+                variable_item._database_path = [*current_path_elements]  #, new_database_path_element]
                 variable_item._table = self.table
 
                 """if variable_item.required is True:
@@ -109,6 +110,14 @@ class Processor:
 
                 current_field_path += ("" if len(current_field_path) == 0 else ".") + "{{" + variable_item.key_name + "}}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
+
+            elif MapModel in getattr(variable_item, '__mro__', ()):
+                if len(current_path_elements) > 0:
+                    self.assign_internal_mapping_from_class(
+                        class_type=variable_item,
+                        nested_field_path=current_field_path,
+                        current_path_elements=[*current_path_elements]
+                    )
 
             elif isinstance(variable_item, BaseField):
                 variable_item: BaseField
@@ -128,115 +137,118 @@ class Processor:
 
                 current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
                 field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
-                if field_is_valid is True:
-                    if variable_item.map_model is not None:
-                        self.assign_internal_mapping_from_class(
-                            class_type=variable_item.map_model,
-                            nested_field_path=current_field_path,
-                            current_path_elements=[*variable_item.database_path]
-                        )
+                if variable_item.key_name is not None:
+                    if "{i}" not in variable_item.key_name:
+                        # The current_field_path concat is being handled lower in the code for the nested fields
+                        current_field_path += ".{{" + variable_item.key_name + "}}"
 
-                    if variable_item.items_excepted_type is not None:
-                        from StructNoSQL import ActiveSelf
-                        if variable_item.items_excepted_type is ActiveSelf:
-                            if class_type is None:
-                                raise Exception(message_with_vars(
-                                    message="Cannot use the ActiveSelf attribute as the items_excepted_type when the class type is None",
-                                    vars_dict={'field_name': variable_item.field_name}
-                                ))
-                            variable_item._items_excepted_type = class_type
+            if field_is_valid is True:
+                if variable_item.map_model is not None:
+                    self.assign_internal_mapping_from_class(
+                        class_type=variable_item.map_model,
+                        nested_field_path=current_field_path,
+                        current_path_elements=[*variable_item.database_path]
+                    )
 
-                        item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.items_excepted_type)
-                        item_key_name = make_dict_key_var_name(variable_item.key_name)
+                if variable_item.items_excepted_type is not None:
+                    from StructNoSQL import ActiveSelf
+                    if variable_item.items_excepted_type is ActiveSelf:
+                        if class_type is None:
+                            raise Exception(message_with_vars(
+                                message="Cannot use the ActiveSelf attribute as the items_excepted_type when the class type is None",
+                                vars_dict={'field_name': variable_item.field_name}
+                            ))
+                        variable_item._items_excepted_type = class_type
 
-                        if "{i}" in variable_item.key_name:
-                            if is_nested is not True:
-                                current_nested_field_path = "" if current_field_path is None else current_field_path
-                                current_nested_database_path = [*variable_item.database_path]
-                                for i in range(variable_item.max_nested):
-                                    if len(current_nested_database_path) > 32:
-                                        print(message_with_vars(
-                                            message="Imposed a max nested database depth on field missing or with a too high nested depth limit.",
-                                            vars_dict={
-                                                'current_field_path': current_field_path,
-                                                'field_name': variable_item.field_name,
-                                                'imposedMaxNestedDepth': i
-                                            }
-                                        ))
-                                        break
-                                    else:
-                                        nested_variable_item = variable_item.copy()
-                                        item_rendered_key_name: str = nested_variable_item.key_name.replace("{i}", f"{i}")
-                                        nested_variable_item._database_path = [*current_nested_database_path]
-                                        nested_variable_item._key_name = item_rendered_key_name
-                                        # We create a copy of the variable_item unpon which we render the key_name and add
-                                        # the appropriate database_path_elements into to prepare the creation of the MapItem.
+                    item_default_type = try_to_get_primitive_default_type_of_item(item_type=variable_item.items_excepted_type)
+                    item_key_name = make_dict_key_var_name(variable_item.key_name)
 
-                                        map_item = MapItem(
-                                            parent_field=nested_variable_item,
-                                            field_type=nested_variable_item.default_field_type,
-                                            model_type=nested_variable_item.items_excepted_type
-                                        )
-                                        # The MapItem will retrieve the key_name of its parent_field when initialized.
-                                        # Hence, it is important to do the modifications on the nested_variable_item
-                                        # before the initialization of the MapItem.
+                    if "{i}" in variable_item.key_name:
+                        if is_nested is not True:
+                            current_nested_field_path = "" if current_field_path is None else current_field_path
+                            current_nested_database_path = [*variable_item.database_path]
+                            for i in range(variable_item.max_nested):
+                                if len(current_nested_database_path) > 32:
+                                    print(message_with_vars(
+                                        message="Imposed a max nested database depth on field missing or with a too high nested depth limit.",
+                                        vars_dict={
+                                            'current_field_path': current_field_path,
+                                            'field_name': variable_item.field_name,
+                                            'imposedMaxNestedDepth': i
+                                        }
+                                    ))
+                                    break
+                                else:
+                                    nested_variable_item = variable_item.copy()
+                                    item_rendered_key_name: str = nested_variable_item.key_name.replace("{i}", f"{i}")
+                                    nested_variable_item._database_path = [*current_nested_database_path]
+                                    nested_variable_item._key_name = item_rendered_key_name
+                                    # We create a copy of the variable_item unpon which we render the key_name and add
+                                    # the appropriate database_path_elements into to prepare the creation of the MapItem.
 
-                                        if i > 0:
-                                            current_nested_field_path += f".{variable_item.field_name}"
-                                        current_nested_field_path += ".{{" + map_item.key_name + "}}"
-
-                                        current_nested_database_path.append(DatabasePathElement(
-                                            element_key=make_dict_key_var_name(map_item.key_name),
-                                            default_type=nested_variable_item.default_field_type,
-                                            custom_default_value=nested_variable_item.custom_default_value
-                                        ))
-                                        field_is_valid = self.table.fields_switch.set(key=current_nested_field_path, item=map_item)
-                                        if field_is_valid is True:
-                                            if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
-                                                self.assign_internal_mapping_from_class(
-                                                    class_type=variable_item.items_excepted_type,
-                                                    nested_field_path=current_nested_field_path,
-                                                    current_path_elements=[*current_nested_database_path],
-                                                    is_nested=True
-                                                )
-                                        current_nested_database_path.append(DatabasePathElement(
-                                            element_key=nested_variable_item.field_name,
-                                            default_type=nested_variable_item.default_field_type,
-                                            custom_default_value=nested_variable_item.custom_default_value
-                                        ))
-                        else:
-                            current_field_path += ".{{" + variable_item.key_name + "}}"
-
-                            map_item = MapItem(
-                                parent_field=variable_item, field_type=item_default_type,
-                                model_type=variable_item.items_excepted_type
-                            )
-                            field_is_valid = self.table.fields_switch.set(current_field_path, map_item)
-                            if field_is_valid is True:
-                                items_excepted_type = variable_item.items_excepted_type
-                                if items_excepted_type not in PRIMITIVE_TYPES:
-                                    new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
-                                    current_path_elements = [*variable_item.database_path, new_database_dict_item_path_element]
-
-                                    if isinstance(items_excepted_type, DictModel):
-                                        if items_excepted_type.key_name is None:
-                                            # If the key_name of a DictModel is not defined (for example, when a nested typed Dict is converted
-                                            # to a DictModel) we set its key to the key of its parent plus the child keyword. So, a parent key
-                                            # of itemKey will give itemKeyChild, and a parent of itemKeyChild will give itemKeyChildChild.
-                                            items_excepted_type.key_name = f"{variable_item.key_name}Child"
-
-                                        self.process_item(
-                                            class_type=None, item_key_name=None,
-                                            variable_item=variable_item.items_excepted_type,
-                                            current_field_path=current_field_path,
-                                            current_path_elements=current_path_elements
-                                        )
-
-                                    self.assign_internal_mapping_from_class(
-                                        class_type=variable_item.items_excepted_type,
-                                        nested_field_path=current_field_path,
-                                        current_path_elements=current_path_elements
+                                    map_item = MapItem(
+                                        parent_field=nested_variable_item,
+                                        field_type=nested_variable_item.default_field_type,
+                                        model_type=nested_variable_item.items_excepted_type
                                     )
+                                    # The MapItem will retrieve the key_name of its parent_field when initialized.
+                                    # Hence, it is important to do the modifications on the nested_variable_item
+                                    # before the initialization of the MapItem.
+
+                                    if i > 0:
+                                        current_nested_field_path += f".{variable_item.field_name}"
+                                    current_nested_field_path += ".{{" + map_item.key_name + "}}"
+
+                                    current_nested_database_path.append(DatabasePathElement(
+                                        element_key=make_dict_key_var_name(map_item.key_name),
+                                        default_type=nested_variable_item.default_field_type,
+                                        custom_default_value=nested_variable_item.custom_default_value
+                                    ))
+                                    field_is_valid = self.table.fields_switch.set(key=current_nested_field_path, item=map_item)
+                                    if field_is_valid is True:
+                                        if variable_item.items_excepted_type not in PRIMITIVE_TYPES:
+                                            self.assign_internal_mapping_from_class(
+                                                class_type=variable_item.items_excepted_type,
+                                                nested_field_path=current_nested_field_path,
+                                                current_path_elements=[*current_nested_database_path],
+                                                is_nested=True
+                                            )
+                                    current_nested_database_path.append(DatabasePathElement(
+                                        element_key=nested_variable_item.field_name,
+                                        default_type=nested_variable_item.default_field_type,
+                                        custom_default_value=nested_variable_item.custom_default_value
+                                    ))
+                    else:
+                        map_item = MapItem(
+                            parent_field=variable_item, field_type=item_default_type,
+                            model_type=variable_item.items_excepted_type
+                        )
+                        field_is_valid = self.table.fields_switch.set(current_field_path, map_item)
+
+                        if field_is_valid is True:
+                            items_excepted_type = variable_item.items_excepted_type
+                            if items_excepted_type not in PRIMITIVE_TYPES:
+                                new_database_dict_item_path_element = DatabasePathElement(element_key=item_key_name, default_type=item_default_type)
+                                current_path_elements = [*variable_item.database_path, new_database_dict_item_path_element]
+
+                                if isinstance(items_excepted_type, DictModel):
+                                    if items_excepted_type.key_name is None:
+                                        # If the key_name of a DictModel is not defined (for example, when a nested typed Dict is converted
+                                        # to a DictModel) we set its key to the key of its parent plus the child keyword. So, a parent key
+                                        # of itemKey will give itemKeyChild, and a parent of itemKeyChild will give itemKeyChildChild.
+                                        items_excepted_type.key_name = f"{variable_item.key_name}Child"
+
+                                self.process_item(
+                                    class_type=None, item_key_name=None,
+                                    variable_item=variable_item.items_excepted_type,
+                                    current_field_path=current_field_path,
+                                    current_path_elements=current_path_elements
+                                )
+                                self.assign_internal_mapping_from_class(
+                                    class_type=variable_item.items_excepted_type,
+                                    nested_field_path=current_field_path,
+                                    current_path_elements=current_path_elements
+                                )
 
         except Exception as e:
             print(e)
@@ -290,15 +302,16 @@ class Processor:
 
         required_fields: List[BaseField] = []
         for variable_key_name, variable_item in deep_class_variables.items():
-            current_field_path = "" if nested_field_path is None else nested_field_path
-            required_fields.extend(self.process_item(
-                class_type=class_type,
-                item_key_name=variable_key_name,
-                variable_item=variable_item,
-                current_field_path=current_field_path,
-                current_path_elements=current_path_elements,
-                is_nested=is_nested
-            ))
+            if isinstance(variable_item, BaseField):
+                current_field_path = "" if nested_field_path is None else nested_field_path
+                required_fields.extend(self.process_item(
+                    class_type=class_type,
+                    item_key_name=variable_key_name,
+                    variable_item=variable_item,
+                    current_field_path=current_field_path,
+                    current_path_elements=current_path_elements,
+                    is_nested=is_nested
+                ))
 
         setattr(class_type, 'required_fields', required_fields)
         # We need to set the attribute, because when we go the required_fields with the get_attr

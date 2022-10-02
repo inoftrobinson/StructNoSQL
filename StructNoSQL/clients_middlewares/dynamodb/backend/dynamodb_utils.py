@@ -74,13 +74,7 @@ class DynamoDBUtils:
         return cls._deserializer
 
     @staticmethod
-    def python_to_dynamodb(python_object: Any):
-        return PythonToDynamoDBValuesConvertor.convert(python_object=python_object)
-
-    @staticmethod
     def dynamodb_to_python(dynamodb_object: Any):
-        # todo: deprecate
-        print("dynamodb_to_python is deprecated")
         if isinstance(dynamodb_object, Decimal):
             return _decimal_to_python(decimal_number=dynamodb_object)
         elif isinstance(dynamodb_object, list):
@@ -88,54 +82,21 @@ class DynamoDBUtils:
                 dynamodb_object[i] = DynamoDBUtils.dynamodb_to_python(dynamodb_object=item)
             return dynamodb_object
         elif isinstance(dynamodb_object, dict):
-            if len(dynamodb_object) == 1:
-                # If the length of the Dict is only one, it might be a DynamoDB object, with its key
-                # as its variable type. For example : {'N': '1'}  And yes, this also apply to lists and maps.
-                first_key: str = list(dynamodb_object.keys())[0]
-                if first_key in DynamoDBUtils.DYNAMODB_TYPES_KEYS:
-                    first_item: Any = dynamodb_object[first_key]
-                    return DynamoDBToPythonValuesConvertor.convert(first_key=first_key, dynamodb_item=first_item)
-
-            # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
-            keys_to_pop: List[str] = []
-            for key, item in dynamodb_object.items():
-                item_value = DynamoDBUtils.dynamodb_to_python(dynamodb_object=item)
-                if item_value is not None:
-                    dynamodb_object[key] = item_value
-                else:
-                    keys_to_pop.append(key)
-
-            for key in keys_to_pop:
-                dynamodb_object.pop(key)
-
-            return dynamodb_object
-        else:
-            return dynamodb_object
-
-    @staticmethod
-    def dynamodb_to_python_higher_level(dynamodb_object: Any):
-        if isinstance(dynamodb_object, Decimal):
-            return _decimal_to_python(decimal_number=dynamodb_object)
-        elif isinstance(dynamodb_object, list):
-            for i, item in enumerate(dynamodb_object):
-                dynamodb_object[i] = DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item)
-            return dynamodb_object
-        elif isinstance(dynamodb_object, dict):
             # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
             for key, item in dynamodb_object.items():
-                dynamodb_object[key] = DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=item)
+                dynamodb_object[key] = DynamoDBUtils.dynamodb_to_python(dynamodb_object=item)
             return dynamodb_object
         return dynamodb_object
 
     @staticmethod
-    def python_to_dynamodb_higher_level(python_object: Any):
+    def python_to_dynamodb(python_object: Any):
         if isinstance(python_object, float):
             return float_to_decimal(float_number=python_object)
         elif isinstance(python_object, list):
-            return [DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item) for item in python_object]
+            return [DynamoDBUtils.python_to_dynamodb(python_object=item) for item in python_object]
         elif isinstance(python_object, dict):
             # If the dict was a classic dict, with its first key not in the keys used by DynamoDB
-            return {key: DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item) for key, item in python_object.items()}
+            return {key: DynamoDBUtils.python_to_dynamodb(python_object=item) for key, item in python_object.items()}
         return python_object
 
 class DynamoDBToPythonValuesConvertor:
@@ -236,13 +197,13 @@ class PythonToDynamoDBValuesConvertor:
     @staticmethod
     def _list_handler(python_object: list):
         for i, item in enumerate(python_object):
-            python_object[i] = DynamoDBUtils.python_to_dynamodb(python_object=item)
+            python_object[i] = PythonToDynamoDBValuesConvertor.convert(python_object=item)
         return {DynamoDBUtils.TYPE_LIST: python_object}
 
     @staticmethod
     def _dict_handler(python_object: dict):
         for key, item in python_object.items():
-            python_object[key] = DynamoDBUtils.python_to_dynamodb(python_object=item)
+            python_object[key] = PythonToDynamoDBValuesConvertor.convert(python_object=item)
         return {DynamoDBUtils.TYPE_MAP: python_object}
 
     @staticmethod

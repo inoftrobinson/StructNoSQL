@@ -199,7 +199,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                 return False, None
 
             python_response_attributes: Optional[dict] = (
-                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                DynamoDBUtils.dynamodb_to_python(response.attributes)
                 if response.attributes is not None else None
             )
             return True, python_response_attributes
@@ -227,7 +227,7 @@ class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):
                 return False, None
 
             python_response_attributes: Optional[dict] = (
-                DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+                DynamoDBUtils.dynamodb_to_python(response.attributes)
                 if response.attributes is not None else None
             )
             return True, python_response_attributes

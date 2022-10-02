@@ -89,7 +89,7 @@ class DynamoDbCoreAdapter:
                     raise Exception(f"Request to create the table if not exist failed: Exception of type {type(e).__name__} occurred {str(e)}")
 
     def put_record(self, item_dict: dict) -> bool:
-        serialized_item_dict = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=item_dict)
+        serialized_item_dict = DynamoDBUtils.python_to_dynamodb(python_object=item_dict)
         try:
             table = self.dynamodb.Table(self.table_name)
             response = table.put_item(Item=serialized_item_dict)
@@ -120,7 +120,7 @@ class DynamoDbCoreAdapter:
             response_attributes: Optional[dict] = response_data.get('Attributes', None)
             if response_attributes is None:
                 return None
-            return DynamoDBUtils.dynamodb_to_python_higher_level(response_attributes)
+            return DynamoDBUtils.dynamodb_to_python(response_attributes)
         except ResourceNotExistsError:
             raise Exception(f"DynamoDb table {self.table_name} doesn't exist. Failed to remove_record in DynamoDb table.")
         except Exception as e:
@@ -139,7 +139,7 @@ class DynamoDbCoreAdapter:
             table = self.dynamodb.Table(self.table_name)
             response = table.get_item(**kwargs)
             if 'Item' in response:
-                processed_item = DynamoDBUtils.dynamodb_to_python_higher_level(dynamodb_object=response['Item'])
+                processed_item = DynamoDBUtils.dynamodb_to_python(dynamodb_object=response['Item'])
                 return GetItemResponse(item=processed_item, success=True)
             else:
                 return GetItemResponse(item=None, success=False)
@@ -169,7 +169,7 @@ class DynamoDbCoreAdapter:
             return None
 
     def add_data_elements_to_list(self, index_name: str, key_value: Any, object_path: str, element_values: List[dict]) -> Optional[Response]:
-        serialized_elements_values: List[Any] = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=element_values)
+        serialized_elements_values: List[Any] = DynamoDBUtils.python_to_dynamodb(python_object=element_values)
         kwargs = {
             'TableName': self.table_name,
             'Key': {index_name: key_value},
@@ -247,7 +247,7 @@ class DynamoDbCoreAdapter:
         # Even if we return an empty output_response_attributes dict, we do not want to return None instead of a dict, because since this function only returns a dict, a return
         # value of None indicates that the operation failed. Where as, for example in delete operation, we will not request the removed attributes from the database, which will
         # give us an empty output_response_attributes dict, but the delete operation will base itself on the presence of the dict to judge if the operation failed or not.
-        output_response_attributes: dict = DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes) if response.attributes is not None else {}
+        output_response_attributes: dict = DynamoDBUtils.dynamodb_to_python(response.attributes) if response.attributes is not None else {}
         if len(targets_path_elements) == len(consumed_targets_path_elements):
             return output_response_attributes
         else:
@@ -371,7 +371,7 @@ class DynamoDbCoreAdapter:
             else:
                 update_expression += " = :item"
 
-        serialized_value = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=value)
+        serialized_value = DynamoDBUtils.python_to_dynamodb(python_object=value)
         update_query_kwargs = {
             "TableName": self.table_name,
             "Key": {index_name: key_value},
@@ -411,7 +411,7 @@ class DynamoDbCoreAdapter:
         for setter in setters:
             current_absolute_target_path: str = ""
             last_map_initializer_container: Optional[MapItemInitializerContainer] = None
-            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=setter.value_to_set)
+            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb(python_object=setter.value_to_set)
 
             for i_path, path_element in enumerate(setter.field_path_elements):
                 current_absolute_target_path = DynamoDbCoreAdapter._add_database_path_element_to_string_path(
@@ -522,7 +522,7 @@ class DynamoDbCoreAdapter:
         for i_setter, current_setter in enumerate(setters):
             current_setter_update_expression = ""
             current_setter_attribute_names, current_setter_attribute_values = {}, {}
-            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb_higher_level(python_object=current_setter.value_to_set)
+            setter_serialized_value_to_set = DynamoDBUtils.python_to_dynamodb(python_object=current_setter.value_to_set)
 
             for i_path, current_path_element in enumerate(current_setter.field_path_elements):
                 current_path_key = f"#setter{i_setter}_pathKey{i_path}"

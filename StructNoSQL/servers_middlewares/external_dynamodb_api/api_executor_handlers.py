@@ -169,7 +169,7 @@ def setUpdateMultipleDataElementsToMap(table: DynamoDBLowLevelTableClient, data:
 
     from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
     response_attributes: Optional[dict] = (
-        DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+        DynamoDBUtils.dynamodb_to_python(response.attributes)
         if response.attributes is not None else None
     )
     return True, response_attributes, {}
@@ -199,7 +199,7 @@ def setUpdateMultipleDataElementsToMapWithDefaultInitialization(table: DynamoDBL
 
     from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
     response_attributes: Optional[Dict[str, Any]] = (
-        DynamoDBUtils.dynamodb_to_python_higher_level(response.attributes)
+        DynamoDBUtils.dynamodb_to_python(response.attributes)
         if response.attributes is not None else None
     )
     return True, response_attributes, {}

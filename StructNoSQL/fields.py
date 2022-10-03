@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Any, Dict, _GenericAlias, Tuple
+from typing import List, Optional, Any, Dict, _GenericAlias, Tuple, Set
 
 from StructNoSQL.utils.objects import NoneType
 from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
@@ -339,24 +339,35 @@ class BaseField(BaseItem):
         self._field_name = value
 
         # When field_name is set, if the/any of the field_type is one of the field_type's requiring a key_name and the
-        # key_name has not been set by the user, we create a default key_name by adding 'Key' to the field_name.
+        # key_name has not been set by the user, we create a default key_name by adding 'Key' or 'Index' to the field_name.
         if self.map_model is None:
-            # When map_model is not None, this can mean that the field_type was a MapModel, which is then
-            # converted to the primitive dict field_type, while we use map_model to conserve the MapModel.
-            def attempt_to_set_default_key_name():
+            # When map_model is not None, this can mean that the field_type was a MapModel, which is then converted
+            # to the primitive dict, list or set field_type, while we use map_model to conserve the MapModel.
+
+            def field_type_is_or_includes_any(accepted_types: Set[type], accept_generic_alias: bool) -> bool:
+                # If it's a tuple, we perform an 'any' check
+                if isinstance(self._field_type, tuple):
+                    if (
+                        any(field_type in accepted_types for field_type in self._field_type) or
+                        (accept_generic_alias is True and any(type(field_type) == _GenericAlias for field_type in self._field_type))
+                    ):
+                        return True
+                else:
+                    if (
+                        self.field_type in accepted_types or
+                        (accept_generic_alias is True and type(self.field_type) == _GenericAlias)
+                    ):
+                        return True
+                return False
+
+            if field_type_is_or_includes_any(accepted_types={dict}, accept_generic_alias=True):
+                # attempt_to_set_dict_default_key_name
                 if self._key_name is None:
                     self._key_name = f"{self.field_name}Key"
-
-            if isinstance(self._field_type, (list, tuple)):
-                # If it's a list or a tuple, we perform an 'any' check
-                if (
-                    any(field_type in [dict, set] for field_type in self._field_type) or
-                    any(type(field_type) == _GenericAlias for field_type in self._field_type)
-                ):
-                    attempt_to_set_default_key_name()
-            else:
-                if self.field_type in [dict, set] or type(self.field_type) == _GenericAlias:
-                    attempt_to_set_default_key_name()
+            elif field_type_is_or_includes_any(accepted_types={list, set}, accept_generic_alias=False):
+                # attempt_to_set_list_default_key_name
+                if self._key_name is None:
+                    self._key_name = f"{self.field_name}Index"
 
     @property
     def key_name(self) -> Optional[str]:

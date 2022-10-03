@@ -11,8 +11,8 @@ class UsersTableModel(TableDataModel):
             ya = BaseField(field_type=str)
         instancesInfos = BaseField(field_type=InstancesInfosModel, required=False)
     projects = BaseField(field_type=Dict[str, ProjectModel], key_name="projectId")
-    multiTypes = BaseField(field_type=[str, NoneType], required=True)
-    number1 = BaseField(field_type=[int, float], required=False)
+    multiTypes = BaseField(field_type=(str, NoneType), required=True)
+    number1 = BaseField(field_type=(int, float), required=False)
     string1 = BaseField(field_type=str, required=False)
     floatTest = BaseField(field_type=float, required=False)
 

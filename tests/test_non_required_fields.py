@@ -1,7 +1,7 @@
 import unittest
 from uuid import uuid4
 
-from StructNoSQL import BaseField, MapModel, NoneType, TableDataModel
+from StructNoSQL import BaseField, MapModel, TableDataModel
 from tests.components.playground_table_clients import PlaygroundDynamoDBBasicTable, TEST_ACCOUNT_ID
 
 

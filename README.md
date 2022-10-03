@@ -131,7 +131,7 @@ Primary object to declare the fields of your table, or fields of items in maps a
           class ProjectModel(MapModel):
               projectName = BaseField(field_type=str)
           projects = BaseField(field_type=Dict[str, ProjectModel], key_name="projectId")
-          activePromoCode = BaseField(field_type=[str, NoneType])
+          activePromoCode = BaseField(field_type=(str, NoneType))
       ```
  - `required`: If a required field is missing from any data (both when setting/updating data, and when retrieving it), 
  in a table model or in a MapModel, the data validation will print an error (without raising an exception), and not 

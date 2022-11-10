@@ -69,13 +69,19 @@ class TestsBotoSession(unittest.TestCase):
             # not allow to describe or create table.
         )
 
-        key_value = f"{PROD_ACCOUNT_ID}-{PROD_PROJECT_ID}-table1-exampleRecordKey"
-        update_success: bool = table_client.update_field(
-            key_value=key_value, field_path='simpleField', value_to_set=field_random_value
+        valid_key_value = f"{PROD_ACCOUNT_ID}-{PROD_PROJECT_ID}-table1-exampleRecordKey"
+        valid_update_success: bool = table_client.update_field(
+            key_value=valid_key_value, field_path='simpleField', value_to_set=field_random_value
         )
-        self.assertTrue(update_success)
+        self.assertTrue(valid_update_success)
 
         retrieved_field_value: Optional[str] = table_client.get_field(
-            key_value=key_value, field_path='simpleField'
+            key_value=valid_key_value, field_path='simpleField'
         )
         self.assertEqual(retrieved_field_value, field_random_value)
+
+        invalid_key_value = f"invalidAccountId-invalidProjectId-table1-exampleRecordKey"
+        invalid_update_success: bool = table_client.update_field(
+            key_value=invalid_key_value, field_path='simpleField', value_to_set=field_random_value
+        )
+        self.assertFalse(invalid_update_success)

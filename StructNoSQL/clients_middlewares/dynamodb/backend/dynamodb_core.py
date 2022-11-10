@@ -5,7 +5,6 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import boto3
 from boto3.dynamodb.conditions import Key
 from boto3.exceptions import ResourceNotExistsError
-from boto3.session import Session
 from typing import List, Optional, Type, Any, Dict, Tuple, Union
 
 from botocore.exceptions import ClientError
@@ -27,7 +26,8 @@ class DynamoDbCoreAdapter:
     def __init__(
             self, table_name: str, region_name: str, primary_index: PrimaryIndex,
             create_table: bool = True, billing_mode: str = PAY_PER_REQUEST,
-            global_secondary_indexes: List[GlobalSecondaryIndex] = None
+            global_secondary_indexes: List[GlobalSecondaryIndex] = None,
+            boto_session: Optional[boto3.Session] = None
     ):
         self.table_name = table_name
         self.primary_index = primary_index
@@ -51,15 +51,17 @@ class DynamoDbCoreAdapter:
             # print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
             #       f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
-            dynamodb_regions = Session().get_available_regions('dynamodb')
+            used_boto_session: Session = Session() if boto_session is None else boto_session
+            dynamodb_regions = used_boto_session.get_available_regions('dynamodb')
             if region_name in dynamodb_regions:
-                self.dynamodb = boto3.resource('dynamodb', region_name=region_name)
+                self.dynamodb = used_boto_session.resource('dynamodb', region_name=region_name)
                 self._EXISTING_DATABASE_CLIENTS[region_name] = self.dynamodb
             else:
-                self.dynamodb = boto3.resource('dynamodb')
+                self.dynamodb = used_boto_session.resource('dynamodb')
                 self._EXISTING_DATABASE_CLIENTS['default'] = self.dynamodb
-                logging.debug(f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
-                              f"The dynamodb client has been initialized without specifying the region.")
+                logging.debug(
+                    f"Warning ! The specified dynamodb region_name {region_name} is not a valid region_name."
+                    f"The dynamodb client has been initialized without specifying the region.")
 
         self._create_table_if_not_exists()
 

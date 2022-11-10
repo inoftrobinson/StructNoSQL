@@ -1,3 +1,4 @@
+import boto3
 from typing import Optional, List, Dict, Any, Tuple, Union, Generator, Type
 
 from StructNoSQL import TableDataModel
@@ -16,13 +17,15 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
             data_model: Type[TableDataModel], primary_index: PrimaryIndex,
             billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
             global_secondary_indexes: List[GlobalSecondaryIndex] = None,
-            auto_create_table: bool = True
+            auto_create_table: bool = True,
+            boto_session: Optional[boto3.Session] = None
     ):
         super().__init__(data_model=data_model, primary_index=primary_index)
         super().__setup_connectors__(
             table_name=table_name, region_name=region_name, primary_index=primary_index,
             billing_mode=billing_mode, global_secondary_indexes=global_secondary_indexes,
-            auto_create_table=auto_create_table
+            auto_create_table=auto_create_table,
+            boto_session=boto_session
         )
 
     def commit_update_operations(self) -> bool:

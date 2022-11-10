@@ -1,3 +1,4 @@
+import boto3
 from typing import Optional, Any, Type
 from StructNoSQL import DynamoDBBasicTable, PrimaryIndex, GlobalSecondaryIndex, DynamoDBCachingTable, \
     ExternalDynamoDBApiCachingTable, ExternalDynamoDBApiBasicTable, TableDataModel
@@ -10,7 +11,11 @@ TEST_ACCOUNT_USERNAME = "Yay"
 
 
 class PlaygroundDynamoDBBasicTable(DynamoDBBasicTable):
-    def __init__(self, data_model: Optional[Any] = None):
+    def __init__(
+            self, data_model: Optional[Any] = None,
+            auto_create_table: bool = True,
+            boto_session: Optional[boto3.Session] = None
+    ):
         primary_index = PrimaryIndex(hash_key_name='accountId', hash_key_variable_python_type=str)
         globals_secondary_indexes = [
             GlobalSecondaryIndex(hash_key_name='username', hash_key_variable_python_type=str, projection_type='ALL'),
@@ -19,7 +24,8 @@ class PlaygroundDynamoDBBasicTable(DynamoDBBasicTable):
         ]
         super().__init__(
             table_name="structnosql-playground", region_name="eu-west-2", data_model=data_model,
-            primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes, auto_create_table=True
+            primary_index=primary_index, global_secondary_indexes=globals_secondary_indexes,
+            auto_create_table=auto_create_table, boto_session=boto_session
         )
 
 class PlaygroundDynamoDBCachingTable(DynamoDBCachingTable):
@@ -66,10 +72,13 @@ class InoftVocalEngineCachingTable(ExternalDynamoDBApiCachingTable):
         )
 
 
+PROD_ACCOUNT_ID = "b1fe5939-032b-462d-92e0-a942cd445096"
+PROD_PROJECT_ID = "03731a00-5677-4f93-bb69-97fb29cb04e4"
+ENGINE_API_KEY = "0a95e2a7-ba06-4f47-9864-70d275ab4b2f"
 INOFT_VOCAL_ENGINE_PLAYGROUND_TABLE_KWARGS = {
-    'engine_account_id': "b1fe5939-032b-462d-92e0-a942cd445096",
-    'engine_project_id': "4ede8b70-46f6-4ae2-b09c-05a549194c8e",
-    'engine_api_key': "daisybelle",
+    'engine_account_id': PROD_ACCOUNT_ID,
+    'engine_project_id': PROD_PROJECT_ID,
+    'engine_api_key': ENGINE_API_KEY,
     'table_id': "structnosql-playground",
     'region_name': "eu-west-2",
 }

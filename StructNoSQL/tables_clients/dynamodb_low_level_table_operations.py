@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict, Any, Union
 
-from StructNoSQL.clients_middlewares.dynamodb.backend.models import Response
+from StructNoSQL.tables_clients.backend import Response
 from StructNoSQL.models import DatabasePathElement
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.tables_clients.dynamodb_table_connectors import DynamoDBTableConnectors
 
 
 class DynamoDBLowLevelTableOperations(DynamoDBTableConnectors):

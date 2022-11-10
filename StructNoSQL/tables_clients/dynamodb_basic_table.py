@@ -1,18 +1,15 @@
-import logging
-
 import boto3
 from typing import Optional, List, Dict, Any, Tuple, Union, Generator, Type
 
 from StructNoSQL import TableDataModel
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.clients_middlewares.dynamodb.backend.models import Response
+from StructNoSQL.tables_clients.backend.dynamodb_core import DynamoDbCoreAdapter
+from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.tables_clients.backend.models import PrimaryIndex, GlobalSecondaryIndex, Response
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
-from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.tables.base_basic_table import BaseBasicTable
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
-from StructNoSQL.tables.shared_table_behaviors import _prepare_getters
+from StructNoSQL.base_tables.base_basic_table import BaseBasicTable
+from StructNoSQL.tables_clients.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
+from StructNoSQL.base_tables.shared_table_behaviors import _prepare_getters
 
 
 class DynamoDBBasicTable(BaseBasicTable, DynamoDBLowLevelTableOperations):

@@ -1,17 +1,14 @@
 import random
 import unittest
-from typing import Optional, Union, Dict, Any, Tuple
-from uuid import uuid4
+from typing import Optional, Union, Dict, Any
 
-from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable, FieldSetter, \
-    FieldGetter, FieldRemover
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
+from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, FieldSetter,  FieldGetter
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID
 
 
 def test_get_simple_float_field(
         self: unittest.TestCase,
-        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     simple_random_float_value: float = random.randint(1, 10000) / 100
@@ -34,7 +31,7 @@ def test_get_simple_float_field(
 
 def test_get_multiple_float_fields(
         self: unittest.TestCase,
-        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: float = random.randint(1, 10000) / 100
@@ -71,7 +68,7 @@ def test_get_multiple_float_fields(
 
 def test_remove_simple_float_field(
         self: unittest.TestCase,
-        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        table_client: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     simple_random_float_value: float = random.randint(1, 10000) / 100

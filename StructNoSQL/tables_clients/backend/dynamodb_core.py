@@ -5,12 +5,12 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import boto3
 from boto3.dynamodb.conditions import Key
 from boto3.exceptions import ResourceNotExistsError
-from typing import List, Optional, Type, Any, Dict, Tuple, Union
+from typing import List, Optional, Any, Dict, Tuple
 
 from botocore.exceptions import ClientError
 
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.clients_middlewares.dynamodb.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
+from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.tables_clients.backend.models import GlobalSecondaryIndex, PrimaryIndex, CreateTableQueryKwargs, \
     GetItemResponse, Response, EXPRESSION_MAX_BYTES_SIZE
 from StructNoSQL.models import DatabasePathElement, FieldPathSetter, MapItemInitializer, \
     MapItemInitializerContainer, QueryMetadata

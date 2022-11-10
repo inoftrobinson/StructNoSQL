@@ -1,9 +1,5 @@
-from dataclasses import dataclass
 from typing import Optional, List, Type, Any, Dict
-
 from pydantic import BaseModel, validate_arguments
-
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import PythonToDynamoDBTypesConvertor
 
 
 HASH_KEY_TYPE = "HASH"
@@ -113,6 +109,7 @@ class CreateTableQueryKwargs:
         }
 
     def _add_key(self, key_name: str, key_python_variable_type: Type, key_type: str):
+        from StructNoSQL.tables_clients.backend.dynamodb_utils import PythonToDynamoDBTypesConvertor
         self.data['KeySchema'].append({
             'AttributeName': key_name,
             'KeyType': key_type
@@ -132,6 +129,7 @@ class CreateTableQueryKwargs:
 
     def _add_global_secondary_index(self, key_name: str, key_python_variable_type: Type):
         if key_name not in self._names_already_defined_attributes:
+            from StructNoSQL.tables_clients.backend.dynamodb_utils import PythonToDynamoDBTypesConvertor
             self.data["AttributeDefinitions"].append({
                 "AttributeName": key_name,
                 "AttributeType": PythonToDynamoDBTypesConvertor.convert(python_type=key_python_variable_type)

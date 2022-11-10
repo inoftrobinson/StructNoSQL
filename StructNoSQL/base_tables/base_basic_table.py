@@ -3,8 +3,8 @@ from typing import Optional, List, Dict, Any, Tuple, Callable, Union, Type
 from StructNoSQL import PrimaryIndex, BaseField, TableDataModel
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
-from StructNoSQL.tables.base_table import BaseTable
-from StructNoSQL.tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys, \
+from StructNoSQL.base_tables.base_table import BaseTable
+from StructNoSQL.base_tables.shared_table_behaviors import _prepare_getters, _model_contain_all_index_keys, \
     unpack_validate_retrieved_field_if_need_to, unpack_validate_multiple_retrieved_fields_if_need_to
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path,\
@@ -90,7 +90,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[List[DatabasePathElement]]], Tuple[Optional[List[Any]], QueryMetadata]],
             fields_database_paths: List[List[DatabasePathElement]],
     ) -> Tuple[Optional[dict], QueryMetadata]:
-        from StructNoSQL.tables.shared_table_behaviors import _inner_query_fields_secondary_index
+        from StructNoSQL.base_tables.shared_table_behaviors import _inner_query_fields_secondary_index
         return _inner_query_fields_secondary_index(
             primary_index_name=self.primary_index_name,
             get_primary_key_database_path=self._get_primary_key_database_path,
@@ -106,7 +106,7 @@ class BaseBasicTable(BaseTable):
         def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
             return self._remove_leading_key_if_need_to(field_path_elements=item_field_path_elements, raw_field_data=item_value)
 
-        from StructNoSQL.tables.shared_table_behaviors import _unpack_validate_getters_record_attributes_if_need_to
+        from StructNoSQL.base_tables.shared_table_behaviors import _unpack_validate_getters_record_attributes_if_need_to
         return _unpack_validate_getters_record_attributes_if_need_to(
             item_mutator=item_mutator, data_validation=data_validation, record_attributes=record_attributes,
             single_getters_target_fields_containers=single_getters_target_fields_containers,

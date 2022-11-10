@@ -3,14 +3,12 @@ import unittest
 from uuid import uuid4
 from typing import Dict, Any, Union, List, Optional, Generator, Tuple
 
-from StructNoSQL import FieldSetter, FieldGetter, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable, \
-    DynamoDBBasicTable, QueryMetadata
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
+from StructNoSQL import FieldSetter, DynamoDBCachingTable, DynamoDBBasicTable, QueryMetadata
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID, TEST_ACCOUNT_USERNAME
 
 
 def test_set_get_fields_with_primary_index(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     if is_caching is True:
@@ -91,7 +89,7 @@ def test_set_get_fields_with_primary_index(
 
 
 def test_set_get_paginated_fields_with_primary_index(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     random_type_id: str = f"type_{uuid4()}"

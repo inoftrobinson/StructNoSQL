@@ -2,13 +2,12 @@ import unittest
 from typing import Union, Optional
 from uuid import uuid4
 
-from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable, \
-    ExternalDynamoDBApiBasicTable, FieldTargetNotFoundException
+from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, FieldTargetNotFoundException
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID
 
 
 def test_set_update_field_with_custom_name(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     simple_field_random_value = f"simpleField_{uuid4()}"

@@ -1,14 +1,14 @@
 import boto3
 from typing import Optional, List, Dict, Any, Tuple, Union, Generator, Type
 
-from StructNoSQL import TableDataModel
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.clients_middlewares.dynamodb.backend.models import Response
+from StructNoSQL import TableDataModel, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.tables_clients.backend.dynamodb_core import DynamoDbCoreAdapter
+from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.tables_clients.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.tables_clients.backend.models import Response
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
-from StructNoSQL.tables.base_caching_table import BaseCachingTable
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.base_tables.base_caching_table import BaseCachingTable
 
 
 class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):

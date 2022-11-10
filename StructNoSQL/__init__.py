@@ -1,12 +1,8 @@
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.fields import BaseField, MapModel, TableDataModel
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_table_connectors import DynamoDBTableConnectors
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_basic_table import DynamoDBBasicTable
-from StructNoSQL.clients_middlewares.dynamodb.dynamodb_caching_table import DynamoDBCachingTable
-# from StructNoSQL.tables.inoft_vocal_engine_basic_table import ExternalDynamoDBApiBasicTable
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_caching_table import ExternalDynamoDBApiCachingTable
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
+from StructNoSQL.tables_clients.backend import PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.tables_clients.dynamodb_table_connectors import DynamoDBTableConnectors
+from StructNoSQL.tables_clients.dynamodb_basic_table import DynamoDBBasicTable
+from StructNoSQL.tables_clients.dynamodb_caching_table import DynamoDBCachingTable
 from StructNoSQL.utils.objects import NoneType, Undefined, ActiveSelf
 from StructNoSQL.models import FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, QueryMetadata
 from StructNoSQL.exceptions import *
-from StructNoSQL.servers_middlewares.external_dynamodb_api.api_executor import ExternalDynamoDBApiExecutor

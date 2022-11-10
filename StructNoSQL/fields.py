@@ -1,8 +1,9 @@
 import re
 from typing import List, Optional, Any, Dict, _GenericAlias, Tuple, Set
 
+from StructNoSQL.tables_clients.backend.models import PrimaryIndex
 from StructNoSQL.utils.objects import NoneType
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_utils import DynamoDBUtils
+from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars

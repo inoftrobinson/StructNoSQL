@@ -2,12 +2,11 @@ import unittest
 from typing import Optional, Union
 from uuid import uuid4
 
-from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
+from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable
 
 
 def test_basic_record_removal(
-        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        self: unittest.TestCase, users_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         primary_key_name: str, is_caching: bool
 ):
     random_record_id: str = f"recordId_{uuid4()}"

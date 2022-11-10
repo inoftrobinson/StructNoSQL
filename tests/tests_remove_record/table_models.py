@@ -1,12 +1,6 @@
-from typing import Dict
-from StructNoSQL import TableDataModel, BaseField, MapModel
+from StructNoSQL import TableDataModel, BaseField
 
 
-class BaseTableModel(TableDataModel):
-    value = BaseField(field_type=str, required=False)
-
-class DynamoDBTableModel(BaseTableModel):
+class DynamoDBTableModel(TableDataModel):
     accountId = BaseField(field_type=str, required=True)
-
-class ExternalDynamoDBApiTableModel(BaseTableModel):
-    accountProjectTableKeyId = BaseField(field_type=str, required=True)
+    value = BaseField(field_type=str, required=False)

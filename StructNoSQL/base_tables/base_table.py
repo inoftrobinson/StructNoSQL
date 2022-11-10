@@ -3,12 +3,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict, Type
 from copy import copy
 
-from StructNoSQL import PrimaryIndex
 from StructNoSQL.models import DatabasePathElement, FieldRemover
 from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
 from StructNoSQL.practical_logger import message_with_vars
+from StructNoSQL.tables_clients.backend import PrimaryIndex
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item, make_dict_key_var_name
-from StructNoSQL.utils.types import PRIMITIVE_TYPES, TYPED_TYPES_TO_PRIMITIVES
+from StructNoSQL.utils.types import PRIMITIVE_TYPES
 
 
 # todo: add ability to add or remove items from list's

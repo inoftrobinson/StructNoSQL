@@ -20,8 +20,3 @@ class DynamoDBFirstTableModel(BaseFirstTableModel):
     accountId = BaseField(field_type=str, required=True)
 class DynamoDBSecondTableModel(BaseSecondTableModel):
     accountId = BaseField(field_type=str, required=True)
-
-class ExternalDynamoDBApiFirstTableModel(BaseFirstTableModel):
-    accountProjectTableKeyId = BaseField(field_type=str, required=True)
-class ExternalDynamoDBApiSecondTableModel(BaseSecondTableModel):
-    accountProjectTableKeyId = BaseField(field_type=str, required=True)

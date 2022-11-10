@@ -2,16 +2,15 @@ import unittest
 from typing import Optional, Union, Dict, Any, Tuple
 from uuid import uuid4
 
-from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiCachingTable, FieldSetter, \
+from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, FieldSetter, \
     FieldGetter, FieldRemover
-from StructNoSQL.clients_middlewares.external_dynamodb_api.external_dynamodb_api_basic_table import ExternalDynamoDBApiBasicTable
 from tests.components.playground_table_clients import TEST_ACCOUNT_ID
 
 
 def test_get_field(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
@@ -45,8 +44,8 @@ def test_get_field(
 
 def test_get_field_multi_selectors(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
@@ -96,8 +95,8 @@ def test_get_field_multi_selectors(
 
 def test_get_multiple_fields(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
@@ -154,8 +153,8 @@ def test_get_multiple_fields(
 
 def test_remove_field(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     def generate_update_simple_field_text_value() -> str:
@@ -193,8 +192,8 @@ def test_remove_field(
 
 def test_remove_field_multi_selectors(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     def generate_update_container_fields_text_values() -> Tuple[str, str]:
@@ -248,8 +247,8 @@ def test_remove_field_multi_selectors(
 
 def test_remove_multiple_fields(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     def generate_update_container_fields_text_values() -> Tuple[str, str]:
@@ -309,8 +308,8 @@ def test_remove_multiple_fields(
 
 def test_grouped_remove_multiple_fields(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     def generate_update_container_fields_text_values() -> Tuple[str, str]:
@@ -370,8 +369,8 @@ def test_grouped_remove_multiple_fields(
 
 def test_update_field_return_old(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
@@ -408,8 +407,8 @@ def test_update_field_return_old(
 
 def test_update_multiple_fields_return_old(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
@@ -464,8 +463,8 @@ def test_update_multiple_fields_return_old(
 
 def test_query_field(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     simple_field_random_text_value: str = f"simpleField_randomTextValue_{uuid4()}"
@@ -501,8 +500,8 @@ def test_query_field(
 
 def test_query_field_multi_selectors(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
@@ -554,8 +553,8 @@ def test_query_field_multi_selectors(
 
 def test_query_multiple_fields(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     container_field_one_random_text_value: str = f"container_fieldOne_randomTextValue_{uuid4()}"
@@ -614,8 +613,8 @@ def test_query_multiple_fields(
 
 def test_remove_record(
         self: unittest.TestCase,
-        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
-        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable, ExternalDynamoDBApiBasicTable, ExternalDynamoDBApiCachingTable],
+        first_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
+        second_table: Union[DynamoDBBasicTable, DynamoDBCachingTable],
         is_caching: bool, primary_key_name: str
 ):
     random_record_id: str = f"recordId_{uuid4()}"

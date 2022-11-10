@@ -3,7 +3,7 @@ from typing import Callable, List, Dict, Optional, Any, Tuple, Iterable
 from StructNoSQL import BaseField
 from StructNoSQL.models import DatabasePathElement, FieldGetter, QueryMetadata
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.tables.base_table import FieldsSwitch
+from StructNoSQL.base_tables.base_table import FieldsSwitch
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path
 

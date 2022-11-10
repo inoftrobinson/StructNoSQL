@@ -1,6 +1,7 @@
 import boto3
 from typing import List, Optional
-from StructNoSQL.clients_middlewares.dynamodb.backend.dynamodb_core import DynamoDbCoreAdapter, PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.tables_clients.backend.models import PrimaryIndex, GlobalSecondaryIndex
+from StructNoSQL.tables_clients.backend.dynamodb_core import DynamoDbCoreAdapter
 
 
 class DynamoDBTableConnectors:

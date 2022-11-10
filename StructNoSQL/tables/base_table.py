@@ -29,7 +29,10 @@ class FieldsSwitch(dict):
 
 
 class BaseTable:
-    def __init__(self, data_model: Type[TableDataModel], primary_index: PrimaryIndex):
+    def __init__(
+            self, data_model: Type[TableDataModel], primary_index: PrimaryIndex,
+            auto_leading_key: Optional[str] = None
+    ):
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 
@@ -39,6 +42,8 @@ class BaseTable:
         self._model_virtual_map_field = None
 
         self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
+
+        self.auto_leading_key = auto_leading_key
 
         self.processed_class_types: Set[type] = set()
         Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
@@ -80,6 +85,21 @@ class BaseTable:
         if primary_key_field_object is None:
             raise Exception("e")
         return primary_key_field_object.database_path
+
+    def _append_leading_key_if_need_to(self, value: str) -> str:
+        return value if self.auto_leading_key is None else f"{self.auto_leading_key}{value}"
+
+    def _remove_leading_key_if_need_to(self, field_path_elements: List[DatabasePathElement], raw_field_data: Any) -> Optional[Any]:
+        if self.auto_leading_key is not None:
+            if field_path_elements[-1].element_key == self.primary_index_name:
+                import re
+                matches: Optional[re.Match] = re.match(f'({self.auto_leading_key})(.*)', raw_field_data)
+                if matches is not None:
+                    return matches.group(2)
+                else:
+                    logging.warning("auto_leading_key not found in returned data, None is being returned")
+                    return None
+        return raw_field_data
 
 
 class Processor:

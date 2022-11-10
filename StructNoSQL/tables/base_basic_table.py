@@ -12,8 +12,11 @@ from StructNoSQL.utils.process_render_fields_paths import process_and_make_singl
 
 
 class BaseBasicTable(BaseTable):
-    def __init__(self, data_model: Type[TableDataModel], primary_index: PrimaryIndex):
-        super().__init__(data_model=data_model, primary_index=primary_index)
+    def __init__(
+            self, data_model: Type[TableDataModel], primary_index: PrimaryIndex,
+            auto_leading_key: Optional[str] = None
+    ):
+        super().__init__(data_model=data_model, primary_index=primary_index, auto_leading_key=auto_leading_key)
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
@@ -95,14 +98,13 @@ class BaseBasicTable(BaseTable):
             fields_paths_elements=fields_database_paths,
         )
 
-    @staticmethod
     def unpack_validate_getters_record_attributes_if_need_to(
-            data_validation: bool, record_attributes: dict,
+            self, data_validation: bool, record_attributes: dict,
             single_getters_target_fields_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]],
             grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
     ):
         def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
-            return item_value
+            return self._remove_leading_key_if_need_to(field_path_elements=item_field_path_elements, raw_field_data=item_value)
 
         from StructNoSQL.tables.shared_table_behaviors import _unpack_validate_getters_record_attributes_if_need_to
         return _unpack_validate_getters_record_attributes_if_need_to(

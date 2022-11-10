@@ -51,7 +51,7 @@ class DynamoDbCoreAdapter:
             # print(f"Initializing the {self}. For local development, make sure that you are connected to internet."
             #       f"\nOtherwise the DynamoDB client will get stuck at initializing the {self}")
 
-            used_boto_session: Session = Session() if boto_session is None else boto_session
+            used_boto_session: boto3.Session = boto3.Session() if boto_session is None else boto_session
             dynamodb_regions = used_boto_session.get_available_regions('dynamodb')
             if region_name in dynamodb_regions:
                 self.dynamodb = used_boto_session.resource('dynamodb', region_name=region_name)

@@ -4,23 +4,25 @@ from typing import Optional, List, Dict, Any, Tuple, Union, Generator, Type
 from StructNoSQL import TableDataModel, PrimaryIndex, GlobalSecondaryIndex
 from StructNoSQL.tables_clients.backend.dynamodb_core import DynamoDbCoreAdapter
 from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
-from StructNoSQL.tables_clients.dynamodb_table_connectors import DynamoDBTableConnectors
 from StructNoSQL.tables_clients.backend.models import Response
 from StructNoSQL.models import DatabasePathElement, FieldGetter, FieldSetter, UnsafeFieldSetter, FieldRemover, \
     FieldPathSetter, QueryMetadata
 from StructNoSQL.base_tables.base_caching_table import BaseCachingTable
+from StructNoSQL.tables_clients.dynamodb_low_level_table_operations import DynamoDBLowLevelTableOperations
 
 
-class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
+class DynamoDBCachingTable(BaseCachingTable, DynamoDBLowLevelTableOperations):
     def __init__(
             self, table_name: str, region_name: str,
             data_model: Type[TableDataModel], primary_index: PrimaryIndex,
             billing_mode: str = DynamoDbCoreAdapter.PAY_PER_REQUEST,
             global_secondary_indexes: List[GlobalSecondaryIndex] = None,
             auto_create_table: bool = True,
-            boto_session: Optional[boto3.Session] = None
+            boto_session: Optional[boto3.Session] = None,
+            auto_leading_key: Optional[str] = None
     ):
-        super().__init__(data_model=data_model, primary_index=primary_index)
+        super().__init__(data_model=data_model, primary_index=primary_index, auto_leading_key=auto_leading_key)
+        self.table = self
         super().__setup_connectors__(
             table_name=table_name, region_name=region_name, primary_index=primary_index,
             billing_mode=billing_mode, global_secondary_indexes=global_secondary_indexes,
@@ -52,10 +54,10 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
         self.commit_remove_operations()
         return True
 
-    def put_record(self, record_dict_data: dict) -> bool:
+    def put_record(self, record_dict_data: dict, data_validation: bool = True) -> bool:
         def middleware(validated_record_item: dict) -> bool:
             return self.dynamodb_client.put_record(item_dict=validated_record_item)
-        return self._put_record(middleware=middleware, record_dict_data=record_dict_data)
+        return self._put_record(middleware=middleware, record_dict_data=record_dict_data, data_validation=data_validation)
 
     def delete_record(self, indexes_keys_selectors: dict) -> bool:
         def middleware(indexes_keys: dict) -> bool:
@@ -118,30 +120,25 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBTableConnectors):
 
     def get_field(self, key_value: str, field_path: str, query_kwargs: Optional[dict] = None, data_validation: bool = True) -> Any:
         def middleware(field_path_elements: Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], is_multi_selector: bool):
-            if is_multi_selector is not True:
-                field_path_elements: List[DatabasePathElement]
-                return self.dynamodb_client.get_value_in_path_target(
-                    index_name=self.primary_index_name,
-                    key_value=key_value, field_path_elements=field_path_elements
-                )
-            else:
-                field_path_elements: Dict[str, List[DatabasePathElement]]
-                return self.dynamodb_client.get_values_in_multiple_path_target(
-                    index_name=self.primary_index_name,
-                    key_value=key_value, fields_path_elements=field_path_elements,
-                )
+            return self._get_field_middleware(
+                is_multi_selector=is_multi_selector,
+                field_path_elements=field_path_elements,
+                key_value=key_value
+            )
         return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None, data_validation: bool = True) -> Optional[dict]:
+        processed_key_value: str = self._append_leading_key_if_need_to(value=key_value)
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self.dynamodb_client.get_or_query_single_item(
                 index_name=index_name or self.primary_index_name,
-                key_value=key_value, fields_path_elements=fields_path_elements,
+                key_value=processed_key_value, fields_path_elements=fields_path_elements,
             )
-        return self._get_multiple_fields(middleware=middleware, key_value=key_value, getters=getters, data_validation=data_validation)
+        return self._get_multiple_fields(middleware=middleware, key_value=processed_key_value, getters=getters, data_validation=data_validation)
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
-        return self._update_field(key_value=key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+        processed_key_value: str = self._append_leading_key_if_need_to(value=key_value)
+        return self._update_field(key_value=processed_key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_field_return_old(
             self, key_value: str, field_path: str, value_to_set: Any,

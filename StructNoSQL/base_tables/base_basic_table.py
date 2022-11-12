@@ -18,10 +18,13 @@ class BaseBasicTable(BaseTable):
     ):
         super().__init__(data_model=data_model, primary_index=primary_index, auto_leading_key=auto_leading_key)
 
-    def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict) -> bool:
+    def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict, data_validation: bool) -> bool:
         self.model_virtual_map_field.populate(value=record_dict_data)
-        validated_data, is_valid = self.model_virtual_map_field.validate_data()
-        return middleware(validated_data) if is_valid is True else False
+        if data_validation is True:
+            validated_data, is_valid = self.model_virtual_map_field.validate_data()
+            return middleware(validated_data) if is_valid is True else False
+        else:
+            return middleware(record_dict_data)
 
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())

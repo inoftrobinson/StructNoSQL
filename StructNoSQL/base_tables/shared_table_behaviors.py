@@ -16,8 +16,7 @@ def unpack_validate_retrieved_field(
         data=record_attributes, field_path_elements=item_field_path_elements,
         num_keys_to_navigation_into=len(item_field_path_elements)
     )
-    item_field_object.populate(value=item_data)
-    validated_data, is_valid = item_field_object.validate_data()
+    validated_data, is_valid = item_field_object.transform_validate_from_read(value=item_data, data_validation=True)
     return validated_data
 
 def unpack_validate_retrieved_field_if_need_to(
@@ -101,12 +100,7 @@ def _unpack_validate_getters_record_attributes_if_need_to(
             data=record_attributes, field_path_elements=item_field_path_elements,
             num_keys_to_navigation_into=len(item_field_path_elements)
         )
-        if data_validation is True:
-            item_field_object.populate(value=item_data)
-            validated_data, is_valid = item_field_object.validate_data()
-        else:
-            validated_data = item_data
-
+        validated_data, is_valid = item_field_object.transform_validate_from_read(value=item_data, data_validation=data_validation)
         output_values[item_key] = item_mutator(validated_data, item_field_path_elements)
 
     for fields_container_key, fields_container_item in grouped_getters_target_fields_containers.items():
@@ -118,12 +112,7 @@ def _unpack_validate_getters_record_attributes_if_need_to(
                 data=record_attributes, field_path_elements=child_field_path_elements,
                 num_keys_to_navigation_into=len(child_field_path_elements)
             )
-            if data_validation is True:
-                child_field_object.populate(value=item_data)
-                validated_data, is_valid = child_field_object.validate_data()
-            else:
-                validated_data = item_data
-
+            validated_data, is_valid = child_field_object.transform_validate_from_read(value=item_data, data_validation=data_validation)
             current_container_fields_data[child_field_key] = item_mutator(validated_data, child_field_path_elements)
 
         output_values[fields_container_key] = current_container_fields_data
@@ -207,6 +196,7 @@ def _prepare_getters(fields_switch: FieldsSwitch, getters: Dict[str, FieldGetter
 
 
 def _model_contain_all_index_keys(model: Any, indexes_keys: Iterable[str]) -> bool:
+    # todo: make sure this function works now that model is a type and not an instance
     for index_key in indexes_keys:
         index_matching_field: Optional[Any] = getattr(model, index_key, None)
         if index_matching_field is None:

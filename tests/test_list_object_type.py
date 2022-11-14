@@ -57,7 +57,7 @@ class TestListObjectType(unittest.TestCase):
 
         valid_random_list_values: List[str] = [str(uuid4()) for i in range(5)]
         single_valid_list_item = valid_random_list_values[2]
-        random_list_values = valid_random_list_values.copy()
+        random_list_values = valid_random_list_values
         random_list_values.append(42)
         # Add invalid value to the random_list_values
 

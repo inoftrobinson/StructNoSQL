@@ -1,5 +1,6 @@
+import logging
 import unittest
-from typing import Union, Dict, Any, Callable, Type
+from typing import Union, Dict, Any, Callable, Type, Optional
 from uuid import uuid4
 
 from StructNoSQL import DynamoDBBasicTable, DynamoDBCachingTable, TableDataModel, BaseField, FieldGetter
@@ -33,24 +34,36 @@ def test_put_record(self: unittest.TestCase, table_client_factory: Callable[[Typ
 
 def test_get_field(self: unittest.TestCase, table_client_factory: Callable[[Type[TableDataModel], str], Union[DynamoDBBasicTable, DynamoDBCachingTable]]):
     auto_leading_key: str = f"{PROD_ACCOUNT_ID}-{PROD_PROJECT_ID}-table1-"
+    table_client_with_auto_leading_key = table_client_factory(DynamoDBTableModel, auto_leading_key)
+    random_field_value: str = f"simpleField_{uuid4()}"
 
-    table_client = table_client_factory(DynamoDBTableModel, auto_leading_key)
-
-    put_success: bool = table_client.put_record({
-        'accountProjectTableKeyId': "exampleRecordKey"
+    put_success: bool = table_client_with_auto_leading_key.put_record({
+        'accountProjectTableKeyId': "exampleRecordKey",
+        'simpleField': random_field_value
     })
     self.assertTrue(put_success)
 
-    retrieved_items_with_auto_leading_key: Any = table_client.get_field(
+    retrieved_record_key_with_auto_leading_key: Any = table_client_with_auto_leading_key.get_field(
         key_value="exampleRecordKey", field_path='accountProjectTableKeyId'
     )
-    self.assertEqual(retrieved_items_with_auto_leading_key,  "exampleRecordKey")
+    self.assertEqual("exampleRecordKey", retrieved_record_key_with_auto_leading_key)
 
-    table_client.auto_leading_key = None
-    retrieved_items_with_auto_leading_key_disabled: Any = table_client.get_field(
-        key_value="exampleRecordKey", field_path='accountProjectTableKeyId'
+    retrieved_simple_field_with_auto_leading_key: Any = table_client_with_auto_leading_key.get_field(
+        key_value="exampleRecordKey", field_path='simpleField'
     )
-    self.assertEqual(retrieved_items_with_auto_leading_key_disabled, None)
+    self.assertEqual(random_field_value, retrieved_simple_field_with_auto_leading_key)
+
+    table_client_without_auto_leading_key = table_client_factory(DynamoDBTableModel, None)
+
+    retrieved_record_key_with_auto_leading_key_disabled: Optional[Any] = table_client_without_auto_leading_key.get_field(
+        key_value=f"{auto_leading_key}exampleRecordKey", field_path='accountProjectTableKeyId'
+    )
+    self.assertEqual(f"{auto_leading_key}exampleRecordKey", retrieved_record_key_with_auto_leading_key_disabled)
+
+    retrieved_simple_field_with_auto_leading_key_disabled: Optional[Any] = table_client_without_auto_leading_key.get_field(
+        key_value=f"{auto_leading_key}exampleRecordKey", field_path='simpleField'
+    )
+    self.assertEqual(random_field_value, retrieved_simple_field_with_auto_leading_key_disabled)
 
 
 def test_get_field_multi_selectors():

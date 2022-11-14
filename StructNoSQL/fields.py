@@ -1,13 +1,11 @@
 import re
-from typing import List, Optional, Any, Dict, _GenericAlias, Tuple, Set
+from typing import List, Optional, Any, Dict, _GenericAlias, Tuple, Set, Callable, Union
 
-from StructNoSQL.tables_clients.backend.models import PrimaryIndex
 from StructNoSQL.utils.objects import NoneType
 from StructNoSQL.tables_clients.backend.dynamodb_utils import DynamoDBUtils
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.exceptions import InvalidFieldNameException, UsageOfUntypedSetException
 from StructNoSQL.practical_logger import message_with_vars
-from StructNoSQL.query import Query
 from StructNoSQL.utils.types import ACCEPTABLE_KEY_TYPES
 from StructNoSQL.utils.misc_fields_items import make_dict_key_var_name, try_to_get_primitive_default_type_of_item
 
@@ -81,6 +79,16 @@ class TableDataModel(MapModel):
         for key, item in fields.items():
             self.instance_add_field(field_key=key, field_item=item)
 
+    @classmethod
+    def copy(cls):
+        from copy import deepcopy
+        source_vars = vars(cls)
+        copied_vars = {
+            key: deepcopy(item)
+            for key, item in source_vars.items()
+        }
+        return type(f'{cls.__name__}_copy', (TableDataModel,), copied_vars)
+
 
 def _alias_to_model(alias: _GenericAlias):
     alias_variable_name: Optional[str] = alias.__dict__.get('_name', None)
@@ -106,10 +114,12 @@ class BaseItem:
     # statically, the value is not attributed to the BaseField class (which would cause to have multiple classes override
     # the paths of the others), but rather, it is statically set on the class that inherit from BaseField.
 
-    def __init__(self, field_type: Optional[type] = Any, custom_default_value: Optional[Any] = None):
+    def __init__(
+            self, field_type: Optional[type] = Any, custom_default_value: Optional[Any] = None,
+            write_transformers: Optional[Union[Callable[[Any], Any], List[Callable[[Any], Any]]]] = None,
+            read_transformers: Optional[Union[Callable[[Any], Any], List[Callable[[Any], Any]]]] = None,
+    ):
         # todo: add a file_url field_type
-        self._value = None
-        self._query = None
 
         self.map_key_expected_type: Optional[type] = None
         self.map_model: Optional[MapModel or type] = None
@@ -117,6 +127,15 @@ class BaseItem:
         self._custom_default_value = custom_default_value
         self._field_type = field_type
         self._default_field_type = field_type
+
+        self.write_transformers: List[Callable[[Any], Any]] = (
+            write_transformers if isinstance(write_transformers, list) else
+            [write_transformers] if write_transformers is not None else []
+        )
+        self.read_transformers: List[Callable[[Any], Any]] = (
+            read_transformers if isinstance(read_transformers, list) else
+            [read_transformers] if read_transformers is not None else []
+        )
 
         if isinstance(self._field_type, (list, tuple)):
             if not len(self._field_type) > 0:
@@ -175,27 +194,43 @@ class BaseItem:
             # Raise on an untyped set
             raise UsageOfUntypedSetException()
 
-    def validate_data(self) -> Tuple[Optional[Any], bool]:
+    def transform_from_read(self, value: Any) -> Any:
+        current_transformed_value: Any = value
+        for transformer in self.read_transformers:
+            current_transformed_value = transformer(current_transformed_value)
+        return current_transformed_value
+
+    def transform_from_write(self, value: Any) -> Any:
+        current_transformed_value: Any = value
+        for transformer in self.write_transformers:
+            current_transformed_value = transformer(current_transformed_value)
+        return current_transformed_value
+
+    def transform_validate_from_read(self, value: Any, data_validation: bool) -> Tuple[Optional[Any], bool]:
+        def value_transformer(raw_value: Any, item_type_to_return_to: Optional[BaseItem]):
+            return item_type_to_return_to.transform_from_read(value=raw_value) if item_type_to_return_to is not None else raw_value
+
         from StructNoSQL.validator import validate_data
         validated_data, valid = validate_data(
-            value=self._value, item_type_to_return_to=self,
+            value=value, item_type_to_return_to=self,
             expected_value_type=self._field_type,
+            data_validation=data_validation,
+            value_transformer=value_transformer
         )
-        self._value = validated_data
         return validated_data, valid
 
-    def populate(self, value: Any):
-        self._value = value
-        # self.validate_data()
-        # print("Finished data validation.")
+    def transform_validate_from_write(self, value: Any, data_validation: bool) -> Tuple[Optional[Any], bool]:
+        def value_transformer(raw_value: Any, item_type_to_return_to: Optional[BaseItem]):
+            return item_type_to_return_to.transform_from_write(value=raw_value) if item_type_to_return_to is not None else raw_value
 
-    def query(self, key_value: str, fields_path_elements: List[str], index_name: Optional[str] = None, query_kwargs: Optional[dict] = None) -> Query:
-        self._query = Query(
-            variable_validator=self, table=self._table,
-            target_database_path=self._database_path,
-            index_name=index_name, key_value=key_value,
+        from StructNoSQL.validator import validate_data
+        validated_data, valid = validate_data(
+            value=value, item_type_to_return_to=self,
+            expected_value_type=self._field_type,
+            data_validation=data_validation,
+            value_transformer=value_transformer
         )
-        return self._query
+        return validated_data, valid
 
     def get_default_value(self):
         if self._custom_default_value is not None:
@@ -207,10 +242,6 @@ class BaseItem:
     @property
     def custom_default_value(self) -> Optional[Any]:
         return self._custom_default_value
-
-    @property
-    def value(self) -> Any:
-        return self._value
 
     @property
     def field_type(self) -> Any:
@@ -232,10 +263,6 @@ class BaseItem:
     def database_path(self) -> Optional[List[DatabasePathElement]]:
         return self._database_path
 
-    @property
-    def table(self):
-        return self._table
-
     @staticmethod
     def instantiate_default_value_type(value_type: type) -> Optional[Any]:
         if value_type == Any:
@@ -251,9 +278,14 @@ class BaseItem:
 class BaseField(BaseItem):
     def __init__(
             self, field_type: Any, required: Optional[bool] = False, not_modifiable: Optional[bool] = False, custom_field_name: Optional[str] = None,
-            custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32
+            custom_default_value: Optional[Any] = None, key_name: Optional[str] = None, max_nested_depth: Optional[int] = 32,
+            write_transformers: Optional[Union[Callable[[Any], Any], List[Callable[[Any], Any]]]] = None,
+            read_transformers: Optional[Union[Callable[[Any], Any], List[Callable[[Any], Any]]]] = None,
     ):
-        super().__init__(field_type=field_type, custom_default_value=custom_default_value)
+        super().__init__(
+            field_type=field_type, custom_default_value=custom_default_value,
+            write_transformers=write_transformers, read_transformers=read_transformers
+        )
 
         self._field_name = custom_field_name
         if self._field_name is not None:
@@ -310,9 +342,6 @@ class BaseField(BaseItem):
                     message="key_name cannot be set on a field that is not of type dict, Dict, list, List, set or Set",
                     vars_dict={'fieldName': self.field_name, 'fieldType': field_type, 'keyName': key_name}
                 ))
-
-    def populate(self, value: any):
-        super().populate(value=value)
 
     @property
     def dict_item(self):
@@ -383,10 +412,6 @@ class BaseField(BaseItem):
         # todo: find a better name than max_nested
         return self._max_nested
 
-    def copy(self):
-        from copy import copy
-        return copy(self)
-
 class MapItem(BaseField):
     _default_primitive_type = dict
 
@@ -404,7 +429,6 @@ class MapItem(BaseField):
         default_type = try_to_get_primitive_default_type_of_item(parent_field.items_excepted_type)
         database_path_element = DatabasePathElement(element_key=element_key, default_type=default_type)
         self._database_path = [*parent_field.database_path, database_path_element]
-        self._table = parent_field.table
 
 class DictModel(BaseItem):
     _default_primitive_type = dict

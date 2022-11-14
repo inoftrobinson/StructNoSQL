@@ -8,7 +8,7 @@ from StructNoSQL.base_tables.shared_table_behaviors import _prepare_getters, _mo
     unpack_validate_retrieved_field_if_need_to, unpack_validate_multiple_retrieved_fields_if_need_to
 from StructNoSQL.utils.data_processing import navigate_into_data_with_field_path_elements
 from StructNoSQL.utils.process_render_fields_paths import process_and_make_single_rendered_database_path,\
-    process_validate_data_and_make_single_rendered_database_path
+    process_transforme_validate_data_from_write_and_make_single_rendered_database_path
 
 
 class BaseBasicTable(BaseTable):
@@ -19,12 +19,12 @@ class BaseBasicTable(BaseTable):
         super().__init__(data_model=data_model, primary_index=primary_index, auto_leading_key=auto_leading_key)
 
     def _put_record(self, middleware: Callable[[dict], bool], record_dict_data: dict, data_validation: bool) -> bool:
-        self.model_virtual_map_field.populate(value=record_dict_data)
-        if data_validation is True:
-            validated_data, is_valid = self.model_virtual_map_field.validate_data()
-            return middleware(validated_data) if is_valid is True else False
-        else:
-            return middleware(record_dict_data)
+        validated_data, is_valid = self.model_virtual_map_field.transform_validate_from_write(
+            value=record_dict_data, data_validation=data_validation
+        )
+        if is_valid is not True:
+            return False
+        return middleware(validated_data)
 
     def _delete_record(self, middleware: Callable[[dict], bool], indexes_keys_selectors: dict) -> bool:
         found_all_indexes: bool = _model_contain_all_index_keys(model=self.model, indexes_keys=indexes_keys_selectors.keys())
@@ -44,12 +44,10 @@ class BaseBasicTable(BaseTable):
         if removed_record_data is None:
             return None
 
-        if data_validation is True:
-            self.model_virtual_map_field.populate(value=removed_record_data)
-            validated_data, is_valid = self.model_virtual_map_field.validate_data()
-            return validated_data
-        else:
-            return removed_record_data
+        validated_removed_record_data, is_valid = self.model_virtual_map_field.transform_validate_from_read(
+            value=removed_record_data, data_validation=data_validation
+        )
+        return validated_removed_record_data
 
     def _get_field(
             self, middleware: Callable[[Union[List[DatabasePathElement], Dict[str, List[DatabasePathElement]]], bool], Optional[Any]],
@@ -63,12 +61,8 @@ class BaseBasicTable(BaseTable):
             field_object, field_path_elements = target_field_container
 
             retrieved_item_data: Optional[Any] = middleware(field_path_elements, False)
-            if data_validation is not True:
-                return retrieved_item_data
-            else:
-                field_object.populate(value=retrieved_item_data)
-                validated_data, is_valid = field_object.validate_data()
-                return validated_data
+            transformed_validated_data, is_valid = field_object.transform_validate_from_read(value=retrieved_item_data, data_validation=data_validation)
+            return transformed_validated_data
         else:
             target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
@@ -80,12 +74,10 @@ class BaseBasicTable(BaseTable):
                 field_object, field_path_elements = item_container
 
                 matching_item_data: Optional[Any] = retrieved_items_data.get(item_key, None)
-                if data_validation is not True:
-                    output_data[item_key] = matching_item_data
-                else:
-                    field_object.populate(value=matching_item_data)
-                    validated_data, is_valid = field_object.validate_data()
-                    output_data[item_key] = validated_data
+                transformed_validated_item_data, is_valid = field_object.transform_validate_from_read(
+                    value=matching_item_data, data_validation=data_validation
+                )
+                output_data[item_key] = transformed_validated_item_data
 
             return output_data
 
@@ -107,7 +99,7 @@ class BaseBasicTable(BaseTable):
             grouped_getters_target_fields_containers: Dict[str, Dict[str, Tuple[BaseField, List[DatabasePathElement]]]],
     ):
         def item_mutator(item_value: Any, item_field_path_elements: List[DatabasePathElement]) -> Any:
-            return self._remove_leading_key_if_need_to(field_path_elements=item_field_path_elements, raw_field_data=item_value)
+            return item_value
 
         from StructNoSQL.base_tables.shared_table_behaviors import _unpack_validate_getters_record_attributes_if_need_to
         return _unpack_validate_getters_record_attributes_if_need_to(
@@ -242,7 +234,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[DatabasePathElement], Any], bool],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None
     ) -> bool:
-        field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_data, is_valid = process_transforme_validate_data_from_write_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
         return middleware(field_path_elements, validated_data) if is_valid is True else False
@@ -251,7 +243,7 @@ class BaseBasicTable(BaseTable):
             self, middleware: Callable[[List[DatabasePathElement], Any], Tuple[bool, Any]],
             field_path: str, value_to_set: Any, query_kwargs: Optional[dict], data_validation: bool
     ) -> Tuple[bool, Optional[Any]]:
-        field_object, field_path_elements, validated_update_data, update_data_is_valid = process_validate_data_and_make_single_rendered_database_path(
+        field_object, field_path_elements, validated_update_data, update_data_is_valid = process_transforme_validate_data_from_write_and_make_single_rendered_database_path(
             field_path=field_path, fields_switch=self.fields_switch, query_kwargs=query_kwargs, data_to_validate=value_to_set
         )
         if update_data_is_valid is not True:
@@ -265,12 +257,9 @@ class BaseBasicTable(BaseTable):
             num_keys_to_navigation_into=len(field_path_elements)
         ) if response_attributes is not None else None
 
-        if data_validation is True:
-            field_object.populate(value=old_item_data)
-            validated_removed_data, removed_data_is_valid = field_object.validate_data()
-        else:
-            validated_removed_data = old_item_data
-
+        validated_removed_data, removed_data_is_valid = field_object.transform_validate_from_read(
+            value=old_item_data, data_validation=data_validation
+        )
         return update_success, validated_removed_data
 
     def _update_multiple_fields(
@@ -280,7 +269,7 @@ class BaseBasicTable(BaseTable):
         dynamodb_setters: List[FieldPathSetter] = []
         for current_setter in setters:
             if isinstance(current_setter, FieldSetter):
-                field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
+                field_object, field_path_elements, validated_data, is_valid = process_transforme_validate_data_from_write_and_make_single_rendered_database_path(
                     field_path=current_setter.field_path, fields_switch=self.fields_switch,
                     query_kwargs=current_setter.query_kwargs, data_to_validate=current_setter.value_to_set
                 )
@@ -323,7 +312,7 @@ class BaseBasicTable(BaseTable):
         setters_containers: Dict[str, Tuple[BaseField, List[DatabasePathElement]]] = {}
         dynamodb_setters: Dict[str, FieldPathSetter] = {}
         for setter_key, setter_item in setters.items():
-            field_object, field_path_elements, validated_data, is_valid = process_validate_data_and_make_single_rendered_database_path(
+            field_object, field_path_elements, validated_data, is_valid = process_transforme_validate_data_from_write_and_make_single_rendered_database_path(
                 field_path=setter_item.field_path, fields_switch=self.fields_switch,
                 query_kwargs=setter_item.query_kwargs, data_to_validate=setter_item.value_to_set
             )
@@ -342,12 +331,10 @@ class BaseBasicTable(BaseTable):
                 data=setters_response_attributes, field_path_elements=item_field_path_elements,
                 num_keys_to_navigation_into=len(item_field_path_elements)
             )
-            if data_validation is True:
-                item_field_object.populate(value=item_data)
-                validated_data, valid = item_field_object.validate_data()
-                output_data[item_key] = validated_data
-            else:
-                output_data[item_key] = item_data
+            transformed_validated_item_data, is_valid = item_field_object.transform_validate_from_read(
+                value=item_data, data_validation=data_validation
+            )
+            output_data[item_key] = transformed_validated_item_data
 
         return update_success, output_data
 
@@ -371,12 +358,10 @@ class BaseBasicTable(BaseTable):
                 data=removed_item_attributes, field_path_elements=field_path_elements,
                 num_keys_to_navigation_into=len(field_path_elements)
             )
-            if data_validation is True:
-                field_path_object.populate(value=item_removed_data)
-                validated_data, is_valid = field_path_object.validate_data()
-                return validated_data
-            else:
-                return item_removed_data
+            transformed_validated_data, is_valid = field_path_object.transform_validate_from_read(
+                value=item_removed_data, data_validation=data_validation
+            )
+            return transformed_validated_data
         else:
             target_field_container: Dict[str, Tuple[BaseField, List[DatabasePathElement]]]
 
@@ -395,12 +380,10 @@ class BaseBasicTable(BaseTable):
                     data=removed_items_attributes, field_path_elements=item_field_path_elements,
                     num_keys_to_navigation_into=len(item_field_path_elements)
                 )
-                if data_validation is True:
-                    item_field_object.populate(value=item_removed_data)
-                    validated_data, is_valid = item_field_object.validate_data()
-                    removed_items_values[item_key] = validated_data
-                else:
-                    removed_items_values[item_key] = item_removed_data
+                transformed_validated_item_data, is_valid = item_field_object.transform_validate_from_read(
+                    value=item_removed_data, data_validation=data_validation
+                )
+                removed_items_values[item_key] = transformed_validated_item_data
 
             return removed_items_values
 

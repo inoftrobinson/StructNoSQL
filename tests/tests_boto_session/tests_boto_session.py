@@ -11,7 +11,7 @@ from StructNoSQL import TableDataModel, BaseField, FieldGetter
 
 
 class DynamoDBTableModel(TableDataModel):
-    accountProjectTableKeyId = BaseField(field_type=str, required=True)
+    accountId = BaseField(field_type=str, required=True)
     simpleField = BaseField(field_type=str, required=False)
 
 

@@ -34,9 +34,8 @@ class Query:
                 index_name=self.index_name, key_value=self.key_value,
                 field_path_elements=self.target_database_path
             )
-            self._variable_validator.populate(value=response)
-            self._variable_validator.validate_data()
-            return self._variable_validator.value
+            validated_data, is_valid = self._variable_validator.transform_from_read(value=response)
+            return validated_data
         else:
             # todo: improve that, and return the value not the item itself
             response = self._table.dynamodb_client.query_single_item_by_key(
@@ -45,8 +44,7 @@ class Query:
 
     def set_update(self, value: Any) -> Optional[Response]:
         if self.target_database_path is not None:
-            self._variable_validator.populate(value=value)
-            validated_data, valid = self._variable_validator.validate_data()
+            validated_data, valid = self._variable_validator.transform_validate_from_write(value=value)
             if valid is True:
                 response = self._table.dynamodb_client.set_update_data_element_to_map_with_default_initilization(
                     index_name=self.index_name, key_value=self.key_value,

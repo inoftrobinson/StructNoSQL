@@ -1,10 +1,10 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from typing import Optional, List, Any, Set, _GenericAlias, Callable, Dict, Type
-from copy import copy
 
 from StructNoSQL.models import DatabasePathElement, FieldRemover
-from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel
+from StructNoSQL.fields import BaseField, MapItem, TableDataModel, DictModel, MapModel, BaseItem
 from StructNoSQL.practical_logger import message_with_vars
 from StructNoSQL.tables_clients.backend import PrimaryIndex
 from StructNoSQL.utils.misc_fields_items import try_to_get_primitive_default_type_of_item, make_dict_key_var_name
@@ -36,17 +36,31 @@ class BaseTable:
         self.fields_switch = FieldsSwitch()
         self._internal_mapping = {}
 
-        self._model = data_model if not isinstance(data_model, type) else data_model()
-        if not isinstance(self._model, TableDataModel):
+        model_copy = data_model.copy()
+
+        self._model = model_copy
+        if TableDataModel not in self._model.__bases__:
             raise Exception("TableModel must inherit from TableDataModel class")
         self._model_virtual_map_field = None
 
         self._primary_index_name = primary_index.index_custom_name or primary_index.hash_key_name
 
-        self.auto_leading_key = auto_leading_key
-
         self.processed_class_types: Set[type] = set()
-        Processor(table=self).assign_internal_mapping_from_class(class_instance=self._model)
+        Processor(table=self).assign_internal_mapping_from_class(class_type=self._model)
+
+        if auto_leading_key is not None:
+            def remove_auto_leading_key(value: Any):
+                import re
+                matches: Optional[re.Match] = re.match(f'({auto_leading_key})(.*)', value)
+                if matches is not None:
+                    return matches.group(2)
+                else:
+                    logging.warning("auto_leading_key not found in returned data, None is being returned")
+                    return None
+
+            primary_key_field_object: BaseItem = self._get_primary_key_field()
+            primary_key_field_object.write_transformers.insert(0, lambda value: f"{auto_leading_key}{value}")
+            primary_key_field_object.read_transformers.insert(0, remove_auto_leading_key)
 
     @property
     def model(self) -> TableDataModel:
@@ -55,7 +69,7 @@ class BaseTable:
     @property
     def model_virtual_map_field(self) -> BaseField:
         if self._model_virtual_map_field is None:
-            self._model_virtual_map_field = BaseField(field_type=self._model.__class__, required=True)
+            self._model_virtual_map_field = BaseField(field_type=self.model, required=True)
             # The model_virtual_map_field is a BaseField with no name, that use the table model class type, which easily
             # give us the ability to use the functions of the BaseField object (for example, functions for data validation),
             # with the data model of the table itself, without having to create an intermediary item. For example, the
@@ -78,28 +92,16 @@ class BaseTable:
         with ThreadPoolExecutor(max_workers=len(removers)) as executor:
             return {key: executor.submit(task_executor, item).result() for key, item in removers.items()}
 
-    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
-        from StructNoSQL.fields import BaseItem
+    def _get_primary_key_field(self) -> BaseItem:
         primary_key_field_object: Optional[BaseItem] = self.fields_switch.get(self.primary_index_name, None)
         # todo: replace primary_index_name by primary_key_name
         if primary_key_field_object is None:
-            raise Exception("e")
+            raise Exception("Could not find a field object for primary_index_name")
+        return primary_key_field_object
+
+    def _get_primary_key_database_path(self) -> List[DatabasePathElement]:
+        primary_key_field_object: BaseItem = self._get_primary_key_field()
         return primary_key_field_object.database_path
-
-    def _append_leading_key_if_need_to(self, value: str) -> str:
-        return value if self.auto_leading_key is None else f"{self.auto_leading_key}{value}"
-
-    def _remove_leading_key_if_need_to(self, field_path_elements: List[DatabasePathElement], raw_field_data: Any) -> Optional[Any]:
-        if self.auto_leading_key is not None:
-            if field_path_elements[-1].element_key == self.primary_index_name:
-                import re
-                matches: Optional[re.Match] = re.match(f'({self.auto_leading_key})(.*)', raw_field_data)
-                if matches is not None:
-                    return matches.group(2)
-                else:
-                    logging.warning("auto_leading_key not found in returned data, None is being returned")
-                    return None
-        return raw_field_data
 
 
 class Processor:
@@ -123,13 +125,12 @@ class Processor:
                 default_type=variable_item.item_type
             )"""
             variable_item._database_path = [*current_path_elements]  #, new_database_path_element]
-            variable_item._table = self.table
 
             """if variable_item.required is True:
                 required_fields.append(variable_item)"""
 
             current_field_path += ("" if len(current_field_path) == 0 else ".") + "{{" + variable_item.key_name + "}}"
-            field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
+            field_is_valid = self.table.fields_switch.set(key=current_field_path, item=variable_item)
 
         elif MapModel in getattr(variable_item, '__mro__', ()):
             if len(current_path_elements) > 0:
@@ -150,13 +151,12 @@ class Processor:
                 custom_default_value=variable_item.custom_default_value
             )
             variable_item._database_path = [*current_path_elements, new_database_path_element]
-            variable_item._table = self.table
 
             if variable_item.required is True:
                 required_fields.append(variable_item)
 
             current_field_path += f"{variable_item.field_name}" if len(current_field_path) == 0 else f".{variable_item.field_name}"
-            field_is_valid = self.table.fields_switch.set(key=current_field_path, item=copy(variable_item))
+            field_is_valid = self.table.fields_switch.set(key=current_field_path, item=variable_item)
             if variable_item.key_name is not None:
                 if "{i}" not in variable_item.key_name:
                     # The current_field_path concat is being handled lower in the code for the nested fields
@@ -199,7 +199,7 @@ class Processor:
                                 ))
                                 break
                             else:
-                                nested_variable_item = variable_item.copy()
+                                nested_variable_item = variable_item
                                 item_rendered_key_name: str = nested_variable_item.key_name.replace("{i}", f"{i}")
                                 nested_variable_item._database_path = [*current_nested_database_path]
                                 nested_variable_item._key_name = item_rendered_key_name
@@ -273,18 +273,10 @@ class Processor:
         return required_fields
 
     def assign_internal_mapping_from_class(
-        self, class_instance: Optional[Any] = None, class_type: Optional[type] = None,
+        self, class_type: type,
         current_path_elements: Optional[List[DatabasePathElement]] = None,
         nested_field_path: Optional[str] = None, is_nested: Optional[bool] = False
     ):
-        if class_type is None:
-            if class_instance is not None:
-                class_type = class_instance.__class__
-            else:
-                raise Exception(message_with_vars(
-                    message="class_type or class_instance args must be passed "
-                            "to the assign_internal_mapping_from_class function"
-                ))
 
         # todo: re-implement some king of processed class types to avoid initializing
         #  multiple times the same class when we have a nested class ?

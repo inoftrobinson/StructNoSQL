@@ -128,17 +128,20 @@ class DynamoDBCachingTable(BaseCachingTable, DynamoDBLowLevelTableOperations):
         return self._get_field(middleware=middleware, key_value=key_value, field_path=field_path, query_kwargs=query_kwargs, data_validation=data_validation)
 
     def get_multiple_fields(self, key_value: str, getters: Dict[str, FieldGetter], index_name: Optional[str] = None, data_validation: bool = True) -> Optional[dict]:
-        processed_key_value: str = self._append_leading_key_if_need_to(value=key_value)
+        primary_key_field = self.table._get_primary_key_field()
+        transformed_key_value = primary_key_field.transform_from_write(value=key_value)
+
         def middleware(fields_path_elements: List[List[DatabasePathElement]]):
             return self.dynamodb_client.get_or_query_single_item(
                 index_name=index_name or self.primary_index_name,
-                key_value=processed_key_value, fields_path_elements=fields_path_elements,
+                key_value=transformed_key_value, fields_path_elements=fields_path_elements,
             )
-        return self._get_multiple_fields(middleware=middleware, key_value=processed_key_value, getters=getters, data_validation=data_validation)
+        return self._get_multiple_fields(middleware=middleware, key_value=transformed_key_value, getters=getters, data_validation=data_validation)
 
     def update_field(self, key_value: str, field_path: str, value_to_set: Any, query_kwargs: Optional[dict] = None) -> bool:
-        processed_key_value: str = self._append_leading_key_if_need_to(value=key_value)
-        return self._update_field(key_value=processed_key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
+        primary_key_field = self.table._get_primary_key_field()
+        transformed_key_value = primary_key_field.transform_from_write(value=key_value)
+        return self._update_field(key_value=transformed_key_value, field_path=field_path, value_to_set=value_to_set, query_kwargs=query_kwargs)
 
     def update_field_return_old(
             self, key_value: str, field_path: str, value_to_set: Any,

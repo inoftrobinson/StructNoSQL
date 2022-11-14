@@ -1,4 +1,5 @@
-from typing import Optional, Tuple, List, Any
+import logging
+from typing import Optional, Tuple, List, Any, Callable
 
 from StructNoSQL.models import DatabasePathElement
 from StructNoSQL.fields import BaseItem, BaseField, MapModel, DictModel
@@ -19,8 +20,14 @@ def _types_match(type_to_check: type, expected_type: type) -> bool:
 
 def validate_data(
         value: Any, expected_value_type: Any,
-        item_type_to_return_to: Optional[BaseItem] = None
+        item_type_to_return_to: Optional[BaseItem] = None,
+        data_validation: bool = True,
+        value_transformer: Callable[[Any, Optional[BaseItem]], Any] = None
 ) -> Tuple[Any, bool]:
+
+    transformed_value = value if value_transformer is None else value_transformer(value, item_type_to_return_to)
+    value = transformed_value
+
     value_type = type(value)
     # We do not try_to_get_primitive_default_type_of_item here, because depending on the value_type, we might trigger different behaviors.
     # For example, a list or tuple will be considered as collection of multiple fields types that needs to be looked at individually.
@@ -28,36 +35,37 @@ def validate_data(
     if expected_value_type == Any:
         return value, True
 
-    if type(expected_value_type) in [list, tuple]:
-        has_found_match = False
-        for acceptable_value_type in expected_value_type:
-            if _types_match(type_to_check=value_type, expected_type=acceptable_value_type):
-                has_found_match = True
-                break
+    if data_validation is True:
+        if type(expected_value_type) in [list, tuple]:
+            has_found_match = False
+            for acceptable_value_type in expected_value_type:
+                if _types_match(type_to_check=value_type, expected_type=acceptable_value_type):
+                    has_found_match = True
+                    break
 
-        if has_found_match is not True:
-            vars_dict = {'value': value, 'valueType': value_type, 'expectedValueType': expected_value_type}
-            if item_type_to_return_to is not None:
-                vars_dict['itemExpectedTypeDatabasePath'] = item_type_to_return_to.database_path
+            if has_found_match is not True:
+                vars_dict = {'value': value, 'valueType': value_type, 'expectedValueType': expected_value_type}
+                if item_type_to_return_to is not None:
+                    vars_dict['itemExpectedTypeDatabasePath'] = item_type_to_return_to.database_path
 
-            print(message_with_vars(
-                message=f"Primitive value did not match any of the possible "
-                        f"expected types. Value of None is being returned.",
-                vars_dict=vars_dict
-            ))
-            return None, False
-    else:
-        if not _types_match(type_to_check=value_type, expected_type=expected_value_type):
-            vars_dict = {'value': value, 'valueType': value_type, 'expectedValueType': expected_value_type}
-            if item_type_to_return_to is not None:
-                vars_dict['itemExpectedTypeDatabasePath'] = item_type_to_return_to.database_path
+                logging.warning(message_with_vars(
+                    message=f"Primitive value did not match any of the possible "
+                            f"expected types. Value of None is being returned.",
+                    vars_dict=vars_dict
+                ))
+                return None, False
+        else:
+            if not _types_match(type_to_check=value_type, expected_type=expected_value_type):
+                vars_dict = {'value': value, 'valueType': value_type, 'expectedValueType': expected_value_type}
+                if item_type_to_return_to is not None:
+                    vars_dict['itemExpectedTypeDatabasePath'] = item_type_to_return_to.database_path
 
-            print(message_with_vars(
-                message=f"Primitive value did not match expected "
-                        f"type. Value of None is being returned.",
-                vars_dict=vars_dict
-            ))
-            return None, False
+                logging.warning(message_with_vars(
+                    message=f"Primitive value did not match expected "
+                            f"type. Value of None is being returned.",
+                    vars_dict=vars_dict
+                ))
+                return None, False
 
     if value_type == dict:
         value: dict
@@ -77,7 +85,8 @@ def validate_data(
                     if item_matching_validation_model_variable is not None:
                         item, valid = validate_data(
                             value=item, item_type_to_return_to=item_matching_validation_model_variable,
-                            expected_value_type=item_matching_validation_model_variable.field_type
+                            expected_value_type=item_matching_validation_model_variable.field_type,
+                            data_validation=data_validation, value_transformer=value_transformer
                         )
                         if valid is True:
                             value[key] = item
@@ -88,25 +97,28 @@ def validate_data(
                     else:
                         item_keys_to_pop.append(key)
                         print(message_with_vars(
-                            message=f"No map validator was found in a nested item of a dict. Item will be removed from data.",
+                            message=f"No map validator was found in a nested item of a dict. Item might not be properly transformed." +
+                                    " Item will be removed from data." if data_validation is True else "",
                             vars_dict={"key": key, "item": item}
                         ))
 
-                map_model_required_fields: Optional[List[BaseField]] = getattr(item_type_to_return_to.map_model, 'required_fields', None)
-                if map_model_required_fields is None:
-                    raise Exception("Missing required_fields")
+                if data_validation is True:
+                    # The below code will return an empty result if not all required_fields are populated, this is disabled if data_validation is not True.
+                    map_model_required_fields: Optional[List[BaseField]] = getattr(item_type_to_return_to.map_model, 'required_fields', None)
+                    if map_model_required_fields is None:
+                        raise Exception("Missing required_fields")
 
-                if len(map_model_required_fields) != len(populated_required_fields):
-                    missing_required_fields_database_paths: List[List[DatabasePathElement]] = []
-                    for current_required_field in map_model_required_fields:
-                        if current_required_field not in populated_required_fields:
-                            missing_required_fields_database_paths.append(current_required_field.database_path)
+                    if len(map_model_required_fields) != len(populated_required_fields):
+                        missing_required_fields_database_paths: List[List[DatabasePathElement]] = []
+                        for current_required_field in map_model_required_fields:
+                            if current_required_field not in populated_required_fields:
+                                missing_required_fields_database_paths.append(current_required_field.database_path)
 
-                    print(message_with_vars(
-                        message="Missing required fields on map element. Returning None and valid to False.",
-                        vars_dict={"missingRequiredFieldsDatabasePaths": missing_required_fields_database_paths}
-                    ))
-                    return None, False
+                        print(message_with_vars(
+                            message="Missing required fields on map element. Returning None and valid to False.",
+                            vars_dict={"missingRequiredFieldsDatabasePaths": missing_required_fields_database_paths}
+                        ))
+                        return None, False
             else:
                 for key, item in value.items():
                     if item_type_to_return_to.key_expected_type is not None:
@@ -146,6 +158,7 @@ def validate_data(
                                         element_item_value, valid = validate_data(
                                             value=element_item_value, item_type_to_return_to=element_item_matching_validation_model_variable,
                                             expected_value_type=element_item_matching_validation_model_variable.field_type,
+                                            data_validation=data_validation, value_transformer=value_transformer
                                         )
                                         if valid is True:
                                             item[element_item_key] = element_item_value
@@ -178,18 +191,21 @@ def validate_data(
                     else:
                         value[key] = item
 
-        num_dict_items = len(value)
-        if num_dict_items > 0 and (len(item_keys_to_pop) == num_dict_items):
-            print(message_with_vars(
-                message="The value dict to validate was not empty, but all of its items have been "
-                        "removed because they did not matched the model. Value of None is returned.",
-                vars_dict={"value": value, "item_keys_to_pop": item_keys_to_pop}
-            ))
-            return None, False
-        else:
-            for item_key_to_pop in item_keys_to_pop:
-                value.pop(item_key_to_pop)
+        if data_validation is not True:
             return value, True
+        else:
+            num_dict_items = len(value)
+            if num_dict_items > 0 and (len(item_keys_to_pop) == num_dict_items):
+                print(message_with_vars(
+                    message="The value dict to validate was not empty, but all of its items have been "
+                            "removed because they did not matched the model. Value of None is returned.",
+                    vars_dict={"value": value, "item_keys_to_pop": item_keys_to_pop}
+                ))
+                return None, False
+            else:
+                for item_key_to_pop in item_keys_to_pop:
+                    value.pop(item_key_to_pop)
+                return value, True
 
     elif value_type == list:
         value: list
@@ -199,12 +215,14 @@ def validate_data(
                 if item_type_to_return_to.map_model is not None:
                     item, valid = validate_data(
                         value=item, expected_value_type=item_type_to_return_to.map_model,
+                        data_validation=data_validation, value_transformer=value_transformer
                     )
                     if valid is False:
                         indexes_to_pop.append(i)
                 elif item_type_to_return_to.items_excepted_type is not None:
                     item, valid = validate_data(
                         value=item, expected_value_type=item_type_to_return_to.items_excepted_type,
+                        data_validation=data_validation, value_transformer=value_transformer
                     )
                     if valid is False:
                         indexes_to_pop.append(i)

@@ -21,6 +21,12 @@ class TestsDynamoDBBasicTable(unittest.TestCase):
             data_model=data_model, auto_leading_key=auto_leading_key
         ))
 
+    def test_get_field_multi_selectors(self):
+        from tests.test_auto_leading_keys.cases_shared import test_get_field_multi_selectors
+        test_get_field_multi_selectors(self, lambda data_model, auto_leading_key: ProdInoftVocalEngineTableBasicClient(
+            data_model=data_model, auto_leading_key=auto_leading_key
+        ))
+
     def test_get_multiple_fields(self):
         from tests.test_auto_leading_keys.cases_shared import test_get_multiple_fields
         test_get_multiple_fields(self, lambda data_model, auto_leading_key: ProdInoftVocalEngineTableBasicClient(
